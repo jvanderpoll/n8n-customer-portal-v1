@@ -40,9 +40,9 @@ export function licensesFor(persona: Persona, subscriptionId: string) {
   const subscription = persona.subscriptions.find((s) => s.id === subscriptionId);
   if (!subscription) return [];
   const instances = persona.instances.filter((i) => i.subscriptionId === subscriptionId);
-  return [...new Set(instances.map((i) => i.license))].map((id) => {
-    const rows = instances.filter((i) => i.license === id);
-    return { id, environment: rows[0]?.env, instances: rows, summary: summarize(subscription, rows) };
+  return persona.licenses.filter((l) => l.subscriptionId === subscriptionId).map((license) => {
+    const rows = instances.filter((i) => i.license === license.id);
+    return { ...license, instances: rows, summary: summarize(subscription, rows) };
   });
 }
 

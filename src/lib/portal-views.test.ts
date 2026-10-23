@@ -14,7 +14,7 @@ describe("read-only portal selectors", () => {
     const subscription = p.subscriptions.find((s) => s.id === "s1");
     if (!subscription) throw new Error("Missing subscription");
     expect(summarize(subscription, p.instances).used).toBe(p.instances.filter((i) => i.subscriptionId === "s1").reduce((sum, i) => sum + (i.executions ?? 0), 0));
-    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(18);
+    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(32);
   });
   it("confirmed zeros are not missing reports", () => {
     const p = persona("zero");
@@ -31,9 +31,9 @@ describe("read-only portal selectors", () => {
   });
   it("license drill-down stays within its subscription", () => {
     const p = persona("full");
-    const licenses = licensesFor(p, "s2");
-    expect(licenses.map((l) => l.id)).toEqual(["LIC-NW-NPR-01"]);
-    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s2", license: "LIC-NW-NPR-01" })).toHaveLength(14);
+    const licenses = licensesFor(p, "s1");
+    expect(licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01", "LIC-NW-NPR-01", "LIC-NW-DR-01"]);
+    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-NPR-01" })).toHaveLength(14);
   });
   it("search matches license references without case sensitivity", () => {
     expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-eu-01" })).toHaveLength(8);
@@ -55,5 +55,27 @@ describe("read-only portal selectors", () => {
     expect(contactFor(persona("full"))).toEqual({ kind: "assigned", name: "Lukas Weber" });
     expect(contactFor(persona("missing"))).toEqual({ kind: "unassigned", name: null });
     expect(contactFor(persona("empty"))).toEqual({ kind: "unassigned", name: null });
+  });
+});
+
+describe("commercial reporting states", () => {
+  it("does not turn unavailable usage into zero or a full remaining allowance", () => {
+    const p = persona("unknown");
+    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ used: null, remaining: null, pct: null });
+  });
+  it("retains confirmed zero with the full allowance remaining", () => {
+    const p = persona("zero");
+    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ used: 0, remaining: p.subscriptions[0]!.quota, pct: 0 });
+  });
+  it("represents unlimited allowance without an artificial percentage or remaining value", () => {
+    const p = persona("unlimited");
+    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ unlimited: true, remaining: null, pct: null });
+  });
+  it("counts OEM instances rather than their execution totals", () => {
+    const p = persona("oem");
+    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ used: 32, remaining: 18, pct: 0.64 });
+  });
+  it("retains purchased licenses with no activations", () => {
+    expect(licensesFor(persona("full"), "s1").find((l) => l.id === "LIC-NW-DR-01")?.instances).toEqual([]);
   });
 });

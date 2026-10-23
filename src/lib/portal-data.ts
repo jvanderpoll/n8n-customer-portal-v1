@@ -9,15 +9,27 @@ export interface Instance {
   status: ReportStatus;
   executions: number | null; // null = no usable data
   lastReport: string | null; // ISO
+  version?: string;
 }
 
 export interface Subscription {
   id: string;
   name: string;
-  quota: number;
+  quota: number | null;
+  metric?: "executions" | "instances";
+  plan?: string;
+  status?: "Active" | "Upcoming" | "Expired";
   start: string;
   end: string;
   renewal: string;
+}
+
+export interface License {
+  id: string;
+  subscriptionId: string;
+  environment: Instance["env"];
+  status: "Active" | "Expired";
+  label: string;
 }
 
 export interface Persona {
@@ -31,12 +43,14 @@ export interface Persona {
   requirements: string[];
   subscriptions: Subscription[];
   instances: Instance[];
+  licenses: License[];
 }
 
 export interface SubscriptionSummary {
-  used: number;
-  remaining: number; // negative = over quota
-  pct: number;
+  used: number | null;
+  remaining: number | null; // negative = over quota; null = unknown or unlimited
+  pct: number | null;
+  unlimited: boolean;
   incomplete: Instance[];
   zero: Instance[];
   reportedCount: number;
@@ -44,18 +58,22 @@ export interface SubscriptionSummary {
 
 export function summarize(sub: Subscription, instances: Instance[]): SubscriptionSummary {
   const mine = instances.filter((i) => i.subscriptionId === sub.id);
-  const used = mine.reduce((s, i) => s + (i.executions ?? 0), 0);
+  const known = mine.filter((i) => i.executions !== null);
+  const used = sub.metric === "instances" ? mine.length : mine.length && !known.length ? null : known.reduce((sum, i) => sum + (i.executions ?? 0), 0);
+  const unlimited = sub.quota !== null && sub.quota <= 0;
+  const remaining = used === null || sub.quota === null || unlimited ? null : sub.quota - used;
   return {
     used,
-    remaining: sub.quota - used,
-    pct: sub.quota ? used / sub.quota : 0,
+    remaining,
+    pct: used === null || sub.quota === null || unlimited ? null : used / sub.quota,
+    unlimited,
     incomplete: mine.filter((i) => i.status === "pending" || i.status === "error"),
     zero: mine.filter((i) => i.status === "zero"),
     reportedCount: mine.filter((i) => i.status === "reported" || i.status === "zero").length,
   };
 }
 
-const NOW = "2026-10-22T06:00:00Z";
+export const NOW = "2026-10-22T06:00:00Z";
 const hoursAgo = (h: number) => new Date(Date.parse(NOW) - h * 3600_000).toISOString();
 
 const teams = ["finance", "hr", "ops", "sales", "support", "data", "it", "marketing", "legal", "procurement"];
@@ -95,16 +113,15 @@ function genInstances(
 }
 
 const subsFull: Subscription[] = [
-  { id: "s1", name: "Enterprise – Production", quota: 6_000_000, start: "2025-11-01", end: "2026-10-31", renewal: "2026-11-01" },
-  { id: "s2", name: "Enterprise – Non-production", quota: 1_200_000, start: "2025-11-01", end: "2026-10-31", renewal: "2026-11-01" },
-  { id: "s3", name: "Enterprise – EU region expansion", quota: 2_000_000, start: "2026-03-15", end: "2027-03-14", renewal: "2027-03-15" },
+  { id: "s1", name: "Enterprise", plan: "Self-hosted Enterprise", quota: 6_000_000, start: "2025-11-01", end: "2026-10-31", renewal: "2026-11-01" },
+  { id: "s2", name: "EU expansion", plan: "Self-hosted Enterprise", quota: 2_000_000, start: "2026-03-15", end: "2027-03-14", renewal: "2027-03-15" },
 ];
 
-export const personas: Persona[] = [
+const fixtures: Omit<Persona, "licenses">[] = [
   {
     id: "full",
-    label: "1 · Full validated customer",
-    hint: "Mid-size enterprise, 40 instances, 3 subscriptions, all reports current.",
+    label: "Enterprise account",
+    hint: "Mid-size enterprise, 40 instances, 2 subscriptions, all reports current.",
     company: "Northwind Logistics B.V.",
     user: "Sanne de Vries · System admin",
     csm: "Lukas Weber",
@@ -112,9 +129,9 @@ export const personas: Persona[] = [
     requirements: [],
     subscriptions: subsFull,
     instances: genInstances([
-      { id: "s1", license: "LIC-NW-PRD-01", env: "Production", count: 18, target: 4_812_340 },
-      { id: "s2", license: "LIC-NW-NPR-01", env: "Non-production", count: 14, target: 640_120 },
-      { id: "s3", license: "LIC-NW-EU-01", env: "Production", count: 8, target: 912_480 },
+      { id: "s1", license: "LIC-NW-PRD-01", env: "Production", count: 18, target: 4_172_220 },
+      { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", count: 14, target: 640_120 },
+      { id: "s2", license: "LIC-NW-EU-01", env: "Production", count: 8, target: 912_480 },
     ]),
   },
   {
@@ -143,7 +160,7 @@ export const personas: Persona[] = [
     user: "Priya Nair · System admin",
     csm: null,
     usageUpdated: hoursAgo(5),
-    requirements: ["Usage reports must be sent at least every 7 days for each licensed instance (contract §4.2)."],
+    requirements: [],
     subscriptions: subsFull.slice(0, 2).map((s) => ({ ...s, start: "2026-02-01", end: "2027-01-31", renewal: "2027-02-01" })),
     instances: genInstances(
       [
@@ -191,3 +208,17 @@ export const personas: Persona[] = [
 ];
 
 export const NOW_ISO = NOW;
+
+const license = (id: string, subscriptionId: string, environment: Instance["env"], label: string): License => ({ id, subscriptionId, environment, label, status: "Active" });
+const fixtureLicenses: Record<string, License[]> = {
+  full: [license("LIC-NW-PRD-01", "s1", "Production", "Production"), license("LIC-NW-NPR-01", "s1", "Non-production", "Development & staging"), license("LIC-NW-DR-01", "s1", "Non-production", "Disaster recovery"), license("LIC-NW-EU-01", "s2", "Production", "EU production")],
+  over: [license("LIC-HR-PRD-01", "s1", "Production", "Production"), license("LIC-HR-NPR-01", "s2", "Non-production", "Staging")],
+  missing: [license("LIC-CI-PRD-01", "s1", "Production", "Production"), license("LIC-CI-NPR-01", "s2", "Non-production", "Staging")],
+  zero: [license("LIC-BW-PRD-01", "s1", "Production", "Production")],
+  empty: [],
+};
+export const personas: Persona[] = fixtures.map((p) => ({ ...p, licenses: fixtureLicenses[p.id] ?? [], instances: p.instances.map((i, n) => ({ ...i, version: n % 7 === 0 ? "2.12.1" : "2.13.0" })) }));
+const full = personas[0]!;
+personas.push({ ...full, id: "oem", label: "OEM · instance allowance", company: "Meridian Software", user: "Alex Morgan · System admin", subscriptions: [{ id: "s1", name: "OEM agreement", plan: "OEM", metric: "instances", quota: 50, start: "2026-01-01", end: "2026-12-31", renewal: "2027-01-01" }], licenses: [license("LIC-MS-OEM-01", "s1", "Production", "Customer deployments")], instances: genInstances([{ id: "s1", license: "LIC-MS-OEM-01", env: "Production", count: 32, target: 200000 }]).map((i) => ({ ...i, version: "2.13.0" })) });
+personas.push({ ...full, id: "unknown", label: "Usage unavailable", instances: full.instances.map((i) => ({ ...i, executions: null, status: "error", lastReport: null })) });
+personas.push({ ...full, id: "unlimited", label: "Unlimited allowance", subscriptions: full.subscriptions.map((s) => ({ ...s, quota: -1 })) });

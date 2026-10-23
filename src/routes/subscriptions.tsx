@@ -1,50 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { z } from "zod";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { ArrowUpRight, Check, KeyRound } from "lucide-react";
 import { usePersona } from "@/components/portal-shell";
-import { EmptySubscription, Freshness, PageHeading, Requirements, SubscriptionUsage } from "@/components/portal-shared";
+import { EmptySubscription } from "@/components/portal-shared";
+import { WorkspaceTitle } from "@/components/portal-workspace";
 import { date, fmt, portalHead } from "@/lib/portal-format";
 import { licensesFor } from "@/lib/portal-views";
-
 export const Route = createFileRoute("/subscriptions")({
-  // Static hosts cannot render every query-string variant ahead of time.
-  // Read URL filters in the browser before rendering this screen on Pages.
   ssr: import.meta.env.BASE_URL === "/",
   validateSearch: z.object({ subscription: z.string().optional().catch(undefined) }),
-  head: () => portalHead("Subscriptions & licenses", "Active Enterprise subscriptions, contract-period execution allowances and linked n8n licenses."),
+  head: () => portalHead("Subscriptions", "Your agreements, included allowances and licenses."),
   component: Subscriptions,
 });
-
 function Subscriptions() {
-  const persona = usePersona();
-  const search = Route.useSearch();
-  const [expanded, setExpanded] = useState<string[]>([]);
-  const selected = persona.subscriptions.find((s) => s.id === search.subscription);
-  const subscriptions = selected ? [selected] : persona.subscriptions;
-  return <>
-    <PageHeading title="Subscriptions & licenses" />
-    {!persona.subscriptions.length ? <EmptySubscription persona={persona} /> : <>
-      <Freshness persona={persona} /><Requirements persona={persona} />
-      {selected && <Button variant="link" size="sm" asChild className="mb-4 h-auto p-0"><Link to="/subscriptions" search={{}}>All subscriptions</Link></Button>}
-      {subscriptions.map((s) => {
-        const licenses = licensesFor(persona, s.id);
-        const open = expanded.includes(s.id);
-        return <section key={s.id} className="mb-8 border-t border-border pt-5">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">{s.name}</h2></div>
-            <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Contract details</summary><dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2"><dt>Contract</dt><dd>{date(s.start)} – {date(s.end)}</dd><dt>Renews</dt><dd>{date(s.renewal)}</dd><dt>Status</dt><dd>Active</dd></dl></details>
-          </div>
-          <SubscriptionUsage subscription={s} persona={persona} />
-          <div className="mt-5 flex items-center justify-between gap-2 border-b border-border pb-2">
-            <Button variant="ghost" size="sm" className="h-7 px-0" aria-expanded={open} onClick={() => setExpanded(open ? expanded.filter((id) => id !== s.id) : [...expanded, s.id])}>{open ? <ChevronUp /> : <ChevronDown />}Linked licenses ({licenses.length})</Button>
-            <Button variant="link" size="sm" asChild className="h-auto whitespace-normal p-0 text-xs"><Link to="/instances" search={{ subscription: s.id }}>Instances <ArrowRight /></Link></Button>
-          </div>
-          {open && <div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-xs"><thead><tr className="border-b border-border text-muted-foreground"><th className="py-3 pr-3 font-medium">License reference</th><th className="px-3 py-3 font-medium">Environment</th><th className="px-3 py-3 font-medium">Instances</th><th className="px-3 py-3 text-right font-medium">Executions · contract period</th><th className="py-3 pl-3 font-medium">Coverage</th></tr></thead>
-            <tbody>{licenses.map((license) => <tr key={license.id} className="border-b border-border"><td className="py-3 pr-3"><Button variant="link" size="sm" asChild className="h-auto p-0 font-mono text-xs"><Link to="/instances" search={{ subscription: s.id, license: license.id }}>{license.id}<ArrowRight /></Link></Button></td><td className="px-3 py-3">{license.environment}</td><td className="px-3 py-3 tabular-nums">{license.instances.length}</td><td className="px-3 py-3 text-right tabular-nums">{fmt(license.summary.used)}{license.summary.incomplete.length > 0 && <span className="block text-muted-foreground">May be incomplete</span>}</td><td className="py-3 pl-3">{license.summary.reportedCount} of {license.instances.length} current</td></tr>)}</tbody>
-          </table></div>}
-        </section>;
-      })}
-    </>}
-  </>;
+ const persona = usePersona();
+ const search = Route.useSearch();
+ return <><WorkspaceTitle title="Subscriptions" trailing={<span className="muted-text">{persona.subscriptions.length} agreements</span>} />
+ {!persona.subscriptions.length ? <EmptySubscription persona={persona} /> : <>
+ <p className="page-intro">What your account includes, and the licenses that connect it to your instances.</p>
+ <div className="agreement-list">{persona.subscriptions.map((s) => {
+  const licenses = licensesFor(persona, s.id);
+  const instances = persona.instances.filter((i) => i.subscriptionId === s.id);
+  return <section className="workspace-panel agreement-card" key={s.id}>
+   <div className="panel-heading"><div className="agreement-heading"><span className="agreement-symbol"><KeyRound size={19} /></span><div><h2>{s.name}</h2><span className="supporting">{s.plan ?? "Self-hosted Enterprise"}</span></div></div><span className="status-badge"><Check size={12} />{s.status ?? "Active"}</span></div>
+   <div className="agreement-facts"><div><span>Included allowance</span><strong>{s.quota === null ? "Unavailable" : s.quota <= 0 ? "Unlimited" : fmt(s.quota)} {s.quota !== null && s.quota > 0 ? s.metric === "instances" ? "instances" : "billable executions" : ""}</strong></div><div><span>Contract period</span><strong>{date(s.start)} — {date(s.end)}</strong></div><div><span>Next renewal</span><strong>{date(s.renewal)}</strong></div></div>
+   <div className="agreement-actions"><span>{licenses.length} {licenses.length === 1 ? "license" : "licenses"} <i>·</i> {instances.length} instances</span><Link to="/" search={{ subscription: s.id }} className="quiet-link">Explore usage <ArrowUpRight size={14} /></Link></div>
+   <details className="license-disclosure" open={search.subscription === s.id}><summary>Licenses <span>{licenses.length}</span></summary><div className="table-scroll"><table className="data-table"><thead><tr><th>License</th><th>Reference</th><th>Status</th><th className="numeric">Instances</th><th /></tr></thead><tbody>{licenses.map((l) => <tr key={l.id}><td><strong>{l.label}</strong><small className="cell-caption">{l.environment}</small></td><td className="mono-text">{l.id}</td><td><span className="status-badge">{l.status}</span></td><td className="numeric">{l.instances.length}<small className="cell-caption">{l.instances.length ? "" : "Not activated"}</small></td><td><Link to="/" search={{ subscription: s.id, license: l.id }} className="quiet-link" aria-label={`View usage for ${l.label}`}>View usage <ArrowUpRight size={13} /></Link></td></tr>)}</tbody></table></div></details>
+   {s.metric === "instances" && <div className="contract-note">Instance-based agreement · {s.quota !== null ? `${s.quota} instances included` : "Allowance unavailable"}</div>}
+  </section>;
+ })}</div></>}
+ </>;
 }
