@@ -10,6 +10,7 @@ export interface Instance {
   executions: number | null; // null = no usable data
   lastReport: string | null; // ISO
   version?: string;
+  archived?: boolean;
 }
 
 export interface Subscription {
@@ -59,7 +60,7 @@ export interface SubscriptionSummary {
 export function summarize(sub: Subscription, instances: Instance[]): SubscriptionSummary {
   const mine = instances.filter((i) => i.subscriptionId === sub.id);
   const known = mine.filter((i) => i.executions !== null);
-  const used = sub.metric === "instances" ? mine.length : mine.length && !known.length ? null : known.reduce((sum, i) => sum + (i.executions ?? 0), 0);
+  const used = sub.metric === "instances" ? mine.filter(i => !i.archived).length : mine.length && !known.length ? null : known.reduce((sum, i) => sum + (i.executions ?? 0), 0);
   const unlimited = sub.quota !== null && sub.quota <= 0;
   const remaining = used === null || sub.quota === null || unlimited ? null : sub.quota - used;
   return {
@@ -67,7 +68,7 @@ export function summarize(sub: Subscription, instances: Instance[]): Subscriptio
     remaining,
     pct: used === null || sub.quota === null || unlimited ? null : used / sub.quota,
     unlimited,
-    incomplete: mine.filter((i) => i.status === "pending" || i.status === "error"),
+    incomplete: mine.filter((i) => !i.archived && (i.status === "pending" || i.status === "error")),
     zero: mine.filter((i) => i.status === "zero"),
     reportedCount: mine.filter((i) => i.status === "reported" || i.status === "zero").length,
   };

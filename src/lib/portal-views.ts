@@ -17,7 +17,7 @@ export function filterInstances(persona: Persona, filter: InstanceFilter) {
   const query = filter.query.trim().toLowerCase();
   return persona.instances.filter((i) => {
     const subscription = persona.subscriptions.find((s) => s.id === i.subscriptionId);
-    return (filter.subscription === "all" || i.subscriptionId === filter.subscription)
+    return !i.archived && (filter.subscription === "all" || i.subscriptionId === filter.subscription)
       && (filter.license === "all" || i.license === filter.license)
       && (filter.environment === "all" || i.env === filter.environment)
       && (filter.status === "all" || (filter.status === "incomplete"
@@ -42,7 +42,7 @@ export function licensesFor(persona: Persona, subscriptionId: string) {
   const instances = persona.instances.filter((i) => i.subscriptionId === subscriptionId);
   return persona.licenses.filter((l) => l.subscriptionId === subscriptionId).map((license) => {
     const rows = instances.filter((i) => i.license === license.id);
-    return { ...license, instances: rows, summary: summarize(subscription, rows) };
+    return { ...license, instances: rows.filter(i => !i.archived), summary: summarize(subscription, rows) };
   });
 }
 

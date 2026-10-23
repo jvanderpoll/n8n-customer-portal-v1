@@ -13,3 +13,5 @@
 - Keep browser-safe synthetic fixtures and reporting selectors in lib modules, and reuse presentation components across Overview and Subscriptions; this preserves consistent contract-period and completeness semantics without a backend.
 - Give every portal screen its own TanStack file route and metadata, with instance drill-down filters in validated URL search parameters; this supports real navigation and shareable read-only views.
 - Contact actions create only local drafts without addresses or delivery; the contact destination fallback remains an unresolved product decision.
+
+- Management is a session-only prototype in portal-management: no provisioning, paid orders, invitation delivery, authentication, or persistence. Preserve reported execution history when an instance leaves the inventory, and enforce proposed role permissions in the shared state transition function.
