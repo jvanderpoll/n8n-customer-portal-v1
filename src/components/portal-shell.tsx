@@ -27,7 +27,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   return <PersonaContext.Provider value={persona}>
     <div className="portal-layout">
       <aside className="portal-sidebar">
-        <Link to="/" className="portal-brand" aria-label="n8n Customer Portal"><svg viewBox="0 0 40 28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M7 14h9l6-8h11M16 14l6 8h11" /><circle cx="5" cy="14" r="3.5" fill="currentColor" /><circle cx="24" cy="6" r="3.5" fill="currentColor" /><circle cx="34" cy="6" r="3.5" fill="currentColor" /><circle cx="24" cy="22" r="3.5" fill="currentColor" /><circle cx="34" cy="22" r="3.5" fill="currentColor" /></svg><strong>n8n</strong><span>Customer portal</span></Link>
+        <Link to="/" className="portal-brand" aria-label="n8n Customer Portal"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="n8n" width="120" height="24" /><span>Customer portal</span></Link>
         <div className="sidebar-account"><span className="account-monogram">{persona.company.split(" ").slice(0, 2).map((part) => part[0]).join("")}</span><div><strong title={persona.company}>{persona.company}</strong><span>Customer account</span></div></div>
         <span className="nav-caption">WORKSPACE</span>
         <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
