@@ -9,6 +9,9 @@ import { date, fmt, portalHead } from "@/lib/portal-format";
 import { licensesFor } from "@/lib/portal-views";
 
 export const Route = createFileRoute("/subscriptions")({
+  // Static hosts cannot render every query-string variant ahead of time.
+  // Read URL filters in the browser before rendering this screen on Pages.
+  ssr: import.meta.env.BASE_URL === "/",
   validateSearch: z.object({ subscription: z.string().optional().catch(undefined) }),
   head: () => portalHead("Subscriptions & licenses", "Active Enterprise subscriptions, contract-period execution allowances and linked n8n licenses."),
   component: Subscriptions,

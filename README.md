@@ -22,6 +22,6 @@ bun run test
 bun run build:pages
 ```
 
-The Pages build uses `/n8n-customer-portal-v1/` as its asset and router base. It prerenders every static file route into an `index.html`, so opening or refreshing section links works without a server. Only `dist/client` is uploaded. Lovable's normal `dev` and `build` commands keep their existing server configuration.
+The Pages build uses `/n8n-customer-portal-v1/` as its asset and router base. It prerenders every static file route into an `index.html`, so opening or refreshing section links works without a server. Screens with URL filters render their content in the browser to avoid showing an unfiltered snapshot on refresh. Only `dist/client` is uploaded. Lovable's normal `dev` and `build` commands keep their existing server configuration.
 
 GitHub Pages previously published the raw `main` branch with Jekyll, which displayed the old README instead of building the app. The README is documentation, not an app landing screen.

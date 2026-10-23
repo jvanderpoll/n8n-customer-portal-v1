@@ -18,6 +18,9 @@ const topics = [
 ] as const;
 
 export const Route = createFileRoute("/contact")({
+  // Static hosts cannot render every query-string variant ahead of time.
+  // Read URL filters in the browser before rendering this screen on Pages.
+  ssr: import.meta.env.BASE_URL === "/",
   validateSearch: z.object({ topic: z.enum(["subscription", "reporting", "access", "other"]).optional().catch(undefined), instance: z.string().optional().catch(undefined) }),
   head: () => portalHead("Contact n8n", "Customer success contact and local enquiry drafts for n8n Enterprise subscription and reporting questions."),
   component: Contact,

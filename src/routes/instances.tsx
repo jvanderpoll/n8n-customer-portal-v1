@@ -23,6 +23,9 @@ const instanceSearch = z.object({
 type InstanceSearch = z.infer<typeof instanceSearch>;
 
 export const Route = createFileRoute("/instances")({
+  // Static hosts cannot render every query-string variant ahead of time.
+  // Read URL filters in the browser before rendering this screen on Pages.
+  ssr: import.meta.env.BASE_URL === "/",
   validateSearch: instanceSearch,
   head: () => portalHead("Instances", "Reported execution usage, license links and reporting completeness across n8n self-hosted instances."),
   component: Instances,
