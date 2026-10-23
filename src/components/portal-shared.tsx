@@ -7,7 +7,7 @@ import { type Instance, type Persona, type Subscription, summarize } from "@/lib
 import { ago, date, fmt, timestamp } from "@/lib/portal-format";
 
 export function Help({ label, children }: { label: string; children: ReactNode }) {
-  return <Popover><PopoverTrigger asChild><button type="button" aria-label={label} className="inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"><Info className="size-3.5" /></button></PopoverTrigger><PopoverContent className="text-xs leading-relaxed">{children}</PopoverContent></Popover>;
+  return <Popover><PopoverTrigger asChild><button type="button" aria-label={label} className="inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"><Info className="size-3.5" /></button></PopoverTrigger><PopoverContent className="text-sm leading-relaxed">{children}</PopoverContent></Popover>;
 }
 
 export function PageHeading({ title }: { title: string }) {
@@ -15,12 +15,12 @@ export function PageHeading({ title }: { title: string }) {
 }
 
 export function Freshness({ persona }: { persona: Persona }) {
-  return persona.usageUpdated ? <div className="mb-5 flex items-center gap-1 text-xs text-muted-foreground">Updated {ago(persona.usageUpdated)}<Help label="About usage updates">Last update: {timestamp(persona.usageUpdated)}. Instances report roughly every 24 hours. Usage covers each subscription’s contract period.</Help></div> : null;
+  return persona.usageUpdated ? <div className="mb-5 flex items-center gap-1 text-sm text-muted-foreground">Updated {ago(persona.usageUpdated)}<Help label="About usage updates">Last update: {timestamp(persona.usageUpdated)}. Instances report roughly every 24 hours. Usage covers each subscription’s contract period.</Help></div> : null;
 }
 
 export function Requirements({ persona }: { persona: Persona }) {
   if (!persona.requirements.length) return null;
-  return <details className="mb-5 text-xs"><summary className="cursor-pointer text-muted-foreground hover:text-foreground">Reporting requirement</summary><ul className="mt-2 space-y-1 text-muted-foreground">{persona.requirements.map((r) => <li key={r}>{r}</li>)}</ul></details>;
+  return <details className="mb-5 text-sm"><summary className="cursor-pointer text-muted-foreground hover:text-foreground">Reporting requirement</summary><ul className="mt-2 space-y-1 text-muted-foreground">{persona.requirements.map((r) => <li key={r}>{r}</li>)}</ul></details>;
 }
 
 export function StatusText({ instance, compact = false }: { instance: Instance; compact?: boolean }) {

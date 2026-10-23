@@ -54,19 +54,19 @@ function Contact() {
     <section className="border-t border-border py-5">
       <div className="flex items-start gap-3"><UserRound className="mt-0.5 size-5 text-muted-foreground" /><div>
         <h2 className="font-semibold">{contact.name ?? "No customer success manager assigned"}</h2>
-        <p className="mt-1 text-xs text-muted-foreground">{contact.kind === "assigned" ? "Your customer success manager" : "No contact available yet."}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{contact.kind === "assigned" ? "Your customer success manager" : "No contact available yet."}</p>
 
       </div></div>
     </section>
     <section className="max-w-2xl border-t border-border pt-5">
       <h2 className="flex items-center gap-2 font-semibold"><Mail className="size-4 text-muted-foreground" />Enquiry draft</h2>
-      <p className="mt-2 text-xs text-muted-foreground">Prototype: download only. No message is sent.</p>
+      <p className="mt-2 text-sm text-muted-foreground">Prototype: download only. No message is sent.</p>
       <form onSubmit={downloadDraft} className="mt-5 space-y-4">
-        <div><span className="mb-1.5 block text-xs font-medium">Topic</span><Select value={topic} onValueChange={(value) => { setTopic(value); setDownloaded(false); }}><SelectTrigger aria-label="Enquiry topic"><SelectValue /></SelectTrigger><SelectContent>{topics.map((item) => <SelectItem value={item.id} key={item.id}>{item.label}</SelectItem>)}</SelectContent></Select></div>
-        {linkedInstance && <p className="text-xs text-muted-foreground">Instance: <span className="font-mono text-foreground">{linkedInstance.name}</span> · {linkedInstance.license}</p>}
-        <div><label htmlFor="enquiry-message" className="mb-1.5 block text-xs font-medium">Message</label><Textarea id="enquiry-message" required rows={6} value={message} onChange={(e) => { setMessage(e.target.value); setDownloaded(false); }} placeholder="Your question" className="resize-y" /></div>
+        <div><span className="mb-1.5 block text-sm font-medium">Topic</span><Select value={topic} onValueChange={(value) => { setTopic(value); setDownloaded(false); }}><SelectTrigger aria-label="Enquiry topic"><SelectValue /></SelectTrigger><SelectContent>{topics.map((item) => <SelectItem value={item.id} key={item.id}>{item.label}</SelectItem>)}</SelectContent></Select></div>
+        {linkedInstance && <p className="text-sm text-muted-foreground">Instance: <span className="font-mono text-foreground">{linkedInstance.name}</span> · {linkedInstance.license}</p>}
+        <div><label htmlFor="enquiry-message" className="mb-1.5 block text-sm font-medium">Message</label><Textarea id="enquiry-message" required rows={6} value={message} onChange={(e) => { setMessage(e.target.value); setDownloaded(false); }} placeholder="Your question" className="resize-y" /></div>
         <Button type="submit" variant="outline" disabled={!message.trim()}><Download />Download draft</Button>
-        {downloaded && <p role="status" className="text-xs text-muted-foreground">Draft downloaded. No message was sent.</p>}
+        {downloaded && <p role="status" className="text-sm text-muted-foreground">Draft downloaded. No message was sent.</p>}
       </form>
     </section>
   </>;
