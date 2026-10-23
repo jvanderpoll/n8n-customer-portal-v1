@@ -24,7 +24,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const [pid, setPid] = useState("full");
   const [questionsOpen, setQuestionsOpen] = useState(false);
   const [personasOpen, setPersonasOpen] = useState(true);
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const activeRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
   const persona = personas.find((p) => p.id === pid) ?? personas[0];
   if (!persona) return null;
 
@@ -38,8 +38,8 @@ export function PortalShell({ children }: { children: ReactNode }) {
           <span><span className="text-lg font-semibold">n8n</span><span className="block text-xs text-muted-foreground">Customer Portal</span></span>
         </div>
         <nav aria-label="Main navigation" className="flex flex-wrap gap-1 md:block md:space-y-1">
-          {navigation.map(({ to, label, icon: Icon }) => <Button key={to} variant="ghost" asChild className={cn("h-auto min-h-9 justify-start whitespace-normal px-2 py-2 text-xs md:w-full", pathname === to && "bg-accent font-semibold text-accent-foreground")}>
-            <Link to={to} aria-current={pathname === to ? "page" : undefined}><Icon />{label}</Link>
+          {navigation.map(({ to, label, icon: Icon }) => <Button key={to} variant="ghost" asChild className={cn("h-auto min-h-9 justify-start whitespace-normal px-2 py-2 text-xs md:w-full", activeRouteId === to && "bg-accent font-semibold text-accent-foreground")}>
+            <Link to={to} aria-current={activeRouteId === to ? "page" : undefined}><Icon />{label}</Link>
           </Button>)}
         </nav>
         <div className="mt-6 border-t border-border px-2 pt-4 text-xs md:mt-10">

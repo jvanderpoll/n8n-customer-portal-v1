@@ -6,10 +6,19 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+const pagesBuild = process.env["GITHUB_PAGES"] === "true";
+
 export default defineConfig({
+  ...(pagesBuild ? {
+    vite: { base: "/n8n-customer-portal-v1/" },
+    nitro: false,
+  } : {}),
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+    ...(pagesBuild ? {
+      prerender: { enabled: true, crawlLinks: false, failOnError: true },
+    } : {}),
   },
 });
