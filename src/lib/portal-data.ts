@@ -190,13 +190,4 @@ export const personas: Persona[] = [
   },
 ];
 
-export const openQuestions = [
-  { t: "Scale UX for ~1000-instance customers", d: "Does a flat instance list hold up, or do we need grouping, search and paging from day one?" },
-  { t: "Quota-threshold notifications & over-quota grace period", d: "Do we notify at e.g. 80/100%? What happens contractually after quota is exceeded?" },
-  { t: "CSM fallback when none is assigned", d: "Who does 'Contact n8n' route to — shared support inbox, sales, or a named team?" },
-  { t: "Can a user ever hold several accounts?", d: "v0 assumes one user = one account context, no switcher." },
-  { t: "Subscription vs Purchase naming", d: "Prototype uses 'Subscription'. Does this match contract and billing language?" },
-  { t: "Out of v0: OEM, air-gapped, Business, Cloud", d: "Which of these follow first, and does their data model fit this view?" },
-];
-
 export const NOW_ISO = NOW;

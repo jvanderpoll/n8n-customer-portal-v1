@@ -48,7 +48,7 @@ function Instances() {
   const selectedSubscription = persona.subscriptions.find((s) => s.id === subscription);
 
   return <>
-    <PageHeading title="Instances" description="Execution usage and reporting status for each linked self-hosted instance." />
+    <PageHeading title="Instances" />
     {!persona.instances.length ? <EmptySubscription persona={persona} /> : <>
       <Freshness persona={persona} />
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
@@ -58,33 +58,32 @@ function Instances() {
           <Button size="sm" variant={filter.status === "incomplete" ? "secondary" : "ghost"} aria-pressed={filter.status === "incomplete"} onClick={() => update({ status: "incomplete" })}>Missing or outdated</Button>
         </div>
       </div>
-      <div className="my-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <details className="my-4"><summary className="w-fit cursor-pointer text-xs text-muted-foreground hover:text-foreground">Filters{[subscription !== "all", license !== "all", filter.status !== "all", filter.environment !== "all"].filter(Boolean).length > 0 ? ` · ${[subscription !== "all", license !== "all", filter.status !== "all", filter.environment !== "all"].filter(Boolean).length} active` : ""}</summary><div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <FilterSelect label="Subscription" value={subscription} options={[{ value: "all", label: "All subscriptions" }, ...persona.subscriptions.map((s) => ({ value: s.id, label: s.name }))]} onChange={(value) => update({ subscription: value === "all" ? undefined : value, license: undefined })} />
         <FilterSelect label="License" value={license} options={[{ value: "all", label: "All licenses" }, ...licenses.map((id) => ({ value: id, label: id }))]} onChange={(value) => update({ license: value === "all" ? undefined : value })} />
         <FilterSelect label="Environment" value={filter.environment} options={[{ value: "all", label: "All environments" }, { value: "Production", label: "Production" }, { value: "Non-production", label: "Non-production" }]} onChange={(value) => { if (value === "all" || value === "Production" || value === "Non-production") update({ environment: value === "all" ? undefined : value }); }} />
         <FilterSelect label="Report status" value={filter.status} options={[{ value: "all", label: "All statuses" }, { value: "incomplete", label: "Missing or outdated" }, { value: "reported", label: "Reported" }, { value: "zero", label: "Confirmed zero" }, { value: "pending", label: "Waiting for next report" }, { value: "error", label: "Reporting error" }]} onChange={(value) => { const parsed = instanceSearch.shape.status.safeParse(value); if (parsed.success) update({ status: parsed.data === "all" ? undefined : parsed.data }); }} />
         <FilterSelect label="Sort by" value={filter.sort} options={[{ value: "usage", label: "Executions: high to low" }, { value: "name", label: "Instance name" }, { value: "report", label: "Most recent report" }]} onChange={(value) => { if (value === "usage" || value === "name" || value === "report") update({ sort: value }); }} />
-      </div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>{allRows.length} of {persona.instances.length} instances{selectedSubscription ? ` · Contract ${date(selectedSubscription.start)} – ${date(selectedSubscription.end)}` : " · Usage uses each subscription’s contract period"}</span>
+      </div></details>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>{allRows.length} of {persona.instances.length} instances{selectedSubscription ? ` · ${selectedSubscription.name}` : ""}</span>
         {activeFilter && <Button size="sm" variant="link" className="h-auto p-0 text-xs" onClick={() => void navigate({ search: {}, replace: true })}>Clear filters <X /></Button>}
       </div>
       {selected && <InstanceDetail instance={selected} persona={persona} onClose={() => void navigate({ search: { ...search, instance: undefined }, replace: true })} />}
-      <div className="overflow-x-auto border-y border-border"><table className="w-full min-w-[780px] text-left text-xs">
-        <thead><tr className="border-b border-border bg-muted/40 text-muted-foreground"><th className="px-3 py-3 font-medium">Instance / subscription</th><th className="px-3 py-3 font-medium">License / environment</th><th className="px-3 py-3 text-right font-medium">Executions<br />Contract period</th><th className="px-3 py-3 font-medium">Report status</th><th className="px-3 py-3 font-medium">Last report · UTC</th></tr></thead>
+      <div className="overflow-x-auto border-y border-border"><table className="w-full min-w-[600px] text-left text-xs">
+        <thead><tr className="border-b border-border bg-muted/40 text-muted-foreground"><th className="px-3 py-3 font-medium">Instance</th><th className="px-3 py-3 text-right font-medium">Executions</th><th className="px-3 py-3 font-medium">Reporting</th><th className="px-3 py-3 font-medium">Last report · UTC</th></tr></thead>
         <tbody>{pagination.rows.map((i) => {
           const s = persona.subscriptions.find((sub) => sub.id === i.subscriptionId);
           return <tr key={i.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-            <td className="px-3 py-3"><Button variant="link" size="sm" className="h-auto p-0 font-mono text-xs" onClick={() => void navigate({ search: { ...search, instance: i.id }, replace: true })}>{i.name}</Button><div className="mt-1 text-muted-foreground">{s?.name}</div></td>
-            <td className="px-3 py-3"><span className="font-mono">{i.license}</span><div className="mt-1 text-muted-foreground">{i.env}</div></td>
+            <td className="px-3 py-3"><Button variant="link" size="sm" className="h-auto p-0 font-mono text-xs" onClick={() => void navigate({ search: { ...search, instance: i.id }, replace: true })}>{i.name}</Button>{!selectedSubscription && <div className="mt-1 text-muted-foreground">{s?.name}</div>}</td>
             <td className="px-3 py-3 text-right tabular-nums">{i.executions === null ? <span className="text-muted-foreground">— no data</span> : fmt(i.executions)}{i.status === "pending" && <div className="mt-1 text-muted-foreground">Last known value</div>}</td>
             <td className="max-w-48 px-3 py-3"><StatusText instance={i} compact /></td>
             <td className="px-3 py-3 text-muted-foreground">{i.lastReport ? <>{date(i.lastReport)}<br />{new Date(i.lastReport).toISOString().slice(11, 16)}</> : "Never reported"}</td>
           </tr>;
         })}
-        {!allRows.length && <tr><td colSpan={5} className="px-3 py-10 text-center text-muted-foreground">No instances match these filters.</td></tr>}
+        {!allRows.length && <tr><td colSpan={4} className="px-3 py-10 text-center text-muted-foreground">No instances match these filters.</td></tr>}
         </tbody>
       </table></div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>{allRows.length ? `${(pagination.page - 1) * 20 + 1}–${Math.min(pagination.page * 20, allRows.length)} of ${allRows.length}` : "0 results"}</span><div className="flex items-center gap-3"><Button variant="outline" size="icon" className="size-8" title="Previous page" aria-label="Previous page" disabled={pagination.page === 1} onClick={() => void navigate({ search: { ...search, page: pagination.page - 1, instance: undefined }, replace: true })}><ChevronLeft /></Button><span>Page {pagination.page} of {pagination.pages}</span><Button variant="outline" size="icon" className="size-8" title="Next page" aria-label="Next page" disabled={pagination.page === pagination.pages} onClick={() => void navigate({ search: { ...search, page: pagination.page + 1, instance: undefined }, replace: true })}><ChevronRight /></Button></div></div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><span>{allRows.length ? `${(pagination.page - 1) * 20 + 1}–${Math.min(pagination.page * 20, allRows.length)} of ${allRows.length}` : "0 results"}</span>{pagination.pages > 1 && <div className="flex items-center gap-3"><Button variant="outline" size="icon" className="size-8" title="Previous page" aria-label="Previous page" disabled={pagination.page === 1} onClick={() => void navigate({ search: { ...search, page: pagination.page - 1, instance: undefined }, replace: true })}><ChevronLeft /></Button><span>Page {pagination.page} of {pagination.pages}</span><Button variant="outline" size="icon" className="size-8" title="Next page" aria-label="Next page" disabled={pagination.page === pagination.pages} onClick={() => void navigate({ search: { ...search, page: pagination.page + 1, instance: undefined }, replace: true })}><ChevronRight /></Button></div>}</div>
     </>}
   </>;
 }

@@ -50,17 +50,17 @@ function Contact() {
   };
 
   return <>
-    <PageHeading title="Contact n8n" description="Questions about your subscription, usage reports or account." />
+    <PageHeading title="Contact n8n" />
     <section className="border-t border-border py-5">
       <div className="flex items-start gap-3"><UserRound className="mt-0.5 size-5 text-muted-foreground" /><div>
         <h2 className="font-semibold">{contact.name ?? "No customer success manager assigned"}</h2>
-        <p className="mt-1 text-xs text-muted-foreground">{contact.kind === "assigned" ? "Your customer success manager" : "The contact destination for unassigned accounts is still to be decided."}</p>
-        <p className="mt-3 text-muted-foreground">{contact.kind === "assigned" ? "For subscription questions, quota concerns and usage-reporting follow-up." : "Your account is available, but there is no named contact to show yet."}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{contact.kind === "assigned" ? "Your customer success manager" : "No contact available yet."}</p>
+
       </div></div>
     </section>
     <section className="max-w-2xl border-t border-border pt-5">
       <h2 className="flex items-center gap-2 font-semibold"><Mail className="size-4 text-muted-foreground" />Enquiry draft</h2>
-      <p className="mt-2 border-l-2 border-dashed border-proto pl-3 text-xs text-proto">Prototype only — this draft stays in your browser. Downloading it does not send a message to n8n.</p>
+      <p className="mt-2 text-xs text-muted-foreground">Prototype: download only. No message is sent.</p>
       <form onSubmit={downloadDraft} className="mt-5 space-y-4">
         <div><span className="mb-1.5 block text-xs font-medium">Topic</span><Select value={topic} onValueChange={(value) => { setTopic(value); setDownloaded(false); }}><SelectTrigger aria-label="Enquiry topic"><SelectValue /></SelectTrigger><SelectContent>{topics.map((item) => <SelectItem value={item.id} key={item.id}>{item.label}</SelectItem>)}</SelectContent></Select></div>
         {linkedInstance && <p className="text-xs text-muted-foreground">Instance: <span className="font-mono text-foreground">{linkedInstance.name}</span> · {linkedInstance.license}</p>}
