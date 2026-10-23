@@ -7,7 +7,7 @@ import { type Instance, type Persona, type Subscription, summarize } from "@/lib
 import { ago, date, fmt, timestamp } from "@/lib/portal-format";
 
 export function Help({ label, children }: { label: string; children: ReactNode }) {
-  return <Popover><PopoverTrigger asChild><button type="button" aria-label={label} className="inline-flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"><Info className="size-3.5" /></button></PopoverTrigger><PopoverContent className="text-sm leading-relaxed">{children}</PopoverContent></Popover>;
+  return <Popover><PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={label}><Info className="size-3.5" /></Button></PopoverTrigger><PopoverContent className="text-sm leading-relaxed">{children}</PopoverContent></Popover>;
 }
 
 export function PageHeading({ title }: { title: string }) {

@@ -15,3 +15,5 @@
 - Contact actions create only local drafts without addresses or delivery; the contact destination fallback remains an unresolved product decision.
 
 - Management is a session-only prototype in portal-management: no provisioning, paid orders, invitation delivery, authentication, or persistence. Preserve reported execution history when an instance leaves the inventory, and enforce proposed role permissions in the shared state transition function.
+
+- All action buttons use the shared UI Button primitive, whose solid/outline/ghost styles follow the current n8n Storybook pill-button contract. Do not introduce page-specific button colors or shapes; retain 14px minimum text and readable destructive actions.

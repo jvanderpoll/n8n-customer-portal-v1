@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { Button } from "./ui/button";
 import { useNavigate } from "@tanstack/react-router";
 import {
   MoreHorizontal,
@@ -69,14 +70,22 @@ function ActionDialog({
       }}
     >
       <DialogTrigger asChild>
-        <button
+        <Button
           type="button"
           disabled={disabled}
-          className={`manage-button ${variant} ${danger ? "danger" : ""}`}
+          variant={
+            variant === "primary"
+              ? "default"
+              : variant === "menu"
+                ? "ghost"
+                : "outline"
+          }
+          size={variant === "menu" ? "default" : "lg"}
+          className={`${variant === "menu" ? "management-menu-action" : ""} ${danger ? "danger-text" : ""}`}
         >
           {icon}
           {label}
-        </button>
+        </Button>
       </DialogTrigger>
       <DialogContent className="management-dialog">
         <DialogTitle>{title}</DialogTitle>
@@ -111,28 +120,31 @@ function ActionDialog({
           )}
           <div className="dialog-actions">
             {draft ? (
-              <button
+              <Button
                 type="button"
-                className="manage-button secondary"
+                variant="outline"
+                size="lg"
                 onClick={() => setDraft(null)}
               >
                 Back
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
-                className="manage-button secondary"
+                variant="outline"
+                size="lg"
                 onClick={() => setOpen(false)}
               >
                 Cancel
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="submit"
-              className={`manage-button ${danger ? "danger-solid" : "primary"}`}
+              variant={danger ? "destructive" : "default"}
+              size="lg"
             >
               {review && !draft ? "Review request" : submit}
-            </button>
+            </Button>
           </div>
           <p className="demo-disclaimer">
             Prototype only · session changes. Nothing is sent, purchased, or
@@ -153,9 +165,14 @@ export function ActionMenu({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className="icon-action" aria-label={label}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="icon-action"
+          aria-label={label}
+        >
           <MoreHorizontal size={20} />
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="action-menu">
         {children}
@@ -669,8 +686,9 @@ export function RemovedInstances() {
                 <td>{i.license}</td>
                 <td>
                   {role === "Admin" && (
-                    <button
-                      className="manage-button secondary"
+                    <Button
+                      variant="outline"
+                      size="lg"
                       onClick={() =>
                         setError(
                           perform({ type: "restore-instance", id: i.id }) ?? "",
@@ -678,7 +696,7 @@ export function RemovedInstances() {
                       }
                     >
                       Restore {i.name}
-                    </button>
+                    </Button>
                   )}
                 </td>
               </tr>
