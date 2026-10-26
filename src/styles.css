@@ -228,6 +228,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .sidebar-user { display: flex; justify-content: flex-start; align-items: center; }
 .sidebar-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: var(--radius--3xs); background: var(--color--neutral-150); color: var(--portal-text); font-size: var(--font-size--sm); font-weight: var(--font-weight--bold); }
 .sidebar-user-menu { min-width: 200px; }
+.sidebar-user-menu [role="menuitem"],
+.sidebar-user-menu a { color: var(--portal-text); text-decoration: none; }
 .table-block { display: grid; gap: var(--spacing--2xs); }
 .toolbar-spacer { flex: 1; min-width: 0; }
 .sort-header { appearance: none; background: transparent; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; display: inline-flex; align-items: center; gap: 2px; }
