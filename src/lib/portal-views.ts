@@ -1,9 +1,9 @@
-import { type Instance, type Persona, summarize } from "./portal-data";
+import { type Instance, type Persona, type Subscription, periodProgress, subscriptionStatus, summarize } from "./portal-data";
 
 export type InstanceFilter = {
   subscription: string;
   license: string;
-  status: "all" | "incomplete" | "reported" | "zero" | "pending" | "error";
+  status: "all" | "reporting" | "attention";
   environment: "all" | Instance["env"];
   query: string;
   sort: "usage" | "name" | "report";
@@ -13,6 +13,8 @@ export const defaultInstanceFilter: InstanceFilter = {
   subscription: "all", license: "all", status: "all", environment: "all", query: "", sort: "usage",
 };
 
+export const isReporting = (i: Instance) => i.status === "reported" || i.status === "zero";
+
 export function filterInstances(persona: Persona, filter: InstanceFilter) {
   const query = filter.query.trim().toLowerCase();
   return persona.instances.filter((i) => {
@@ -20,8 +22,7 @@ export function filterInstances(persona: Persona, filter: InstanceFilter) {
     return !i.archived && (filter.subscription === "all" || i.subscriptionId === filter.subscription)
       && (filter.license === "all" || i.license === filter.license)
       && (filter.environment === "all" || i.env === filter.environment)
-      && (filter.status === "all" || (filter.status === "incomplete"
-        ? i.status === "pending" || i.status === "error" : i.status === filter.status))
+      && (filter.status === "all" || (filter.status === "reporting" ? isReporting(i) : !isReporting(i)))
       && (!query || `${i.name} ${i.license} ${subscription?.name ?? ""}`.toLowerCase().includes(query));
   }).sort((a, b) => {
     if (filter.sort === "name") return a.name.localeCompare(b.name);
@@ -36,18 +37,53 @@ export function paginateInstances(rows: Instance[], requestedPage: number, pageS
   return { rows: rows.slice((page - 1) * pageSize, page * pageSize), page, pages };
 }
 
+// Licenses carry no quota: their usage is only the sum of their instances.
 export function licensesFor(persona: Persona, subscriptionId: string) {
-  const subscription = persona.subscriptions.find((s) => s.id === subscriptionId);
-  if (!subscription) return [];
   const instances = persona.instances.filter((i) => i.subscriptionId === subscriptionId);
   return persona.licenses.filter((l) => l.subscriptionId === subscriptionId).map((license) => {
     const rows = instances.filter((i) => i.license === license.id);
-    return { ...license, instances: rows.filter(i => !i.archived), summary: summarize(subscription, rows) };
+    const active = rows.filter((i) => !i.archived);
+    return {
+      ...license,
+      instances: active,
+      executions: rows.length ? rows.reduce((sum, i) => sum + (i.executions ?? 0), 0) : null,
+      reportingCount: active.filter(isReporting).length,
+    };
   });
 }
 
+export const QUOTA_HIGH = 0.7;
+export const RENEWAL_ATTENTION_DAYS = 60;
+
+// Green through 70%, then a continuous hue shift via yellow and orange to red at 100%.
+export function quotaColor(pct: number) {
+  const t = Math.max(0, Math.min(1, (pct - QUOTA_HIGH) / (1 - QUOTA_HIGH)));
+  return `hsl(${Math.round(135 * (1 - t))} 72% ${Math.round(38 + 6 * Math.sin(Math.PI * t))}%)`;
+}
+
+export function subscriptionView(persona: Persona, sub: Subscription) {
+  const status = subscriptionStatus(sub);
+  const summary = summarize(sub, persona.instances);
+  const period = status === "Expired" ? { pct: 1, daysLeft: 0 } : periodProgress(sub);
+  const daysToRenewal = sub.renewal ? Math.ceil((Date.parse(sub.renewal) - Date.parse(persona.usageUpdated)) / 86_400_000) : null;
+  return {
+    status,
+    summary,
+    period,
+    daysToRenewal,
+    quotaPrompt: status === "Running" && summary.pct > QUOTA_HIGH ? (summary.pct >= 1 ? "over" as const : "high" as const) : null,
+    renewalPrompt: status === "Running" && daysToRenewal !== null && daysToRenewal <= RENEWAL_ATTENTION_DAYS,
+  };
+}
+
+export function runningFirst(persona: Persona) {
+  const running = persona.subscriptions.filter((s) => subscriptionStatus(s) === "Running");
+  const expired = persona.subscriptions.filter((s) => subscriptionStatus(s) === "Expired");
+  return { running, expired };
+}
+
 export function contactFor(persona: Persona) {
-  return persona.csm ? { kind: "assigned" as const, name: persona.csm } : { kind: "unassigned" as const, name: null };
+  return { kind: "assigned" as const, name: persona.csm };
 }
 
 export function memberFor(persona: Persona) {

@@ -444,3 +444,49 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .filter-menu > summary { font-size: var(--font-size--md); padding: 0 var(--spacing--sm); border: 0; border-radius: var(--radius--full); color: var(--color--neutral-950); background: var(--portal-surface); box-shadow: inset 0 0 0 1px var(--color--black-alpha-100), 0 1px 2px -1px var(--color--black-alpha-100); }
 .filter-menu > summary:hover { background: var(--color--neutral-100); }
 .filter-menu > summary:focus-visible { outline: 2px solid var(--color--black-alpha-200); outline-offset: 2px; }
+
+/* Subscription view */
+.workspace-title-block { margin-bottom: var(--spacing--lg); }
+.workspace-title-block .workspace-title { margin-bottom: 0; }
+.breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing--4xs); font-size: var(--font-size--sm); color: var(--portal-secondary); margin-bottom: var(--spacing--2xs); }
+.breadcrumbs a { color: var(--portal-link); font-weight: var(--font-weight--medium); }
+.breadcrumbs a:hover, .table-link:hover, .subscription-card h2 a:hover { text-decoration: underline; }
+.table-link { color: var(--portal-link); font-weight: var(--font-weight--medium); }
+.subscription-card h2 a { color: var(--portal-text); }
+.lead-date { display: flex; align-items: center; gap: var(--spacing--xs); font-size: var(--font-size--md); flex-wrap: wrap; justify-content: end; }
+.lead-date strong { font-weight: var(--font-weight--bold); color: var(--portal-text); }
+.usage-figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing--lg); padding: var(--spacing--2xs) var(--spacing--lg) var(--spacing--lg); }
+.usage-figure { display: flex; flex-direction: column; gap: var(--spacing--2xs); padding: var(--spacing--sm) var(--spacing--md); border: 1px solid var(--border); border-radius: var(--radius--xs); background: var(--portal-subtle); min-width: 0; }
+.usage-figure > strong { font-size: var(--font-size--3xl, 2rem); font-weight: var(--font-weight--bold); line-height: var(--line-height--sm); letter-spacing: var(--letter-spacing--tight); font-variant-numeric: tabular-nums; color: var(--portal-text); }
+.quota-bar { height: 8px; border-radius: var(--radius--full); background: var(--color--neutral-200, var(--color--neutral-150)); overflow: hidden; }
+.quota-bar > span { display: block; height: 100%; border-radius: inherit; }
+.contact-prompt { display: flex; align-items: center; gap: var(--spacing--xs); margin: 0 var(--spacing--lg) var(--spacing--lg); padding: var(--spacing--xs) var(--spacing--sm); border-radius: var(--radius--3xs); font-size: var(--font-size--sm); color: var(--portal-text); background: var(--color--orange-50); border: 1px solid var(--color--orange-300); }
+.contact-prompt > svg { flex-shrink: 0; color: var(--color--orange-800); }
+.contact-prompt > span { flex: 1; }
+.contact-prompt strong { font-weight: var(--font-weight--bold); }
+.subscription-facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing--lg); padding: var(--spacing--sm) var(--spacing--lg) var(--spacing--lg); border-top: 1px solid var(--border); }
+.subscription-facts.detail-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; padding-top: var(--spacing--lg); }
+.subscription-facts dt { font-size: var(--font-size--sm); color: var(--portal-secondary); margin-bottom: var(--spacing--4xs); }
+.subscription-facts dd { font-size: var(--font-size--md); font-weight: var(--font-weight--medium); color: var(--portal-text); }
+.subscription-card.is-expired .usage-figure > strong { color: var(--portal-secondary); }
+.contract-note ul { margin-top: var(--spacing--4xs); list-style: disc; padding-left: var(--spacing--lg); }
+.section-heading { font-size: var(--font-size--lg); font-weight: var(--font-weight--bold); color: var(--portal-text); margin: var(--spacing--xl) 0 var(--spacing--sm); }
+.overview-footnote { display: flex; align-items: center; gap: var(--spacing--xs); margin-top: var(--spacing--lg); font-size: var(--font-size--sm); color: var(--portal-secondary); }
+.instance-filters { padding-top: var(--spacing--lg); }
+.filter-select { display: flex; align-items: center; gap: var(--spacing--2xs); font-size: var(--font-size--sm); color: var(--portal-secondary); }
+.filter-select select { border: 1px solid var(--input); min-height: 40px; padding: var(--spacing--2xs) var(--spacing--xs); border-radius: var(--radius--3xs); color: var(--portal-text); background: var(--portal-surface); font-size: var(--font-size--sm); }
+.pager { display: flex; justify-content: end; align-items: center; gap: var(--spacing--xs); padding: var(--spacing--sm) var(--spacing--lg); border-top: 1px solid var(--border); }
+.row-menu { width: 56px; text-align: right; }
+.contact-panel { padding: var(--spacing--lg); margin-bottom: var(--spacing--lg); }
+.contact-panel h2 { font-size: var(--font-size--md); font-weight: var(--font-weight--bold); }
+.contact-person { display: flex; align-items: start; gap: var(--spacing--xs); }
+.contact-person > svg { margin-top: 2px; color: var(--portal-secondary); }
+.choice-group { display: grid; gap: var(--spacing--2xs); border: 0; padding: 0; margin: 0; }
+.choice-group legend { font-weight: var(--font-weight--medium); margin-bottom: var(--spacing--2xs); }
+.management-fields label.choice { display: flex; align-items: start; gap: var(--spacing--xs); font-weight: var(--font-weight--regular); }
+.management-fields .choice input { width: 18px; min-height: 18px; height: 18px; margin-top: 2px; padding: 0; accent-color: var(--color--orange-700); flex-shrink: 0; }
+.choice span { display: grid; gap: var(--spacing--4xs); }
+.choice small { font-size: var(--font-size--sm); color: var(--portal-secondary); }
+.scope-options { display: grid; gap: var(--spacing--2xs); padding-left: var(--spacing--xl); }
+@media (max-width: 1000px) { .subscription-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .subscription-facts.detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .usage-figures { grid-template-columns: 1fr; padding-left: var(--spacing--sm); padding-right: var(--spacing--sm); } .contact-prompt { flex-wrap: wrap; margin-left: var(--spacing--sm); margin-right: var(--spacing--sm); } .subscription-facts, .subscription-facts.detail-facts { grid-template-columns: 1fr; padding-left: var(--spacing--sm); padding-right: var(--spacing--sm); } .lead-date { justify-content: start; } .subscription-card .panel-heading { flex-wrap: wrap; } }

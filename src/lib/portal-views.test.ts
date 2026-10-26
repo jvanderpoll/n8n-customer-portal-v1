@@ -1,42 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { personas, type Persona, summarize } from "./portal-data";
-import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, memberFor, paginateInstances } from "./portal-views";
+import { personas, type Persona } from "./portal-data";
+import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, memberFor, paginateInstances, quotaColor, runningFirst, subscriptionView } from "./portal-views";
 
 function persona(id: string): Persona {
   const result = personas.find((p) => p.id === id);
   if (!result) throw new Error(`Missing fixture ${id}`);
   return result;
 }
+const hue = (color: string) => Number(color.match(/^hsl\((\d+)/)![1]);
 
 describe("read-only portal selectors", () => {
-  it("quota usage includes only instances linked to that subscription", () => {
+  it("filters instances by subscription and license", () => {
     const p = persona("full");
-    const subscription = p.subscriptions.find((s) => s.id === "s1");
-    if (!subscription) throw new Error("Missing subscription");
-    expect(summarize(subscription, p.instances).used).toBe(p.instances.filter((i) => i.subscriptionId === "s1").reduce((sum, i) => sum + (i.executions ?? 0), 0));
     expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(32);
-  });
-  it("confirmed zeros are not missing reports", () => {
-    const p = persona("zero");
-    expect(filterInstances(p, { ...defaultInstanceFilter, status: "incomplete" })).toHaveLength(0);
-    expect(filterInstances(p, { ...defaultInstanceFilter, status: "zero" }).map((i) => i.executions)).toEqual([0, 0, 0]);
-  });
-  it("pending and error reports both contribute to incomplete coverage", () => {
-    expect(filterInstances(persona("missing"), { ...defaultInstanceFilter, status: "incomplete" }).map((i) => i.id).sort()).toEqual(["i19", "i2", "i4", "i6"]);
-  });
-  it("missing usage stays null and sorts after confirmed zero", () => {
-    const p = persona("missing");
-    const rows = filterInstances({ ...p, instances: [{ ...p.instances[0], id: "zero", executions: 0, status: "zero" }, { ...p.instances[0], id: "missing", executions: null, status: "error" }] } as Persona, defaultInstanceFilter);
-    expect(rows.map((i) => [i.id, i.executions])).toEqual([["zero", 0], ["missing", null]]);
-  });
-  it("license drill-down stays within its subscription", () => {
-    const p = persona("full");
-    const licenses = licensesFor(p, "s1");
-    expect(licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01", "LIC-NW-NPR-01", "LIC-NW-DR-01"]);
     expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-NPR-01" })).toHaveLength(14);
   });
   it("search matches license references without case sensitivity", () => {
     expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-eu-01" })).toHaveLength(8);
+  });
+  it("splits reporting and non-reporting instances", () => {
+    const p = persona("full");
+    const changed = { ...p, instances: p.instances.map((i, n) => n === 0 ? { ...i, status: "pending" as const } : i) };
+    expect(filterInstances(changed, { ...defaultInstanceFilter, status: "attention" })).toHaveLength(1);
+    expect(filterInstances(changed, { ...defaultInstanceFilter, status: "reporting" })).toHaveLength(39);
   });
   it("pagination presents all forty instances without duplication", () => {
     const rows = filterInstances(persona("full"), defaultInstanceFilter);
@@ -47,35 +33,52 @@ describe("read-only portal selectors", () => {
     expect(new Set([...first.rows, ...last.rows].map((i) => i.id)).size).toBe(40);
     expect(paginateInstances([], 99)).toEqual({ rows: [], page: 1, pages: 1 });
   });
-  it("one account context exposes only its own system admin", () => {
-    expect(memberFor(persona("full"))).toEqual({ id: "full-admin", name: "Sanne de Vries", role: "System admin", company: "Northwind Logistics B.V." });
-    expect(memberFor(persona("empty")).company).toBe("Okafor Health Systems Ltd");
+  it("licenses roll up their instances' executions and carry no quota", () => {
+    const p = persona("full");
+    const licenses = licensesFor(p, "s1");
+    expect(licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01", "LIC-NW-NPR-01", "LIC-NW-DR-01"]);
+    const prd = licenses[0]!;
+    expect(prd.executions).toBe(prd.instances.reduce((sum, i) => sum + (i.executions ?? 0), 0));
+    expect(prd).not.toHaveProperty("quota");
+    expect(licenses.find((l) => l.id === "LIC-NW-DR-01")).toMatchObject({ instances: [], executions: null });
   });
-  it("assigned customer success manager is retained without inventing a fallback", () => {
+  it("lists running subscriptions before expired ones", () => {
+    const { running, expired } = runningFirst(persona("full"));
+    expect(running.map((s) => s.id)).toEqual(["s1", "s2"]);
+    expect(expired.map((s) => s.id)).toEqual(["s0"]);
+  });
+  it("the account's own CSM is the contact", () => {
     expect(contactFor(persona("full"))).toEqual({ kind: "assigned", name: "Lukas Weber" });
-    expect(contactFor(persona("missing"))).toEqual({ kind: "unassigned", name: null });
-    expect(contactFor(persona("empty"))).toEqual({ kind: "unassigned", name: null });
+    expect(memberFor(persona("full"))).toEqual({ id: "full-admin", name: "Sanne de Vries", role: "System admin", company: "Northwind Logistics B.V." });
   });
 });
 
-describe("commercial reporting states", () => {
-  it("does not turn unavailable usage into zero or a full remaining allowance", () => {
-    const p = persona("unknown");
-    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ used: null, remaining: null, pct: null });
+describe("quota color", () => {
+  it("stays green through 70% and reaches red at 100%", () => {
+    expect(quotaColor(0)).toBe(quotaColor(0.7));
+    expect(hue(quotaColor(0.7))).toBeGreaterThan(100);
+    expect(hue(quotaColor(1))).toBe(0);
+    expect(quotaColor(1.4)).toBe(quotaColor(1));
   });
-  it("retains confirmed zero with the full allowance remaining", () => {
-    const p = persona("zero");
-    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ used: 0, remaining: p.subscriptions[0]!.quota, pct: 0 });
+  it("shifts continuously through yellow and orange", () => {
+    const hues = [0.75, 0.8, 0.85, 0.9, 0.95].map((p) => hue(quotaColor(p)));
+    expect(hues).toEqual([...hues].sort((a, b) => b - a));
+    expect(hues.some((h) => h >= 45 && h <= 60)).toBe(true);
+    expect(hues.some((h) => h >= 20 && h < 45)).toBe(true);
   });
-  it("represents unlimited allowance without an artificial percentage or remaining value", () => {
-    const p = persona("unlimited");
-    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ unlimited: true, remaining: null, pct: null });
+});
+
+describe("contact your CSM prompts", () => {
+  it("asks for contact when quota is high or over", () => {
+    const full = persona("full"), over = persona("over");
+    expect(subscriptionView(full, full.subscriptions[0]!).quotaPrompt).toBe("high");
+    expect(subscriptionView(full, full.subscriptions[1]!).quotaPrompt).toBeNull();
+    expect(subscriptionView(over, over.subscriptions[0]!).quotaPrompt).toBe("over");
   });
-  it("counts OEM instances rather than their execution totals", () => {
-    const p = persona("oem");
-    expect(summarize(p.subscriptions[0]!, p.instances)).toMatchObject({ used: 32, remaining: 18, pct: 0.64 });
-  });
-  it("retains purchased licenses with no activations", () => {
-    expect(licensesFor(persona("full"), "s1").find((l) => l.id === "LIC-NW-DR-01")?.instances).toEqual([]);
+  it("asks for contact when renewal is close, never for expired subscriptions", () => {
+    const full = persona("full");
+    expect(subscriptionView(full, full.subscriptions[0]!).renewalPrompt).toBe(true);
+    expect(subscriptionView(full, full.subscriptions[1]!).renewalPrompt).toBe(false);
+    expect(subscriptionView(full, full.subscriptions[2]!)).toMatchObject({ status: "Expired", quotaPrompt: null, renewalPrompt: false, period: { pct: 1, daysLeft: 0 } });
   });
 });

@@ -1,34 +1,67 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { ArrowUpRight, Check, KeyRound } from "lucide-react";
 import { usePersona } from "@/components/portal-shell";
-import { EmptySubscription } from "@/components/portal-shared";
-import { WorkspaceTitle } from "@/components/portal-workspace";
-import { date, fmt, portalHead } from "@/lib/portal-format";
+import { Crumb, InstanceList, LastUpdate, LicenseTable, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
+import { fmt, portalHead } from "@/lib/portal-format";
 import { RequestLicenses, LicenseActions, OrderRequests } from "@/components/portal-management";
-import { licensesFor } from "@/lib/portal-views";
+import { licensesFor, runningFirst } from "@/lib/portal-views";
+import type { Subscription } from "@/lib/portal-data";
+
 export const Route = createFileRoute("/subscriptions")({
+  // Static hosts cannot render every query-string variant ahead of time.
   ssr: import.meta.env.BASE_URL === "/",
-  validateSearch: z.object({ subscription: z.string().optional().catch(undefined) }),
-  head: () => portalHead("Subscriptions", "Your agreements, included allowances and licenses."),
+  validateSearch: z.object({ subscription: z.string().optional().catch(undefined), license: z.string().optional().catch(undefined) }),
+  head: () => portalHead("Subscriptions", "Your subscriptions, their quota, period and licenses."),
   component: Subscriptions,
 });
+
 function Subscriptions() {
- const persona = usePersona();
- const search = Route.useSearch();
- return <><WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><span className="muted-text">{persona.subscriptions.length} agreements</span><RequestLicenses subscriptionId={search.subscription} /></div>} />
- {!persona.subscriptions.length ? <EmptySubscription persona={persona} /> : <>
- <p className="page-intro">What your account includes, and the licenses that connect it to your instances.</p>
- <div className="agreement-list">{persona.subscriptions.map((s) => {
-  const licenses = licensesFor(persona, s.id);
-  const instances = persona.instances.filter((i) => !i.archived && i.subscriptionId === s.id);
-  return <section className="workspace-panel agreement-card" key={s.id}>
-   <div className="panel-heading"><div className="agreement-heading"><span className="agreement-symbol"><KeyRound size={19} /></span><div><h2>{s.name}</h2><span className="supporting">{s.plan ?? "Self-hosted Enterprise"}</span></div></div><span className="status-badge"><Check size={12} />{s.status ?? "Active"}</span></div>
-   <div className="agreement-facts"><div><span>Included allowance</span><strong>{s.quota === null ? "Unavailable" : s.quota <= 0 ? "Unlimited" : fmt(s.quota)} {s.quota !== null && s.quota > 0 ? s.metric === "instances" ? "instances" : "billable executions" : ""}</strong></div><div><span>Contract period</span><strong>{date(s.start)} — {date(s.end)}</strong></div><div><span>Next renewal</span><strong>{date(s.renewal)}</strong></div></div>
-   <div className="agreement-actions"><span>{licenses.length} {licenses.length === 1 ? "license" : "licenses"} <i>·</i> {instances.length} instances</span><Link to="/" search={{ subscription: s.id }} className="quiet-link">Explore usage <ArrowUpRight size={14} /></Link></div>
-   <details className="license-disclosure" open={search.subscription === s.id}><summary>Licenses <span>{licenses.length}</span></summary><div className="table-scroll"><table className="data-table"><thead><tr><th>License</th><th>Reference</th><th>Status</th><th className="numeric">Instances</th><th>Actions</th></tr></thead><tbody>{licenses.map((l) => <tr key={l.id}><td><strong>{l.label}</strong><small className="cell-caption">{l.environment}</small></td><td className="mono-text">{l.id}</td><td><span className="status-badge">{l.status}</span></td><td className="numeric">{l.instances.length}<small className="cell-caption">{l.instances.length ? "" : "Not activated"}</small></td><td><div className="row-action-group"><Link to="/" search={{ subscription: s.id, license: l.id }} className="quiet-link" aria-label={`View usage for ${l.label}`}>View usage <ArrowUpRight size={13} /></Link><LicenseActions license={l} /></div></td></tr>)}</tbody></table></div></details>
-   {s.metric === "instances" && <div className="contract-note">Instance-based agreement · {s.quota !== null ? `${s.quota} instances included` : "Allowance unavailable"}</div>}
-  </section>;
- })}</div><OrderRequests /></>}
- </>;
+  const persona = usePersona();
+  const search = Route.useSearch();
+  const sub = persona.subscriptions.find((s) => s.id === search.subscription);
+  if (sub) {
+    const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
+    return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
+  }
+  const { running, expired } = runningFirst(persona);
+  return <>
+    <WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><LastUpdate persona={persona} /><RequestLicenses /></div>} />
+    <div className="agreement-list">{running.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}</div>
+    {expired.length > 0 && <><h2 className="section-heading">Expired</h2><div className="agreement-list">{expired.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}</div></>}
+    <OrderRequests />
+  </>;
+}
+
+function SubscriptionDetail({ subscription: sub }: { subscription: Subscription }) {
+  const persona = usePersona();
+  return <>
+    <WorkspaceTitle title={sub.name} crumbs={<Crumb><Link to="/subscriptions">Subscriptions</Link></Crumb>} trailing={<LastUpdate persona={persona} />} />
+    <div className="agreement-list">
+      <SubscriptionCard subscription={sub} />
+      <UsagePanel subscription={sub} />
+      <LicenseTable subscription={sub} />
+    </div>
+  </>;
+}
+
+function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscription; licenseId: string }) {
+  const persona = usePersona();
+  const license = licensesFor(persona, sub.id).find((l) => l.id === licenseId)!;
+  return <>
+    <WorkspaceTitle title={license.label} crumbs={<><Crumb><Link to="/subscriptions">Subscriptions</Link></Crumb><Crumb><Link to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></Crumb></>} trailing={<LicenseActions license={license} />} />
+    <div className="agreement-list">
+    <section className="workspace-panel">
+      <dl className="subscription-facts detail-facts">
+        <div><dt>License reference</dt><dd className="mono-text">{license.id}</dd></div>
+        <div><dt>Subscription</dt><dd><Link className="table-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
+        <div><dt>Environment</dt><dd>{license.environment}</dd></div>
+        <div><dt>Status</dt><dd>{license.status}</dd></div>
+        <div><dt>Executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
+        <div><dt>Instances reporting</dt><dd>{license.reportingCount}</dd></div>
+      </dl>
+      <p className="contract-note">This license has no quota of its own. Its executions count toward the {sub.name} quota.</p>
+    </section>
+    <section className="workspace-panel"><div className="panel-heading"><h2>Covered instances <span className="count-pill">{license.instances.length}</span></h2></div><InstanceList instances={license.instances} /></section>
+    </div>
+  </>;
 }

@@ -1,10 +1,12 @@
-import { type Persona, type Instance } from "./portal-data";
-export type Role = "Admin" | "Billing" | "Viewer";
+import { type Persona, type Instance, subscriptionStatus } from "./portal-data";
+export type Role = "Write" | "Read";
+export type Scope = "all" | string[];
 export type Member = {
   id: string;
   name: string;
   email: string;
   role: Role;
+  scope: Scope;
   status: "Active" | "Invited";
 };
 export type LicenseRequest = {
@@ -36,13 +38,11 @@ export type ManagementAction =
       note: string;
     }
   | { type: "cancel-order"; id: string }
-  | { type: "invite"; id: string; email: string; role: Role }
-  | { type: "role"; id: string; role: Role }
+  | { type: "invite"; id: string; name: string; email: string; role: Role; scope: Scope }
   | { type: "remove-member"; id: string };
 export const roleDescriptions: Record<Role, string> = {
-  Admin: "Manage instances, licenses, orders, and account access.",
-  Billing: "View usage and inventory, and request licenses.",
-  Viewer: "View usage, agreements, and inventory.",
+  Write: "View everything in scope, manage instances and licenses, request licenses, and invite people.",
+  Read: "View subscriptions, usage, and instances in scope.",
 };
 export function createAccount(persona: Persona): AccountState {
   return {
@@ -54,21 +54,24 @@ export function createAccount(persona: Persona): AccountState {
         id: "self",
         name: persona.user.split(" · ")[0]!,
         email: "admin@example.com",
-        role: "Admin",
+        role: "Write",
+        scope: "all",
         status: "Active",
       },
       {
         id: "billing",
-        name: "Alex Morgan",
+        name: "Tom Bakker",
         email: "billing@example.com",
-        role: "Billing",
+        role: "Read",
+        scope: persona.subscriptions[0] ? [persona.subscriptions[0].id] : "all",
         status: "Active",
       },
       {
         id: "pending",
-        name: "",
+        name: "Operations team",
         email: "operations@example.com",
-        role: "Viewer",
+        role: "Read",
+        scope: "all",
         status: "Invited",
       },
     ],
@@ -82,15 +85,10 @@ export function applyManagement(
   action: ManagementAction,
   role: Role,
 ): AccountState {
-  const billingAction =
-    action.type === "order" || action.type === "cancel-order";
-  if (role !== "Admin" && !(role === "Billing" && billingAction))
-    throw new Error("Your preview role does not allow this action.");
-  if (
-    (action.type === "invite" || action.type === "role") &&
-    !Object.hasOwn(roleDescriptions, action.role)
-  )
-    throw new Error("Choose a valid account role.");
+  if (role !== "Write")
+    throw new Error("Read access does not allow this action.");
+  if (action.type === "invite" && !Object.hasOwn(roleDescriptions, action.role))
+    throw new Error("Choose read or write access.");
   const next = structuredClone(state),
     p = next.persona;
   const fail = (message: string): never => {
@@ -101,7 +99,7 @@ export function applyManagement(
   const license = (id: string) =>
     p.licenses.find((l) => l.id === id) ?? fail("License not found.");
   const subscription = (id: string) =>
-    p.subscriptions.find((s) => s.id === id) ?? fail("Agreement not found.");
+    p.subscriptions.find((s) => s.id === id) ?? fail("Subscription not found.");
   switch (action.type) {
     case "create-instance":
     case "edit-instance": {
@@ -119,8 +117,8 @@ export function applyManagement(
         )
       )
         fail("An instance with this name already exists.");
-      if (l.status !== "Active" || s.status === "Expired")
-        fail("Choose an active license and agreement.");
+      if (l.status !== "Active" || subscriptionStatus(s) === "Expired")
+        fail("Choose an active license on a running subscription.");
       if (action.type === "create-instance") {
         if (p.instances.some((i) => i.id === action.id))
           fail("Instance reference already exists.");
@@ -140,10 +138,10 @@ export function applyManagement(
         if (i.archived) fail("Restore the instance before editing it.");
         if (i.subscriptionId !== l.subscriptionId)
           fail(
-            "Instances can move only between licenses in the same agreement.",
+            "Instances can move only between licenses in the same subscription.",
           );
         Object.assign(i, { name, license: l.id, env: l.environment });
-        next.notice = `${name} updated. Agreement usage is unchanged.`;
+        next.notice = `${name} updated. Subscription usage is unchanged.`;
       }
       break;
     }
@@ -165,11 +163,9 @@ export function applyManagement(
       if (from.id !== target.id) {
         if (p.instances.some((i) => i.license === l.id))
           fail(
-            "Only licenses without activations or usage history can move between agreements.",
+            "Only licenses without activations or usage history can move between subscriptions.",
           );
-        if ((from.metric ?? "executions") !== (target.metric ?? "executions"))
-          fail("Choose an agreement with the same allowance type.");
-        if (target.status === "Expired") fail("Choose an active agreement.");
+        if (subscriptionStatus(target) === "Expired") fail("Choose a running subscription.");
       }
       l.label = action.label.trim();
       l.subscriptionId = target.id;
@@ -187,8 +183,8 @@ export function applyManagement(
       break;
     }
     case "order": {
-      if (subscription(action.subscriptionId).status === "Expired")
-        fail("Choose an active agreement.");
+      if (subscriptionStatus(subscription(action.subscriptionId)) === "Expired")
+        fail("Choose a running subscription.");
       if (
         !Number.isInteger(action.quantity) ||
         action.quantity < 1 ||
@@ -211,46 +207,38 @@ export function applyManagement(
       break;
     }
     case "invite": {
-      const email = action.email.trim().toLowerCase();
+      const email = action.email.trim().toLowerCase(),
+        name = action.name.trim();
+      if (!name || name.length > 80) fail("Enter a name of 1–80 characters.");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         fail("Enter a valid email address.");
       if (next.members.some((m) => m.email.toLowerCase() === email))
         fail("This person already has access or a pending invitation.");
+      if (action.scope !== "all") {
+        if (!action.scope.length) fail("Select at least one subscription.");
+        action.scope.forEach(subscription);
+      }
       next.members.push({
         id: action.id,
-        name: "",
+        name,
         email,
         role: action.role,
+        scope: action.scope,
         status: "Invited",
       });
       next.notice = "Invitation added to this demo. No email has been sent.";
       break;
     }
-    case "role":
     case "remove-member": {
       const member =
         next.members.find((m) => m.id === action.id) ?? fail("User not found.");
       if (member.id === "self")
-        fail(
-          "Your own administrator access cannot be changed in this prototype.",
-        );
-      if (
-        member.role === "Admin" &&
-        member.status === "Active" &&
-        next.members.filter((m) => m.role === "Admin" && m.status === "Active")
-          .length <= 1
-      )
-        fail("Keep at least one active administrator.");
-      if (action.type === "role") {
-        member.role = action.role;
-        next.notice = "Account role updated.";
-      } else {
-        next.members = next.members.filter((m) => m.id !== action.id);
-        next.notice =
-          member.status === "Invited"
-            ? "Invitation cancelled."
-            : "Account access removed.";
-      }
+        fail("Your own access cannot be removed in this prototype.");
+      next.members = next.members.filter((m) => m.id !== action.id);
+      next.notice =
+        member.status === "Invited"
+          ? "Invitation cancelled."
+          : "Access removed.";
       break;
     }
   }

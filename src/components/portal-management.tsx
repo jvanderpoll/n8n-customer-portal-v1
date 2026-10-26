@@ -18,13 +18,14 @@ import {
 } from "./ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useManagement, usePersona } from "./portal-shell";
-import { type Instance, type License } from "@/lib/portal-data";
+import { type Instance, type License, subscriptionStatus } from "@/lib/portal-data";
 import {
   roleDescriptions,
   type ManagementAction,
   type Member,
   type Role,
   type LicenseRequest,
+  type Scope,
 } from "@/lib/portal-management";
 const value = (data: FormData, name: string) => String(data.get(name) ?? "");
 const newId = () => crypto.randomUUID();
@@ -188,13 +189,11 @@ export function CreateInstance({
   const persona = usePersona(),
     { role } = useManagement();
   const navigate = useNavigate();
-  if (role !== "Admin") return null;
-  const available = persona.licenses.filter(
-    (l) =>
-      l.status === "Active" &&
-      persona.subscriptions.find((s) => s.id === l.subscriptionId)?.status !==
-        "Expired",
-  );
+  if (role !== "Write") return null;
+  const available = persona.licenses.filter((l) => {
+    const s = persona.subscriptions.find((s) => s.id === l.subscriptionId);
+    return l.status === "Active" && s && subscriptionStatus(s) === "Running";
+  });
   const initial =
     available.find((l) => l.subscriptionId === subscriptionId) ?? available[0];
   return (
@@ -247,7 +246,7 @@ export function CreateInstance({
         </select>
       </label>
       <p className="field-hint">
-        The license sets the agreement and environment. Usage appears after the
+        The license sets the subscription and environment. Usage appears after the
         first report.
       </p>
     </ActionDialog>
@@ -256,12 +255,12 @@ export function CreateInstance({
 export function InstanceActions({ instance: i }: { instance: Instance }) {
   const persona = usePersona(),
     { role } = useManagement();
-  if (role !== "Admin") return null;
+  if (role !== "Write") return null;
   return (
     <ActionMenu label={`Manage ${i.name}`}>
       <ActionDialog
         title="Edit instance"
-        description="Rename this instance or move it to another license within the same agreement. This does not redeploy the instance."
+        description="Rename this instance or move it to another license within the same subscription. This does not redeploy the instance."
         label="Edit / move"
         icon={<Pencil size={16} />}
         variant="menu"
@@ -294,7 +293,7 @@ export function InstanceActions({ instance: i }: { instance: Instance }) {
           </select>
         </label>
         <p className="field-hint">
-          Reported usage stays in this agreement. The destination license
+          Reported usage stays in this subscription. The destination license
           determines the environment.
         </p>
       </ActionDialog>
@@ -314,14 +313,13 @@ export function InstanceActions({ instance: i }: { instance: Instance }) {
 export function LicenseActions({ license: l }: { license: License }) {
   const persona = usePersona(),
     { role } = useManagement();
-  if (role !== "Admin") return null;
+  if (role !== "Write") return null;
   const used = persona.instances.some((i) => i.license === l.id);
-  const current = persona.subscriptions.find((s) => s.id === l.subscriptionId);
   return (
     <ActionMenu label={`Manage license ${l.label}`}>
       <ActionDialog
         title="Edit license"
-        description="Rename a license, or move an unused license to another agreement with the same allowance type."
+        description="Rename a license, or move an unused license to another running subscription."
         label="Edit / move"
         icon={<ArrowRightLeft size={16} />}
         variant="menu"
@@ -338,7 +336,7 @@ export function LicenseActions({ license: l }: { license: License }) {
           <input name="label" defaultValue={l.label} required maxLength={80} />
         </label>
         <label>
-          Agreement
+          Subscription
           <select
             name="subscription"
             defaultValue={l.subscriptionId}
@@ -347,9 +345,8 @@ export function LicenseActions({ license: l }: { license: License }) {
             {persona.subscriptions
               .filter(
                 (s) =>
-                  (s.metric ?? "executions") ===
-                    (current?.metric ?? "executions") &&
-                  (s.status !== "Expired" || s.id === l.subscriptionId),
+                  subscriptionStatus(s) === "Running" ||
+                  s.id === l.subscriptionId,
               )
               .map((s) => (
                 <option key={s.id} value={s.id}>
@@ -360,14 +357,14 @@ export function LicenseActions({ license: l }: { license: License }) {
         </label>
         {used && (
           <p className="field-hint">
-            This license has activations or usage history, so its agreement
+            This license has activations or usage history, so its subscription
             cannot change.
           </p>
         )}
       </ActionDialog>
       <ActionDialog
         title={`Remove ${l.label}?`}
-        description="Remove this unused license from the demo account. The agreement allowance and commercial terms do not change."
+        description="Remove this unused license from the demo account. The subscription quota and commercial terms do not change."
         label="Remove unused license"
         icon={<Trash2 size={16} />}
         variant="menu"
@@ -391,16 +388,19 @@ export function RequestLicenses({
 }) {
   const persona = usePersona(),
     { role } = useManagement();
-  if (role === "Viewer") return null;
+  if (role !== "Write") return null;
+  const running = persona.subscriptions.filter(
+    (s) => subscriptionStatus(s) === "Running",
+  );
   return (
     <ActionDialog
       title="Request licenses"
-      description="Request additional licenses under an existing agreement. Pricing, allowance, and activation require confirmation from n8n."
+      description="Request additional licenses under a running subscription. Pricing, quota, and activation require confirmation from n8n."
       label="Request licenses"
       submit="Save request"
       icon={<Plus size={16} />}
       variant="primary"
-      disabled={!persona.subscriptions.some((s) => s.status !== "Expired")}
+      disabled={!running.length}
       action={(d) => ({
         type: "order",
         id: newId(),
@@ -414,7 +414,7 @@ export function RequestLicenses({
           <h3>Review your request</h3>
           <dl>
             <div>
-              <dt>Agreement</dt>
+              <dt>Subscription</dt>
               <dd>
                 {
                   persona.subscriptions.find(
@@ -442,16 +442,15 @@ export function RequestLicenses({
           </dl>
           <p>
             Saving this request does not activate licenses or increase your
-            allowance.
+            quota.
           </p>
         </>
       )}
     >
       <label>
-        Agreement
+        Subscription
         <select name="subscription" defaultValue={subscriptionId}>
-          {persona.subscriptions
-            .filter((s) => s.status !== "Expired")
+          {running
             .map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -504,7 +503,7 @@ export function OrderRequests() {
             <span className="count-pill">{account.orders.length}</span>
           </h2>
           <span className="supporting">
-            Pending requests do not change your active licenses or allowance.
+            Pending requests do not change your active licenses or quota.
           </span>
         </div>
       </div>
@@ -512,10 +511,10 @@ export function OrderRequests() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Agreement</th>
+              <th>Subscription</th>
               <th>Request</th>
               <th>Status</th>
-              {role !== "Viewer" && <th>Actions</th>}
+              {role === "Write" && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -540,7 +539,7 @@ export function OrderRequests() {
                     {o.status}
                   </span>
                 </td>
-                {role !== "Viewer" && (
+                {role === "Write" && (
                   <td>{o.status === "Pending" && <CancelOrder order={o} />}</td>
                 )}
               </tr>
@@ -563,43 +562,73 @@ function CancelOrder({ order }: { order: LicenseRequest }) {
     />
   );
 }
-function RoleField({ initial = "Viewer" }: { initial?: Role }) {
+function AccessFields() {
+  const persona = usePersona();
+  const [scope, setScope] = useState<"all" | "selected">("all");
   return (
-    <label>
-      Account role
-      <select name="role" aria-label="Account role" defaultValue={initial}>
-        {Object.keys(roleDescriptions).map((role) => (
-          <option key={role}>{role}</option>
+    <>
+      <fieldset className="choice-group">
+        <legend>Role</legend>
+        {(Object.keys(roleDescriptions) as Role[]).map((role) => (
+          <label key={role} className="choice">
+            <input type="radio" name="role" value={role} defaultChecked={role === "Read"} />
+            <span>
+              <strong>{role}</strong>
+              <small>{roleDescriptions[role]}</small>
+            </span>
+          </label>
         ))}
-      </select>
-      <span className="role-guidance">
-        {Object.entries(roleDescriptions).map(([role, description]) => (
-          <span key={role}>
-            <strong>{role}:</strong> {description}
-          </span>
-        ))}
-      </span>
-    </label>
+      </fieldset>
+      <fieldset className="choice-group">
+        <legend>Subscriptions</legend>
+        <label className="choice">
+          <input type="radio" name="scope" value="all" checked={scope === "all"} onChange={() => setScope("all")} />
+          <span><strong>All subscriptions</strong></span>
+        </label>
+        <label className="choice">
+          <input type="radio" name="scope" value="selected" checked={scope === "selected"} onChange={() => setScope("selected")} />
+          <span><strong>Only selected subscriptions</strong></span>
+        </label>
+        {scope === "selected" && (
+          <div className="scope-options">
+            {persona.subscriptions.map((s) => (
+              <label key={s.id} className="choice">
+                <input type="checkbox" name="subscriptions" value={s.id} />
+                <span>{s.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </fieldset>
+    </>
   );
 }
+const scopeFrom = (d: FormData): Scope =>
+  value(d, "scope") === "selected" ? d.getAll("subscriptions").map(String) : "all";
 export function InviteUser() {
   const { role } = useManagement();
-  if (role !== "Admin") return null;
+  if (role !== "Write") return null;
   return (
     <ActionDialog
-      title="Invite user"
-      description="Grant access to this customer account. This does not grant access to workflows or instance administration in the n8n editor."
-      label="Invite user"
+      title="Invite a person"
+      description="Give someone access to this customer portal. This does not grant access to workflows or instances in n8n."
+      label="Invite"
       submit="Create invitation"
       icon={<UserPlus size={16} />}
       variant="primary"
       action={(d) => ({
         type: "invite",
         id: newId(),
+        name: value(d, "name"),
         email: value(d, "email"),
         role: value(d, "role") as Role,
+        scope: scopeFrom(d),
       })}
     >
+      <label>
+        Name
+        <input name="name" required maxLength={80} placeholder="Full name" />
+      </label>
       <label>
         Email address
         <input
@@ -610,41 +639,23 @@ export function InviteUser() {
           maxLength={254}
         />
       </label>
-      <RoleField />
+      <AccessFields />
     </ActionDialog>
   );
 }
 export function MemberActions({ member: m }: { member: Member }) {
   const { role } = useManagement();
-  if (role !== "Admin" || m.id === "self") return null;
+  if (role !== "Write" || m.id === "self") return null;
+  const invited = m.status === "Invited";
   return (
-    <ActionMenu label={`Manage access for ${m.email}`}>
+    <ActionMenu label={`${invited ? "Manage invitation for" : "Manage access for"} ${m.email}`}>
       <ActionDialog
-        title="Change account role"
-        description={`Update access for ${m.email}. Roles apply to this customer portal only.`}
-        label="Change role"
-        variant="menu"
-        icon={<Pencil size={16} />}
-        submit="Save role"
-        action={(d) => ({
-          type: "role",
-          id: m.id,
-          role: value(d, "role") as Role,
-        })}
-      >
-        <RoleField initial={m.role} />
-      </ActionDialog>
-      <ActionDialog
-        title={
-          m.status === "Invited"
-            ? "Cancel invitation?"
-            : "Remove account access?"
-        }
-        description={`${m.email} ${m.status === "Invited" ? "will no longer have a pending invitation." : "will no longer have access to this customer account. Instance and workflow permissions are separate."}`}
-        label={m.status === "Invited" ? "Cancel invitation" : "Remove access"}
+        title={invited ? "Cancel invitation?" : `Remove ${m.name || m.email}?`}
+        description={`${m.email} ${invited ? "will no longer have a pending invitation." : "will no longer have access to this customer portal."}`}
+        label={invited ? "Cancel invitation" : "Remove"}
         variant="menu"
         icon={<Trash2 size={16} />}
-        submit={m.status === "Invited" ? "Cancel invitation" : "Remove access"}
+        submit={invited ? "Cancel invitation" : "Remove"}
         danger
         action={() => ({ type: "remove-member", id: m.id })}
       />
@@ -663,7 +674,7 @@ export function RemovedInstances() {
       </summary>
       <p className="field-hint">
         Removed from inventory. Previously reported executions remain in
-        agreement usage.
+        subscription usage.
       </p>
       {error && (
         <p role="alert" className="form-error">
@@ -685,7 +696,7 @@ export function RemovedInstances() {
                 <td>{i.name}</td>
                 <td>{i.license}</td>
                 <td>
-                  {role === "Admin" && (
+                  {role === "Write" && (
                     <Button
                       variant="outline"
                       size="lg"
