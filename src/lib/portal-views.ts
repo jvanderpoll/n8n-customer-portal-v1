@@ -56,9 +56,13 @@ export const QUOTA_HIGH = 0.7;
 export const RENEWAL_ATTENTION_DAYS = 60;
 
 // Green through 70%, then a continuous hue shift via yellow and orange to red at 100%.
+const QUOTA_STOPS: [pct: number, hue: number, lightness: number][] = [[QUOTA_HIGH, 135, 36], [0.8, 48, 46], [0.9, 28, 48], [1, 0, 42]];
 export function quotaColor(pct: number) {
-  const t = Math.max(0, Math.min(1, (pct - QUOTA_HIGH) / (1 - QUOTA_HIGH)));
-  return `hsl(${Math.round(135 * (1 - t))} 72% ${Math.round(38 + 6 * Math.sin(Math.PI * t))}%)`;
+  const p = Math.max(QUOTA_HIGH, Math.min(1, pct));
+  const i = Math.max(1, QUOTA_STOPS.findIndex(([at]) => at >= p));
+  const [a, ha, la] = QUOTA_STOPS[i - 1]!, [b, hb, lb] = QUOTA_STOPS[i]!;
+  const t = (p - a) / (b - a);
+  return `hsl(${Math.round(ha + (hb - ha) * t)} 78% ${Math.round(la + (lb - la) * t)}%)`;
 }
 
 export function subscriptionView(persona: Persona, sub: Subscription) {
