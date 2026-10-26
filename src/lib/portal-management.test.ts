@@ -5,9 +5,11 @@ import {
   applyManagement,
   createAccount,
   type ManagementAction,
+  type Role,
 } from "./portal-management";
 const account = (id = "full") =>
   createAccount(personas.find((p) => p.id === id)!);
+const admin: Role = "admin";
 describe("session-only account management", () => {
   it("creates an unreported instance on its license, without inventing executions", () => {
     const before = account();
@@ -19,7 +21,7 @@ describe("session-only account management", () => {
         name: "New instance",
         license: "LIC-NW-DR-01",
       },
-      "Write",
+      admin,
     );
     expect(next.persona.instances[0]).toMatchObject({
       id: "new",
@@ -48,7 +50,7 @@ describe("session-only account management", () => {
           name: name.toUpperCase(),
           license: "LIC-NW-DR-01",
         },
-        "Write",
+        admin,
       ),
     ).toThrow("already exists");
     expect(() =>
@@ -60,7 +62,7 @@ describe("session-only account management", () => {
           name: "test",
           license: "missing",
         },
-        "Write",
+        admin,
       ),
     ).toThrow("not found");
   });
@@ -75,7 +77,7 @@ describe("session-only account management", () => {
         name: i.name,
         license: "LIC-NW-DR-01",
       },
-      "Write",
+      admin,
     );
     expect(next.persona.instances.find((row) => row.id === i.id)?.license).toBe(
       "LIC-NW-DR-01",
@@ -92,21 +94,21 @@ describe("session-only account management", () => {
           name: i.name,
           license: "LIC-NW-EU-01",
         },
-        "Write",
+        admin,
       ),
     ).toThrow("same subscription");
   });
   it("removes inventory entries while retaining billable history and allows restoration", () => {
     const s = account(),
       id = s.persona.instances[0]!.id;
-    const next = applyManagement(s, { type: "remove-instance", id }, "Write");
+    const next = applyManagement(s, { type: "remove-instance", id }, admin);
     expect(activeInstances(next.persona)).toHaveLength(39);
     expect(
       summarize(next.persona.subscriptions[0]!, next.persona.instances).used,
     ).toBe(summarize(s.persona.subscriptions[0]!, s.persona.instances).used);
     expect(
       activeInstances(
-        applyManagement(next, { type: "restore-instance", id }, "Write")
+        applyManagement(next, { type: "restore-instance", id }, admin)
           .persona,
       ),
     ).toHaveLength(40);
@@ -121,7 +123,7 @@ describe("session-only account management", () => {
         label: "EU recovery",
         subscriptionId: "s2",
       },
-      "Write",
+      admin,
     );
     expect(
       moved.persona.licenses.find((l) => l.id === "LIC-NW-DR-01")
@@ -131,14 +133,14 @@ describe("session-only account management", () => {
       applyManagement(
         moved,
         { type: "delete-license", id: "LIC-NW-DR-01" },
-        "Write",
+        admin,
       ).persona.licenses,
     ).toHaveLength(4);
     expect(() =>
       applyManagement(
         s,
         { type: "delete-license", id: "LIC-NW-PRD-01" },
-        "Write",
+        admin,
       ),
     ).toThrow("history");
     expect(() =>
@@ -150,7 +152,7 @@ describe("session-only account management", () => {
           label: "Production",
           subscriptionId: "s2",
         },
-        "Write",
+        admin,
       ),
     ).toThrow("without activations");
   });
@@ -159,60 +161,55 @@ describe("session-only account management", () => {
     const next = applyManagement(
       s,
       { type: "order", id: "req", subscriptionId: "s1", quantity: 3, environment: "Production", note: "" },
-      "Write",
+      admin,
     );
     expect(next.orders[0]).toMatchObject({ quantity: 3, status: "Pending" });
     expect(next.persona.licenses).toEqual(s.persona.licenses);
     expect(next.persona.subscriptions).toEqual(s.persona.subscriptions);
-    expect(applyManagement(next, { type: "cancel-order", id: "req" }, "Write").orders[0]?.status).toBe("Cancelled");
+    expect(applyManagement(next, { type: "cancel-order", id: "req" }, admin).orders[0]?.status).toBe("Cancelled");
     expect(() =>
-      applyManagement(s, { type: "order", id: "old", subscriptionId: "s0", quantity: 1, environment: "Production", note: "" }, "Write"),
+      applyManagement(s, { type: "order", id: "old", subscriptionId: "s0", quantity: 1, environment: "Production", note: "" }, admin),
     ).toThrow("running subscription");
   });
-  it("read access cannot change anything", () => {
+  it("rejects non-admin callers", () => {
     const actions: ManagementAction[] = [
       { type: "remove-instance", id: account().persona.instances[0]!.id },
       { type: "order", id: "req", subscriptionId: "s1", quantity: 1, environment: "Production", note: "" },
-      { type: "invite", id: "x", name: "X", email: "x@example.com", role: "Read", scope: "all" },
+      { type: "invite", id: "x", name: "X", email: "x@example.com" },
       { type: "remove-member", id: "billing" },
     ];
     for (const action of actions)
-      expect(() => applyManagement(account(), action, "Read")).toThrow("does not allow");
+      expect(() => applyManagement(account(), action, "guest" as Role)).toThrow("system admins");
   });
-  it("invites people with a role and scope, rejects duplicates, and cancels invites", () => {
+  it("invites people with name and email only, rejects duplicates, and cancels invites", () => {
     const s = account();
     const next = applyManagement(
       s,
-      { type: "invite", id: "invite", name: "Noor", email: " NEW@example.com ", role: "Write", scope: ["s2"] },
-      "Write",
+      { type: "invite", id: "invite", name: "Noor", email: " NEW@example.com " },
+      admin,
     );
     expect(next.members.find((m) => m.id === "invite")).toMatchObject({
       name: "Noor",
       email: "new@example.com",
       status: "Invited",
-      role: "Write",
-      scope: ["s2"],
     });
+    expect(next.members.find((m) => m.id === "invite")).not.toHaveProperty("role");
+    expect(next.members.find((m) => m.id === "invite")).not.toHaveProperty("scope");
     expect(() =>
-      applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com", role: "Read", scope: "all" }, "Write"),
+      applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com" }, admin),
     ).toThrow("already has");
-    expect(applyManagement(next, { type: "remove-member", id: "invite" }, "Write").members).toHaveLength(s.members.length);
-  });
-  it("requires at least one known subscription for a selected scope", () => {
-    const invite = (scope: string[]): ManagementAction => ({ type: "invite", id: "i", name: "A", email: "a@example.com", role: "Read", scope });
-    expect(() => applyManagement(account(), invite([]), "Write")).toThrow("at least one");
-    expect(() => applyManagement(account(), invite(["nope"]), "Write")).toThrow("not found");
+    expect(applyManagement(next, { type: "remove-member", id: "invite" }, admin).members).toHaveLength(s.members.length);
   });
   it("removes people but protects your own access", () => {
-    expect(applyManagement(account(), { type: "remove-member", id: "billing" }, "Write").members.some((m) => m.id === "billing")).toBe(false);
-    expect(() => applyManagement(account(), { type: "remove-member", id: "self" }, "Write")).toThrow("own access");
+    expect(applyManagement(account(), { type: "remove-member", id: "billing" }, admin).members.some((m) => m.id === "billing")).toBe(false);
+    expect(() => applyManagement(account(), { type: "remove-member", id: "self" }, admin)).toThrow("own access");
   });
   it("rejects invalid quantities and email addresses", () => {
     expect(() =>
-      applyManagement(account(), { type: "order", id: "req", subscriptionId: "s1", quantity: 0, environment: "Production", note: "" }, "Write"),
+      applyManagement(account(), { type: "order", id: "req", subscriptionId: "s1", quantity: 0, environment: "Production", note: "" }, admin),
     ).toThrow("1 and 100");
     expect(() =>
-      applyManagement(account(), { type: "invite", id: "invite", name: "A", email: "invalid", role: "Read", scope: "all" }, "Write"),
+      applyManagement(account(), { type: "invite", id: "invite", name: "A", email: "invalid" }, admin),
     ).toThrow("valid email");
   });
 });

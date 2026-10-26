@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { usePersona } from "@/components/portal-shell";
-import { Crumb, ReportingStatus, WorkspaceTitle } from "@/components/portal-workspace";
+import { Crumb, CsvExport, ReportingStatus, WorkspaceTitle } from "@/components/portal-workspace";
 import { CreateInstance, InstanceActions, RemovedInstances } from "@/components/portal-management";
 import { Button } from "@/components/ui/button";
 import { activeInstances } from "@/lib/portal-management";
@@ -10,6 +10,7 @@ import { date, fmt, portalHead, timestamp } from "@/lib/portal-format";
 import { defaultInstanceFilter, filterInstances, paginateInstances } from "@/lib/portal-views";
 import type { Instance } from "@/lib/portal-data";
 
+const sortValues = ["usage", "name", "report"] as const;
 const searchSchema = z.object({
   subscription: z.string().optional().catch(undefined),
   license: z.string().optional().catch(undefined),
@@ -17,6 +18,7 @@ const searchSchema = z.object({
   query: z.string().optional().catch(undefined),
   page: z.number().int().positive().optional().catch(undefined),
   instance: z.string().optional().catch(undefined),
+  sort: z.enum(sortValues).optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/instances")({
@@ -37,9 +39,10 @@ function Instances() {
   const subscription = persona.subscriptions.some((s) => s.id === search.subscription) ? search.subscription! : "all";
   const licenses = persona.licenses.filter((l) => subscription === "all" || l.subscriptionId === subscription);
   const license = licenses.some((l) => l.id === search.license) ? search.license! : "all";
-  const rows = filterInstances(persona, { ...defaultInstanceFilter, subscription, license, status: search.status ?? "all", query: search.query ?? "" });
+  const sort = search.sort ?? defaultInstanceFilter.sort;
+  const rows = filterInstances(persona, { ...defaultInstanceFilter, subscription, license, status: search.status ?? "all", query: search.query ?? "", sort });
   const page = paginateInstances(rows, search.page ?? 1);
-  const filtered = subscription !== "all" || license !== "all" || search.status || search.query;
+  const filtered = subscription !== "all" || license !== "all" || search.status || search.query || search.sort;
   return <>
     <WorkspaceTitle title="Instances" trailing={<div className="page-actions"><span className="muted-text">{activeInstances(persona).length} instances</span><CreateInstance subscriptionId={subscription === "all" ? undefined : subscription} /></div>} />
     <section className="workspace-panel">
@@ -49,17 +52,72 @@ function Instances() {
         <label className="filter-select"><span>License</span><select value={license} onChange={(e) => set({ license: e.target.value === "all" ? undefined : e.target.value })}><option value="all">All</option>{licenses.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}</select></label>
         <label className="filter-select"><span>Reporting</span><select value={search.status ?? "all"} onChange={(e) => set({ status: e.target.value === "all" ? undefined : e.target.value as "reporting" | "attention" })}><option value="all">All</option><option value="reporting">Reporting</option><option value="attention">Not reporting</option></select></label>
         {filtered && <Button variant="ghost" size="sm" onClick={() => void navigate({ search: {}, replace: true })}>Clear filters</Button>}
+        <div className="toolbar-spacer" />
+        <CsvExport
+          filename="instances.csv"
+          headers={["Instance", "Subscription", "License", "Environment", "Executions", "Last report", "Reporting status"]}
+          rows={page.rows.map((i) => [
+            i.name,
+            persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name ?? "",
+            persona.licenses.find((l) => l.id === i.license)?.label ?? i.license,
+            i.env,
+            i.executions === null ? "" : String(i.executions),
+            i.lastReport ?? "",
+            i.status,
+          ])}
+        />
       </div>
-      <InstanceTable instances={page.rows} />
+      <InstanceTable instances={page.rows} sort={sort} onSort={(next) => set({ sort: next === "usage" ? undefined : next })} />
       {page.pages > 1 && <div className="pager"><span className="muted-text">{(page.page - 1) * 20 + 1}–{Math.min(rows.length, page.page * 20)} of {rows.length}</span><Button variant="outline" size="sm" disabled={page.page <= 1} onClick={() => void navigate({ search: (prev) => ({ ...prev, page: page.page - 1 }) })}><ChevronLeft size={14} />Previous</Button><Button variant="outline" size="sm" disabled={page.page >= page.pages} onClick={() => void navigate({ search: (prev) => ({ ...prev, page: page.page + 1 }) })}>Next<ChevronRight size={14} /></Button></div>}
     </section>
     <RemovedInstances />
   </>;
 }
 
-function InstanceTable({ instances }: { instances: Instance[] }) {
+function SortHeader({
+  label,
+  field,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  field: (typeof sortValues)[number];
+  sort: (typeof sortValues)[number];
+  onSort: (sort: (typeof sortValues)[number]) => void;
+  className?: string | undefined;
+}) {
+  const active = sort === field;
+  return (
+    <th className={className} aria-sort={active ? "descending" : "none"}>
+      <button type="button" className={`sort-header${active ? " is-active" : ""}`} onClick={() => onSort(field)}>
+        {label}
+        <span aria-hidden="true">{active ? " ↓" : ""}</span>
+      </button>
+    </th>
+  );
+}
+
+function InstanceTable({
+  instances,
+  sort,
+  onSort,
+}: {
+  instances: Instance[];
+  sort: (typeof sortValues)[number];
+  onSort: (sort: (typeof sortValues)[number]) => void;
+}) {
   const persona = usePersona();
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Instance</th><th>Subscription</th><th>License</th><th>Environment</th><th className="numeric">Executions</th><th>Reporting status</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{instances.map((i) => <tr key={i.id}><td><Link className="table-link" to="/instances" search={{ instance: i.id }}>{i.name}</Link></td><td>{persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name}</td><td><span className="license-name">{persona.licenses.find((l) => l.id === i.license)?.label ?? i.license}</span></td><td>{i.env}</td><td className="numeric">{i.executions === null ? "—" : fmt(i.executions)}</td><td><ReportingStatus instance={i} /></td><td><InstanceActions instance={i} /></td></tr>)}{!instances.length && <tr><td colSpan={7} className="empty-table">No instances match your filters.</td></tr>}</tbody></table></div>;
+  return <div className="table-scroll"><table className="data-table"><thead><tr>
+    <SortHeader label="Instance" field="name" sort={sort} onSort={onSort} />
+    <th>Subscription</th>
+    <th>License</th>
+    <th>Environment</th>
+    <SortHeader label="Executions" field="usage" sort={sort} onSort={onSort} className="numeric" />
+    <SortHeader label="Last report" field="report" sort={sort} onSort={onSort} />
+    <th>Reporting status</th>
+    <th><span className="sr-only">Actions</span></th>
+  </tr></thead><tbody>{instances.map((i) => <tr key={i.id}><td><Link className="table-link" to="/instances" search={{ instance: i.id }}>{i.name}</Link></td><td>{persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name}</td><td><span className="license-name">{persona.licenses.find((l) => l.id === i.license)?.label ?? i.license}</span></td><td>{i.env}</td><td className="numeric">{i.executions === null ? "—" : fmt(i.executions)}</td><td>{i.lastReport ? timestamp(i.lastReport) : "—"}</td><td><ReportingStatus instance={i} /></td><td><InstanceActions instance={i} /></td></tr>)}{!instances.length && <tr><td colSpan={8} className="empty-table">No instances match your filters.</td></tr>}</tbody></table></div>;
 }
 
 function InstanceDetail({ instance: i }: { instance: Instance }) {

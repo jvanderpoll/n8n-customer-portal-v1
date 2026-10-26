@@ -20,13 +20,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { useManagement, usePersona } from "./portal-shell";
 import { type Instance, type License, subscriptionStatus } from "@/lib/portal-data";
 import {
-  roleDescriptions,
   type ManagementAction,
   type Member,
-  type Role,
   type LicenseRequest,
-  type Scope,
 } from "@/lib/portal-management";
+import { CsvExport } from "./csv-export";
 const value = (data: FormData, name: string) => String(data.get(name) ?? "");
 const newId = () => crypto.randomUUID();
 
@@ -189,7 +187,7 @@ export function CreateInstance({
   const persona = usePersona(),
     { role } = useManagement();
   const navigate = useNavigate();
-  if (role !== "Write") return null;
+  if (role !== "admin") return null;
   const available = persona.licenses.filter((l) => {
     const s = persona.subscriptions.find((s) => s.id === l.subscriptionId);
     return l.status === "Active" && s && subscriptionStatus(s) === "Running";
@@ -255,7 +253,7 @@ export function CreateInstance({
 export function InstanceActions({ instance: i }: { instance: Instance }) {
   const persona = usePersona(),
     { role } = useManagement();
-  if (role !== "Write") return null;
+  if (role !== "admin") return null;
   return (
     <ActionMenu label={`Manage ${i.name}`}>
       <ActionDialog
@@ -313,7 +311,7 @@ export function InstanceActions({ instance: i }: { instance: Instance }) {
 export function LicenseActions({ license: l }: { license: License }) {
   const persona = usePersona(),
     { role } = useManagement();
-  if (role !== "Write") return null;
+  if (role !== "admin") return null;
   const used = persona.instances.some((i) => i.license === l.id);
   return (
     <ActionMenu label={`Manage license ${l.label}`}>
@@ -388,7 +386,7 @@ export function RequestLicenses({
 }) {
   const persona = usePersona(),
     { role } = useManagement();
-  if (role !== "Write") return null;
+  if (role !== "admin") return null;
   const running = persona.subscriptions.filter(
     (s) => subscriptionStatus(s) === "Running",
   );
@@ -494,6 +492,11 @@ export function RequestLicenses({
 export function OrderRequests() {
   const { account, role } = useManagement();
   if (!account.orders.length) return null;
+  const rows = account.orders.map((o) => [
+    account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId,
+    `${o.quantity} ${o.environment.toLowerCase()} ${o.quantity === 1 ? "license" : "licenses"}${o.note ? ` — ${o.note}` : ""}`,
+    o.status,
+  ]);
   return (
     <section className="workspace-panel order-requests">
       <div className="panel-heading">
@@ -506,6 +509,7 @@ export function OrderRequests() {
             Pending requests do not change your active licenses or quota.
           </span>
         </div>
+        <CsvExport filename="license-requests.csv" headers={["Subscription", "Request", "Status"]} rows={rows} />
       </div>
       <div className="table-scroll">
         <table className="data-table">
@@ -514,7 +518,7 @@ export function OrderRequests() {
               <th>Subscription</th>
               <th>Request</th>
               <th>Status</th>
-              {role === "Write" && <th>Actions</th>}
+              {role === "admin" && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -539,7 +543,7 @@ export function OrderRequests() {
                     {o.status}
                   </span>
                 </td>
-                {role === "Write" && (
+                {role === "admin" && (
                   <td>{o.status === "Pending" && <CancelOrder order={o} />}</td>
                 )}
               </tr>
@@ -562,52 +566,9 @@ function CancelOrder({ order }: { order: LicenseRequest }) {
     />
   );
 }
-function AccessFields() {
-  const persona = usePersona();
-  const [scope, setScope] = useState<"all" | "selected">("all");
-  return (
-    <>
-      <fieldset className="choice-group">
-        <legend>Role</legend>
-        {(Object.keys(roleDescriptions) as Role[]).map((role) => (
-          <label key={role} className="choice">
-            <input type="radio" name="role" value={role} defaultChecked={role === "Read"} />
-            <span>
-              <strong>{role}</strong>
-              <small>{roleDescriptions[role]}</small>
-            </span>
-          </label>
-        ))}
-      </fieldset>
-      <fieldset className="choice-group">
-        <legend>Subscriptions</legend>
-        <label className="choice">
-          <input type="radio" name="scope" value="all" checked={scope === "all"} onChange={() => setScope("all")} />
-          <span><strong>All subscriptions</strong></span>
-        </label>
-        <label className="choice">
-          <input type="radio" name="scope" value="selected" checked={scope === "selected"} onChange={() => setScope("selected")} />
-          <span><strong>Only selected subscriptions</strong></span>
-        </label>
-        {scope === "selected" && (
-          <div className="scope-options">
-            {persona.subscriptions.map((s) => (
-              <label key={s.id} className="choice">
-                <input type="checkbox" name="subscriptions" value={s.id} />
-                <span>{s.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </fieldset>
-    </>
-  );
-}
-const scopeFrom = (d: FormData): Scope =>
-  value(d, "scope") === "selected" ? d.getAll("subscriptions").map(String) : "all";
 export function InviteUser() {
   const { role } = useManagement();
-  if (role !== "Write") return null;
+  if (role !== "admin") return null;
   return (
     <ActionDialog
       title="Invite a person"
@@ -621,8 +582,6 @@ export function InviteUser() {
         id: newId(),
         name: value(d, "name"),
         email: value(d, "email"),
-        role: value(d, "role") as Role,
-        scope: scopeFrom(d),
       })}
     >
       <label>
@@ -639,13 +598,12 @@ export function InviteUser() {
           maxLength={254}
         />
       </label>
-      <AccessFields />
     </ActionDialog>
   );
 }
 export function MemberActions({ member: m }: { member: Member }) {
   const { role } = useManagement();
-  if (role !== "Write" || m.id === "self") return null;
+  if (role !== "admin" || m.id === "self") return null;
   const invited = m.status === "Invited";
   return (
     <ActionMenu label={`${invited ? "Manage invitation for" : "Manage access for"} ${m.email}`}>
@@ -696,7 +654,7 @@ export function RemovedInstances() {
                 <td>{i.name}</td>
                 <td>{i.license}</td>
                 <td>
-                  {role === "Write" && (
+                  {role === "admin" && (
                     <Button
                       variant="outline"
                       size="lg"

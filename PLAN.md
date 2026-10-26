@@ -6,17 +6,19 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 
 ## Locked
 
-- Entity name: Subscription. Yury's design brief still says "Purchases and licenses", so the screen label is not fully settled.
+- Entity name: Subscription. Screen label settled as Subscription (nav: Subscriptions).
 - Say quota, not allowance.
 - Running and expired subscriptions share the same fields. Running leads with the renewal date. Expired leads with the end date.
 - Each running subscription shows: quota, executions used, percent of quota used, period start and end, time left, and whether the quota resets at renewal.
 - Two figures side by side: percent of quota used, and percent of the period gone.
-- Color is on percent of quota used only. Green through 70. Then a continuous shift through yellow and orange to red at 100. Above 100 stays red. Percent of the period gone is a plain number.
+- Color is on percent of quota used only. Green through 70. Then a continuous shift through yellow and orange to red at 100. Above 100 stays red. Percent of the period gone is a plain number. The yellow band begins by 80% and orange by 90%.
 - The usage-over-time chart stays.
-- Instance actions, license actions, license requests, roles, and contact stay, on their own screens, off the subscription view.
+- Instance actions, license actions, license requests, users, and contact stay, on their own screens, off the subscription view.
 - The subscription shows "N instances reporting."
 - The instance drill-down is a plain list: name, license, executions, reporting status. No actions on that list.
 - Do not invent policies, instance caps, or friendly instance names. If a subscription has no policy in the data, leave that line out.
+- Sidebar: no company info box, no sample-data caption, no role switcher. Bottom-left avatar (signed-in initials) opens a menu with Message CSM (/contact) and Give feedback (local draft download only).
+- Tables: every data table has a working client-side CSV export of the rows currently shown. Instances table sorts name / executions / last report via URL search params (default usage descending). Customizable columns (show/hide, reorder) remain later. No expandable rows.
 
 ### Model
 
@@ -28,13 +30,11 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 
 ### Access
 
-- Someone at the customer (often IT) sets up the subscription, then delegates portal access to other people. Those people may be IT admins or billing.
-- A Users screen: one table of people with access. Columns: name, email, role, and which subscriptions they can access.
-- Role is read or write.
-- Scope is all subscriptions, or only selected subscriptions.
-- Each row has a three-dot menu. Include remove. Do not invent a long action list.
-- A primary Invite button at the top opens a dialog to invite a person and assign role and scope.
-- A pending-invites list, with a way to manage those invites (cancel is enough to name).
+- Someone at the customer (often IT) sets up the subscription, then invites other people into the portal.
+- Single system-admin role. Members have no role and no per-subscription scope.
+- A Users screen: one table of people with access. Columns: name, email, and a row menu (Remove only).
+- A primary Invite button at the top opens a dialog asking only for name and email.
+- A pending-invites list with name, email, and Cancel.
 - Keep this on the Users screen, off the subscription view.
 
 ### Principle
@@ -50,6 +50,7 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 - A CTA when renewal needs attention: contact your CSM.
 - These sit on the subscription view, next to the situation that triggered them.
 - Contact stays a real screen too, but the entry points are the point.
+- Sidebar avatar also links to Message CSM and Give feedback. Feedback and contact create local drafts only; nothing is sent.
 
 ### Granularity
 
@@ -74,8 +75,8 @@ The diagram says Purchase; the entity model says Subscription. The tree wins for
           - Instance details: billable usage + last report
     - Instances: search and filters
       - Instance details (same)
-    - Users: active admins + pending invites
-      - Invite or remove an admin
+    - Users: people with access + pending invites
+      - Invite or remove a person
     - Contact n8n: assigned CSM + contact action
 
 ## Open
@@ -83,6 +84,8 @@ The diagram says Purchase; the entity model says Subscription. The tree wins for
 - How a subscription relates to instances, and whether a subscription limits how many. Not decided. Do not invent an answer in the UI.
 - This "mostly informational" rule is the bias against adding further actions.
 - Only production instances are billed. Non-production instances exist and are not billed. Believed, not verified.
+- Contact destination fallback remains unresolved; drafts stay local.
+- Customizable table columns (show/hide, reorder) later.
 
 ## Log
 
@@ -93,3 +96,4 @@ The diagram says Purchase; the entity model says Subscription. The tree wins for
 - 2026-10-26: locked the five-entity model. Entity name is Subscription. Screen label still open. Not executed.
 - 2026-10-26: tree adopted from the design-brief flowchart. Not executed.
 - 2026-10-26: executed the happy path. Overview, Subscriptions with subscription and license drill-downs, Instances with instance details, Users with read/write and scope, Contact n8n with CSM entry points. Quota is high above 70%; renewal needs attention within 60 days.
+- 2026-10-26: screen label settled as Subscription; single system-admin role superseding read/write and per-subscription scope; sidebar reduced to a bottom-left avatar menu (message CSM, give feedback) with the sample-data caption removed; tables carry a working CSV export and the instances table sorts via the URL; customizable columns remain later.

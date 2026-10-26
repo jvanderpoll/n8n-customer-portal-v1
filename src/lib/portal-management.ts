@@ -1,12 +1,9 @@
 import { type Persona, type Instance, subscriptionStatus } from "./portal-data";
-export type Role = "Write" | "Read";
-export type Scope = "all" | string[];
+export type Role = "admin";
 export type Member = {
   id: string;
   name: string;
   email: string;
-  role: Role;
-  scope: Scope;
   status: "Active" | "Invited";
 };
 export type LicenseRequest = {
@@ -38,12 +35,8 @@ export type ManagementAction =
       note: string;
     }
   | { type: "cancel-order"; id: string }
-  | { type: "invite"; id: string; name: string; email: string; role: Role; scope: Scope }
+  | { type: "invite"; id: string; name: string; email: string }
   | { type: "remove-member"; id: string };
-export const roleDescriptions: Record<Role, string> = {
-  Write: "View everything in scope, manage instances and licenses, request licenses, and invite people.",
-  Read: "View subscriptions, usage, and instances in scope.",
-};
 export function createAccount(persona: Persona): AccountState {
   return {
     persona: structuredClone(persona),
@@ -54,24 +47,18 @@ export function createAccount(persona: Persona): AccountState {
         id: "self",
         name: persona.user.split(" · ")[0]!,
         email: "admin@example.com",
-        role: "Write",
-        scope: "all",
         status: "Active",
       },
       {
         id: "billing",
         name: "Tom Bakker",
         email: "billing@example.com",
-        role: "Read",
-        scope: persona.subscriptions[0] ? [persona.subscriptions[0].id] : "all",
         status: "Active",
       },
       {
         id: "pending",
         name: "Operations team",
         email: "operations@example.com",
-        role: "Read",
-        scope: "all",
         status: "Invited",
       },
     ],
@@ -85,10 +72,9 @@ export function applyManagement(
   action: ManagementAction,
   role: Role,
 ): AccountState {
-  if (role !== "Write")
-    throw new Error("Read access does not allow this action.");
-  if (action.type === "invite" && !Object.hasOwn(roleDescriptions, action.role))
-    throw new Error("Choose read or write access.");
+  // Only the system-admin role may mutate. The UI never sends another role.
+  if ((role as string) !== "admin")
+    throw new Error("Only system admins can change this account.");
   const next = structuredClone(state),
     p = next.persona;
   const fail = (message: string): never => {
@@ -214,16 +200,10 @@ export function applyManagement(
         fail("Enter a valid email address.");
       if (next.members.some((m) => m.email.toLowerCase() === email))
         fail("This person already has access or a pending invitation.");
-      if (action.scope !== "all") {
-        if (!action.scope.length) fail("Select at least one subscription.");
-        action.scope.forEach(subscription);
-      }
       next.members.push({
         id: action.id,
         name,
         email,
-        role: action.role,
-        scope: action.scope,
         status: "Invited",
       });
       next.notice = "Invitation added to this demo. No email has been sent.";

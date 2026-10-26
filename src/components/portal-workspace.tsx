@@ -4,9 +4,12 @@ import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip,
 import { usePersona } from "./portal-shell";
 import { Button } from "./ui/button";
 import { Help } from "./portal-shared";
+import { CsvExport } from "./csv-export";
 import { NOW, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { isReporting, licensesFor, quotaColor, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt, timestamp } from "@/lib/portal-format";
+
+export { CsvExport } from "./csv-export";
 
 const short = (n: number) => Math.abs(n) >= 1e6 ? `${+(n / 1e6).toFixed(1)}m` : Math.abs(n) >= 1000 ? `${+(n / 1000).toFixed(0)}k` : String(n);
 const percent = (n: number) => `${Math.round(n * 100)}%`;
@@ -90,7 +93,14 @@ function UsageChart({ subscription: sub, used, ended }: { subscription: Subscrip
 export function LicenseTable({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
   const licenses = licensesFor(persona, sub.id);
-  return <section className="workspace-panel"><div className="panel-heading"><div><h2>Licenses <span className="count-pill">{licenses.length}</span></h2><span className="supporting">Usage sums from each license’s instances. The quota applies to the subscription.</span></div></div>
+  const csvRows = licenses.map((l) => [
+    l.label,
+    l.id,
+    l.environment,
+    l.executions === null ? "" : String(l.executions),
+    String(l.reportingCount),
+  ]);
+  return <section className="workspace-panel"><div className="panel-heading"><div><h2>Licenses <span className="count-pill">{licenses.length}</span></h2><span className="supporting">Usage sums from each license’s instances. The quota applies to the subscription.</span></div><CsvExport filename={`${sub.name}-licenses.csv`} headers={["License", "Reference", "Environment", "Executions", "Instances reporting"]} rows={csvRows} /></div>
     <div className="table-scroll"><table className="data-table"><thead><tr><th>License</th><th>Reference</th><th>Environment</th><th className="numeric">Executions</th><th className="numeric">Instances reporting</th></tr></thead><tbody>{licenses.map((l) => <tr key={l.id}><td><Link className="table-link" to="/subscriptions" search={{ subscription: sub.id, license: l.id }}>{l.label}</Link>{l.status !== "Active" && <small className="cell-caption">{l.status}</small>}</td><td className="mono-text">{l.id}</td><td>{l.environment}</td><td className="numeric">{l.executions === null ? "—" : fmt(l.executions)}</td><td className="numeric">{l.reportingCount}</td></tr>)}{!licenses.length && <tr><td colSpan={5} className="empty-table">No licenses on this subscription.</td></tr>}</tbody></table></div>
   </section>;
 }
@@ -103,5 +113,11 @@ export function ReportingStatus({ instance: i }: { instance: Instance }) {
 export function InstanceList({ instances, empty = "No instances activated on this license." }: { instances: Instance[]; empty?: string }) {
   const persona = usePersona();
   const rows = [...instances].sort((a, b) => (b.executions ?? -1) - (a.executions ?? -1) || a.name.localeCompare(b.name));
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Instance</th><th>License</th><th className="numeric">Executions</th><th>Reporting status</th></tr></thead><tbody>{rows.map((i) => <tr key={i.id}><td><Link className="table-link" to="/instances" search={{ instance: i.id }}>{i.name}</Link></td><td><span className="license-name">{persona.licenses.find((l) => l.id === i.license)?.label ?? i.license}</span></td><td className="numeric">{i.executions === null ? "—" : fmt(i.executions)}</td><td><ReportingStatus instance={i} /></td></tr>)}{!rows.length && <tr><td colSpan={4} className="empty-table">{empty}</td></tr>}</tbody></table></div>;
+  const csvRows = rows.map((i) => [
+    i.name,
+    persona.licenses.find((l) => l.id === i.license)?.label ?? i.license,
+    i.executions === null ? "" : String(i.executions),
+    i.status === "error" ? "Reporting error" : i.status === "pending" ? (i.lastReport ? `Last report ${ago(i.lastReport)}` : "Awaiting first report") : i.lastReport ? `Reported ${ago(i.lastReport)}` : "Reported",
+  ]);
+  return <div className="table-block"><div className="table-toolbar"><CsvExport filename="covered-instances.csv" headers={["Instance", "License", "Executions", "Reporting status"]} rows={csvRows} /></div><div className="table-scroll"><table className="data-table"><thead><tr><th>Instance</th><th>License</th><th className="numeric">Executions</th><th>Reporting status</th></tr></thead><tbody>{rows.map((i) => <tr key={i.id}><td><Link className="table-link" to="/instances" search={{ instance: i.id }}>{i.name}</Link></td><td><span className="license-name">{persona.licenses.find((l) => l.id === i.license)?.label ?? i.license}</span></td><td className="numeric">{i.executions === null ? "—" : fmt(i.executions)}</td><td><ReportingStatus instance={i} /></td></tr>)}{!rows.length && <tr><td colSpan={4} className="empty-table">{empty}</td></tr>}</tbody></table></div></div>;
 }
