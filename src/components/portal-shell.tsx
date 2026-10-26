@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Layers3, Server, CircleHelp, ChevronRight, Users, RotateCcw, X, MessageCircle } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LayoutDashboard, Layers3, Server, ChevronRight, Users, RotateCcw, X, MessageCircle } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -133,16 +132,6 @@ export function PortalShell({ children }: { children: ReactNode }) {
       <div className="portal-main">
         <header className="portal-topbar">
           <span>Customer account <ChevronRight size={12} /> <strong>{persona.company}</strong></span>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="help-button"><CircleHelp size={15} />Help</Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="text-sm">
-              <strong>{persona.csm}</strong>
-              <p className="mt-1 text-muted-foreground">Your customer success manager</p>
-              <Button asChild variant="outline" size="sm" className="mt-3"><Link to="/contact">Contact {persona.csm}</Link></Button>
-            </PopoverContent>
-          </Popover>
         </header>
         <main className="portal-content">
           <div key={`${pid}-${revision}`}>
