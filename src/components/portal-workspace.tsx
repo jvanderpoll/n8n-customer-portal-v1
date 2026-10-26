@@ -5,7 +5,7 @@ import { usePersona } from "./portal-shell";
 import { DataTable, type DataColumn } from "./data-table";
 import { NOW, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { isReporting, licensesFor, quotaColor, subscriptionView } from "@/lib/portal-views";
-import { ago, date, fmt, timestamp } from "@/lib/portal-format";
+import { ago, date, fmt } from "@/lib/portal-format";
 
 export { CsvExport } from "./csv-export";
 export { DataTable, type DataColumn } from "./data-table";
@@ -67,9 +67,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
         <i className="time-marker" style={{ left: `${timePct * 100}%` }} aria-hidden="true" />
       </div>
       <div className="usage-meter-scale">
-        <span>{date(sub.start)}</span>
-        <span className="time-label" style={{ left: `${timePct * 100}%` }}>{running ? `${percent(timePct)} of period` : "Period ended"}</span>
-        <span>{date(sub.end)}</span>
+        <span className="time-label" style={{ left: `${timePct * 100}%`, transform: `translateX(-${timePct * 100}%)` }}>{running ? `${percent(timePct)} of period` : "Period ended"}</span>
       </div>
     </div>
     <dl className="subscription-facts">
