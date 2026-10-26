@@ -227,7 +227,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .prototype-menu select { width: 100%; min-height: 40px; padding: var(--spacing--2xs); border: 1px solid var(--input); border-radius: var(--radius--3xs); background: var(--portal-surface); color: var(--portal-text); }
 .sidebar-user { display: flex; justify-content: flex-start; align-items: center; }
 .sidebar-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: var(--radius--3xs); background: var(--color--neutral-150); color: var(--portal-text); font-size: var(--font-size--sm); font-weight: var(--font-weight--bold); }
-.sidebar-user-menu { min-width: 200px; }
+.sidebar-user-menu { min-width: 200px; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
 .sidebar-user-menu [role="menuitem"],
 .sidebar-user-menu a { color: var(--portal-text); text-decoration: none; }
 .table-block { display: grid; gap: var(--spacing--2xs); }
@@ -289,7 +289,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .table-toolbar, .data-table-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing--xs); padding: 0 var(--spacing--lg) var(--spacing--sm); }
 .data-table-toolbar { padding-top: var(--spacing--sm); }
 .filter-icon-button.is-active { background: var(--color--neutral-150); }
-.filter-popover { width: 280px; }
+.filter-popover { width: 280px; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
 .filter-popover-fields { display: grid; gap: var(--spacing--sm); }
 .filter-popover-fields label { display: grid; gap: var(--spacing--2xs); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); color: var(--portal-text); }
 .filter-popover-fields select { border: 1px solid var(--input); min-height: 40px; padding: var(--spacing--2xs) var(--spacing--xs); border-radius: var(--radius--3xs); color: var(--portal-text); background: var(--portal-surface); font-size: var(--font-size--sm); }
@@ -350,8 +350,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .manage-button:disabled { cursor: not-allowed; background: var(--color--neutral-150); color: var(--portal-caption); border-color: var(--border); }
 .action-menu { width: 240px; padding: var(--spacing--4xs); color: var(--portal-text); }
 .menu-hint { font-size: var(--font-size--sm); color: var(--portal-secondary); padding: var(--spacing--2xs); }
-.management-dialog { max-width: 540px; width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--portal-surface); color: var(--portal-text); font-size: var(--font-size--sm); border-radius: var(--radius--xs); border: 1px solid var(--border); }
-.management-dialog h2 { font-size: var(--font-size--xl); line-height: var(--line-height--lg); padding-right: var(--spacing--lg); }
+.management-dialog { max-width: 540px; width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--portal-surface); color: var(--portal-text); font-size: var(--font-size--sm); border-radius: var(--radius--xs); border: 1px solid var(--border); box-shadow: 0 16px 64px #0003; }
+.management-dialog h2 { font-size: var(--font-size--xl); line-height: var(--line-height--lg); padding-right: var(--spacing--lg); font-weight: var(--font-weight--bold); }
 .management-dialog > p { color: var(--portal-secondary); font-size: var(--font-size--sm); line-height: var(--line-height--xl); }
 .management-fields { display: grid; gap: var(--spacing--sm); }
 .management-fields[hidden] { display: none; }
@@ -376,12 +376,23 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .removed-instances { margin-top: var(--spacing--lg); border: 1px solid var(--border); border-radius: var(--radius--xs); padding: var(--spacing--sm); }
 .removed-instances > summary { display: flex; align-items: center; gap: var(--spacing--2xs); font-size: var(--font-size--sm); list-style: none; }.removed-instances > summary::before { content: '›'; }.removed-instances[open] > summary::before { transform: rotate(90deg); }.removed-instances > .field-hint { margin: var(--spacing--sm) 0; }
 @media (max-width: 700px) { .workspace-title { align-items: center; }.page-actions { width: 100%; justify-content: space-between; }.portal-navigation { flex-wrap: wrap; overflow-x: visible; }.data-table { min-width: 800px; }.management-dialog input, .management-dialog select, .management-dialog textarea { font-size: var(--font-size--md); }.dialog-actions > button { flex: 1; } }
-/* Keep native React overlays legible alongside the design-system reset. */
+/* Keep native React overlays legible alongside the design-system reset.
+   Unlayered `div { background: 0 0 }` from @n8n/design-system beats Tailwind's
+   layered `bg-*` utilities, so floating surfaces need an unlayered opaque fill
+   (and/or `!bg-*`) plus border, shadow, and z-index above page chrome. */
 .portal-dialog-overlay { background: rgb(0 0 0 / 40%); }
-.portal-popover { padding: var(--spacing--sm); background: var(--portal-surface); color: var(--portal-text); border: 1px solid var(--border); border-radius: var(--radius--xs); box-shadow: 0 8px 24px #0002; font-size: var(--font-size--sm); }
+.portal-popover {
+  padding: var(--spacing--sm);
+  background: var(--portal-surface);
+  color: var(--portal-text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius--xs);
+  box-shadow: 0 8px 24px #0002;
+  font-size: var(--font-size--sm);
+  overflow-wrap: anywhere;
+}
 .portal-popover.action-menu { padding: var(--spacing--4xs); }
-.management-dialog { padding: var(--spacing--lg); display: grid; gap: var(--spacing--sm); box-shadow: 0 16px 64px #0003; }
-.management-dialog h2 { font-weight: var(--font-weight--bold); }
+.management-dialog { padding: var(--spacing--lg); display: grid; gap: var(--spacing--sm); }
 
 /* Button contract measured against https://storybook.n8n.io/?path=/story/core-button--variants
    Current Storybook uses neutral solid pills; published DS 2.43.3 still ships
@@ -475,12 +486,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .period-bar > span { background: var(--color--neutral-500, var(--portal-caption)); }
 .contact-hint { appearance: none; background: transparent; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; text-align: left; cursor: help; }
 .contact-hint > strong { border-bottom: 1px dotted var(--portal-text); }
-.contact-hint-card { width: 260px; font-size: var(--font-size--sm); display: grid; gap: var(--spacing--xs); }
+.contact-hint-card {
+  width: min(280px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  font-size: var(--font-size--sm);
+  display: grid;
+  gap: var(--spacing--xs);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
 .contact-hint-card .text-link { display: inline-block; }
 .subscription-tabs { display: flex; gap: var(--spacing--lg); margin-bottom: var(--spacing--lg); border-bottom: 1px solid var(--border); }
 .subscription-tab { appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: var(--spacing--2xs) 0; font: inherit; font-size: var(--font-size--md); font-weight: var(--font-weight--medium); color: var(--portal-text); cursor: pointer; }
 .subscription-tab.is-active { border-bottom-color: var(--portal-text); }
-.contact-topic-menu { z-index: 100; background: var(--portal-surface); }
+.contact-topic-menu { z-index: 100; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
 .subscription-facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing--lg); padding: var(--spacing--sm) var(--spacing--lg) var(--spacing--lg); border-top: 1px solid var(--border); }
 .subscription-facts.detail-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; padding-top: var(--spacing--lg); }
 .subscription-facts dt { font-size: var(--font-size--sm); color: var(--portal-secondary); margin-bottom: var(--spacing--4xs); }

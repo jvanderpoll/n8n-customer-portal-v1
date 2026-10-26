@@ -2,10 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Check, ChevronRight, CircleAlert, KeyRound } from "lucide-react";
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { usePersona } from "./portal-shell";
-import { Help } from "./portal-shared";
-import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "./ui/hover-card";
 import { NOW, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { isReporting, licensesFor, quotaColor, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt, timestamp } from "@/lib/portal-format";
@@ -26,34 +23,7 @@ export function Crumb({ children }: { children: React.ReactNode }) {
 }
 
 export function LastUpdate({ persona }: { persona: Persona }) {
-  return <span className="update-label">Last update {ago(persona.usageUpdated)}<Help label="About usage updates">Last update: {timestamp(persona.usageUpdated)}. Instances report usage roughly every 24 hours. Illustrative sample data.</Help></span>;
-}
-
-function ContactHint({
-  subscription,
-  topic,
-  sentence,
-  children,
-}: {
-  subscription: Subscription;
-  topic: "quota" | "renewal";
-  sentence: string;
-  children: React.ReactNode;
-}) {
-  const persona = usePersona();
-  return (
-    <HoverCard openDelay={120} closeDelay={280}>
-      <HoverCardTrigger asChild>
-        <button type="button" className="contact-hint">{children}</button>
-      </HoverCardTrigger>
-      <HoverCardContent className="contact-hint-card" side="top" align="start">
-        <p>{sentence}</p>
-        <Link className="text-link" to="/contact" search={{ topic, subscription: subscription.id }}>
-          Contact {persona.csm}
-        </Link>
-      </HoverCardContent>
-    </HoverCard>
-  );
+  return <span className="update-label">Last update {ago(persona.usageUpdated)}</span>;
 }
 
 function Requirements({ subscription }: { subscription: Subscription }) {
@@ -67,12 +37,8 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
   const { summary, period } = view;
   const running = view.status === "Running";
   const fill = running ? quotaColor(summary.pct) : "var(--color--neutral-400, var(--portal-caption))";
-  const quotaSentence = view.quotaPrompt === "over"
-    ? `${fmt(-summary.remaining)} executions over quota. Talk to your CSM about your options.`
-    : `${percent(summary.pct)} of your quota is used. Talk to your CSM before you reach it.`;
-  const renewalSentence = view.daysToRenewal != null
-    ? `Renewal in ${plural(view.daysToRenewal, "day")}. Talk to your CSM about your renewal.`
-    : "Talk to your CSM about your renewal.";
+  const contactTopic = view.quotaPrompt ? "quota" : view.renewalPrompt ? "renewal" : null;
+  const timePct = Math.min(1, Math.max(0, period.pct));
   const leadDate = running
     ? sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`
     : `Ended ${date(sub.end)}`;
@@ -87,42 +53,26 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       </div>
       <div className="lead-date">
         <span className={`status-badge${running ? "" : " neutral-badge"}`}>{running && <Check size={12} />}{view.status}</span>
-        {view.renewalPrompt ? (
-          <ContactHint subscription={sub} topic="renewal" sentence={renewalSentence}>
-            <strong>{leadDate}</strong>
-          </ContactHint>
-        ) : (
-          <strong>{leadDate}</strong>
-        )}
+        <strong>{leadDate}</strong>
       </div>
     </div>
-    <div className="usage-figures">
-      <div className="usage-figure">
-        <span className="metric-label">Quota used</span>
-        {view.quotaPrompt ? (
-          <ContactHint subscription={sub} topic="quota" sentence={quotaSentence}>
-            <strong>{percent(summary.pct)}</strong>
-          </ContactHint>
-        ) : (
-          <strong>{percent(summary.pct)}</strong>
-        )}
-        <div className="quota-bar" role="progressbar" aria-label="Quota used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(summary.pct * 100)}>
-          <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: fill }} />
-        </div>
-        <span className="metric-note">{fmt(summary.used)} of {fmt(sub.quota)} executions</span>
+    <div className="usage-meter">
+      <div className="usage-meter-head">
+        <strong>{percent(summary.pct)}</strong>
+        <span>of quota used · {fmt(summary.used)} of {fmt(sub.quota)} executions</span>
+        {contactTopic && <Link className="text-link usage-contact" to="/contact" search={{ topic: contactTopic, subscription: sub.id }}>Contact {persona.csm}</Link>}
       </div>
-      <div className="usage-figure">
-        <span className="metric-label">Period gone</span>
-        <strong>{percent(period.pct)}</strong>
-        <div className="quota-bar period-bar" role="progressbar" aria-label="Period gone" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(period.pct * 100)}>
-          <span style={{ width: `${Math.min(100, period.pct * 100)}%` }} />
-        </div>
-        <span className="metric-note">{date(sub.start)} — {date(sub.end)}</span>
+      <div className="quota-bar" role="progressbar" aria-label="Quota used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(summary.pct * 100)}>
+        <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: fill }} />
+        <i className="time-marker" style={{ left: `${timePct * 100}%` }} aria-hidden="true" />
+      </div>
+      <div className="usage-meter-scale">
+        <span>{date(sub.start)}</span>
+        <span className="time-label" style={{ left: `${timePct * 100}%` }}>{running ? `${percent(timePct)} of period` : "Period ended"}</span>
+        <span>{date(sub.end)}</span>
       </div>
     </div>
     <dl className="subscription-facts">
-      <div><dt>Quota</dt><dd>{fmt(sub.quota)} executions</dd></div>
-      <div><dt>Executions used</dt><dd>{fmt(summary.used)}</dd></div>
       <div><dt>Period</dt><dd>{date(sub.start)} — {date(sub.end)}</dd></div>
       <div><dt>Time left</dt><dd>{running ? plural(period.daysLeft, "day") : "Ended"}</dd></div>
       <div><dt>Quota resets at renewal</dt><dd>{sub.quotaResetsAtRenewal ? "Yes" : "No"}</dd></div>
@@ -138,7 +88,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
 export function UsagePanel({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
   const { summary, status } = subscriptionView(persona, sub);
-  return <section className="workspace-panel chart-panel"><div className="panel-heading"><div><h2>Usage over time</h2><span className="supporting">Cumulative executions this period</span></div><Help label="How to read the usage chart">Illustrative history, aligned to the current total. The dashed line is the subscription quota. No future usage is projected.</Help></div><UsageChart subscription={sub} used={summary.used} ended={status === "Expired"} /></section>;
+  return <section className="workspace-panel chart-panel"><div className="panel-heading"><div><h2>Usage over time</h2><span className="supporting">Cumulative executions this period</span></div></div><UsageChart subscription={sub} used={summary.used} ended={status === "Expired"} /></section>;
 }
 
 function UsageChart({ subscription: sub, used, ended }: { subscription: Subscription; used: number; ended: boolean }) {
@@ -147,7 +97,7 @@ function UsageChart({ subscription: sub, used, ended }: { subscription: Subscrip
   const data: { time: number; used: number | null; quota: number }[] = Array.from({ length: 13 }, (_, i) => ({ time: start + (now - start) * i / 12, used: Math.round(used * (0.68 * (i / 12) ** 1.5 + 0.32 * (i / 12))), quota: sub.quota }));
   if (now < end) data.push({ time: end, used: null, quota: sub.quota });
   const ceiling = Math.max(used, sub.quota, 1) * 1.13;
-  return <><div className="chart-legend"><span><i />Executions</span><span><i className="legend-quota" />Quota · {short(sub.quota)}</span></div><div className="usage-chart" role="img" aria-label={`Executions: ${fmt(used)}${ended ? ` at the end of the period` : ` as of ${date(NOW)}`}, quota ${fmt(sub.quota)}`}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={data} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}><defs><linearGradient id="usage-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color--orange-700)" stopOpacity={0.18} /><stop offset="100%" stopColor="var(--color--orange-700)" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid stroke="var(--border)" vertical={false} /><XAxis type="number" dataKey="time" domain={[start, end]} ticks={ticks} tickFormatter={(v: number) => new Date(v).toLocaleDateString("en-GB", { month: "short", day: "numeric", timeZone: "UTC" })} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} minTickGap={24} /><YAxis domain={[0, ceiling]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} /><Tooltip labelFormatter={(v) => date(new Date(Number(v)).toISOString())} formatter={(v, name) => [fmt(Number(v)), name === "used" ? "Executions" : "Quota"]} contentStyle={{ borderRadius: 8, borderColor: "var(--border)", color: "var(--portal-text)", fontSize: 14 }} /><Line type="linear" dataKey="quota" stroke="var(--portal-caption)" strokeDasharray="5 5" strokeWidth={1.25} dot={false} isAnimationActive={false} /><Area type="monotone" dataKey="used" stroke="var(--color--orange-700)" strokeWidth={2.5} fill="url(#usage-fill)" activeDot={{ r: 4, stroke: "white", strokeWidth: 2 }} isAnimationActive={false} connectNulls={false} /></ComposedChart></ResponsiveContainer></div></>;
+  return <><div className="chart-legend"><span><i />Executions</span><span><i className="legend-quota" />Quota · {short(sub.quota)}</span></div><div className="usage-chart" role="img" aria-label={`Executions: ${fmt(used)}${ended ? ` at the end of the period` : ` as of ${date(NOW)}`}, quota ${fmt(sub.quota)}`}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={data} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}><defs><linearGradient id="usage-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color--orange-700)" stopOpacity={0.18} /><stop offset="100%" stopColor="var(--color--orange-700)" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid stroke="var(--border)" vertical={false} /><XAxis type="number" dataKey="time" domain={[start, end]} ticks={ticks} tickFormatter={(v: number) => new Date(v).toLocaleDateString("en-GB", { month: "short", day: "numeric", timeZone: "UTC" })} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} minTickGap={24} /><YAxis domain={[0, ceiling]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} /><Tooltip labelFormatter={(v) => date(new Date(Number(v)).toISOString())} formatter={(v, name) => [fmt(Number(v)), name === "used" ? "Executions" : "Quota"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }} /><Line type="linear" dataKey="quota" stroke="var(--portal-caption)" strokeDasharray="5 5" strokeWidth={1.25} dot={false} isAnimationActive={false} /><Area type="monotone" dataKey="used" stroke="var(--color--orange-700)" strokeWidth={2.5} fill="url(#usage-fill)" activeDot={{ r: 4, stroke: "white", strokeWidth: 2 }} isAnimationActive={false} connectNulls={false} /></ComposedChart></ResponsiveContainer></div></>;
 }
 
 type LicenseRow = ReturnType<typeof licensesFor>[number];
