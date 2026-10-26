@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
@@ -6,6 +7,7 @@ import { fmt, portalHead } from "@/lib/portal-format";
 import { RequestLicenses, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/subscriptions")({
   // Static hosts cannot render every query-string variant ahead of time.
@@ -18,16 +20,28 @@ export const Route = createFileRoute("/subscriptions")({
 function Subscriptions() {
   const persona = usePersona();
   const search = Route.useSearch();
+  const [tab, setTab] = useState<"running" | "expired">("running");
   const sub = persona.subscriptions.find((s) => s.id === search.subscription);
   if (sub) {
     const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
     return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
   }
   const { running, expired } = runningFirst(persona);
+  const list = tab === "running" ? running : expired;
   return <>
     <WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><LastUpdate persona={persona} /><RequestLicenses /></div>} />
-    <div className="agreement-list">{running.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}</div>
-    {expired.length > 0 && <><h2 className="section-heading">Expired</h2><div className="agreement-list">{expired.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}</div></>}
+    <div className="subscription-tabs" role="tablist" aria-label="Subscription status">
+      <button type="button" role="tab" aria-selected={tab === "running"} className={cn("subscription-tab", tab === "running" && "is-active")} onClick={() => setTab("running")}>
+        Running ({running.length})
+      </button>
+      <button type="button" role="tab" aria-selected={tab === "expired"} className={cn("subscription-tab", tab === "expired" && "is-active")} onClick={() => setTab("expired")}>
+        Expired ({expired.length})
+      </button>
+    </div>
+    <div className="agreement-list">
+      {list.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}
+      {!list.length && <p className="panel-empty">{tab === "running" ? "No running subscriptions." : "No expired subscriptions."}</p>}
+    </div>
     <OrderRequests />
   </>;
 }
@@ -53,7 +67,7 @@ function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscri
     <section className="workspace-panel">
       <dl className="subscription-facts detail-facts">
         <div><dt>License reference</dt><dd className="mono-text">{license.id}</dd></div>
-        <div><dt>Subscription</dt><dd><Link className="table-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
+        <div><dt>Subscription</dt><dd><Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
         <div><dt>Environment</dt><dd>{license.environment}</dd></div>
         <div><dt>Status</dt><dd>{license.status}</dd></div>
         <div><dt>Executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
@@ -61,7 +75,7 @@ function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscri
       </dl>
       <p className="contract-note">This license has no quota of its own. Its executions count toward the {sub.name} quota.</p>
     </section>
-    <section className="workspace-panel"><div className="panel-heading"><h2>Covered instances <span className="count-pill">{license.instances.length}</span></h2></div><InstanceList instances={license.instances} /></section>
+    <section className="workspace-panel"><div className="panel-heading"><h2>Covered instances ({license.instances.length})</h2></div><InstanceList instances={license.instances} /></section>
     </div>
   </>;
 }

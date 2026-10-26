@@ -10,15 +10,17 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 - Say quota, not allowance.
 - Running and expired subscriptions share the same fields. Running leads with the renewal date. Expired leads with the end date.
 - Each running subscription shows: quota, executions used, percent of quota used, period start and end, time left, and whether the quota resets at renewal.
-- Two figures side by side: percent of quota used, and percent of the period gone.
-- Color is on percent of quota used only. Green through 70. Then a continuous shift through yellow and orange to red at 100. Above 100 stays red. Percent of the period gone is a plain number. The yellow band begins by 80% and orange by 90%.
+- Two figures side by side: percent of quota used, and percent of the period gone — each with a progress bar of the same size. Color is on the quota bar only (green through 70, then yellow, orange, red). The period bar is plain neutral grey.
 - The usage-over-time chart stays.
 - Instance actions, license actions, license requests, users, and contact stay, on their own screens, off the subscription view.
 - The subscription shows "N instances reporting."
 - The instance drill-down is a plain list: name, license, executions, reporting status. No actions on that list.
 - Do not invent policies, instance caps, or friendly instance names. If a subscription has no policy in the data, leave that line out.
-- Sidebar: no company info box, no sample-data caption, no role switcher. Bottom-left avatar (signed-in initials) opens a menu with Message CSM (/contact) and Give feedback (local draft download only).
-- Tables: every data table has a working client-side CSV export of the rows currently shown. Instances table sorts name / executions / last report via URL search params (default usage descending). Customizable columns (show/hide, reorder) remain later. No expandable rows.
+- Sidebar: no company info box, no sample-data caption, no role switcher. Bottom-left avatar (signed-in initials) opens a menu with Message CSM (/contact), Give feedback (local draft download only), and Log out (navigates to /; no auth).
+- Subscriptions list uses Running (n) / Expired (n) tabs (Running default); black text with underline on the active tab. Expired cards are muted (grey text, grey quota bar, neutral badge).
+- Counts live in headings ("Instances (40)", "People with access (2)", …). No separate count text or count pills.
+- One shared DataTable for every portal table: search, column-header sort, filters behind one filter-icon popover, CSV of the rows currently shown. Table text is black with no link styling; the whole row navigates; the row menu does not. Text hyperlinks elsewhere are black with underline. No orange filled icon tiles or extra colored chips; buttons stay on the shared Button primitive.
+- No user-facing prototype disclaimers. Scenario switcher stays without an explanatory paragraph.
 
 ### Model
 
@@ -46,11 +48,9 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 ### Contact
 
 - Entry points to contact the CSM.
-- A CTA when quota is high or over quota: contact your CSM.
-- A CTA when renewal needs attention: contact your CSM.
-- These sit on the subscription view, next to the situation that triggered them.
+- When quota is high or over, the Quota used figure gets a dotted underline and a hover card (short sentence + Contact CSM link with topic=quota). When renewal needs attention, the renewal date gets the same pattern with topic=renewal. No orange banners. No tooltip when status is fine. The card stays open while the pointer moves onto the link.
 - Contact stays a real screen too, but the entry points are the point.
-- Sidebar avatar also links to Message CSM and Give feedback. Feedback and contact create local drafts only; nothing is sent.
+- Sidebar avatar also links to Message CSM, Give feedback, and Log out. Feedback and contact create local drafts only; nothing is sent.
 
 ### Granularity
 
@@ -98,3 +98,4 @@ The diagram says Purchase; the entity model says Subscription. The tree wins for
 - 2026-10-26: executed the happy path. Overview, Subscriptions with subscription and license drill-downs, Instances with instance details, Users with read/write and scope, Contact n8n with CSM entry points. Quota is high above 70%; renewal needs attention within 60 days.
 - 2026-10-26: screen label settled as Subscription; single system-admin role superseding read/write and per-subscription scope; sidebar reduced to a bottom-left avatar menu (message CSM, give feedback) with the sample-data caption removed; tables carry a working CSV export and the instances table sorts via the URL; customizable columns remain later.
 - 2026-10-26: instance detail shows billable executions, share of the subscription, key type, and the subscription quota they count toward. No per-instance price, because the docs don't define one.
+- 2026-10-26: visual pass — quota/renewal hover cards replace orange CSM banners; plain grey icons; grey period bar; black underlined text links and black table rows; counts in headings; shared DataTable with search/sort/filter/CSV; Running/Expired tabs; muted expired cards; prototype disclaimers removed; avatar Log out; Access remains a single system admin.

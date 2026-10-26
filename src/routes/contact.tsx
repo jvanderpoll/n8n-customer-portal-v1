@@ -71,14 +71,13 @@ function Contact() {
     </section>
     <section className="workspace-panel contact-panel">
       <h2 className="flex items-center gap-2 font-semibold"><Mail className="size-4" />Message your CSM</h2>
-      <p className="mt-2 muted-text">Prototype: download a draft only. No message is sent.</p>
       <form onSubmit={downloadDraft} className="mt-5 max-w-2xl space-y-4">
-        <div><span className="mb-1.5 block text-sm font-medium">Topic</span><Select value={topic} onValueChange={(value) => { setTopic(value as Topic); setDownloaded(false); }}><SelectTrigger aria-label="Enquiry topic"><SelectValue /></SelectTrigger><SelectContent>{topics.map((item) => <SelectItem value={item.id} key={item.id}>{item.label}</SelectItem>)}</SelectContent></Select></div>
+        <div><span className="mb-1.5 block text-sm font-medium">Topic</span><Select value={topic} onValueChange={(value) => { setTopic(value as Topic); setDownloaded(false); }}><SelectTrigger aria-label="Enquiry topic"><SelectValue /></SelectTrigger><SelectContent className="contact-topic-menu">{topics.map((item) => <SelectItem value={item.id} key={item.id}>{item.label}</SelectItem>)}</SelectContent></Select></div>
         {linkedSubscription && <p className="muted-text">Subscription: <span className="font-medium text-foreground">{linkedSubscription.name}</span></p>}
         {linkedInstance && <p className="muted-text">Instance: <span className="font-mono text-foreground">{linkedInstance.name}</span> · {linkedInstance.license}</p>}
         <div><label htmlFor="enquiry-message" className="mb-1.5 block text-sm font-medium">Message</label><Textarea id="enquiry-message" required rows={6} value={message} onChange={(e) => { setMessage(e.target.value); setDownloaded(false); }} placeholder="Your question" className="resize-y" /></div>
         <Button type="submit" disabled={!message.trim()}><Download />Download draft</Button>
-        {downloaded && <p role="status" className="muted-text">Draft downloaded. No message was sent.</p>}
+        {downloaded && <p role="status" className="muted-text">Draft downloaded.</p>}
       </form>
     </section>
   </>;

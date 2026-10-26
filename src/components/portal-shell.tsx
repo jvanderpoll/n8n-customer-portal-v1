@@ -61,7 +61,7 @@ function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: bool
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) { setMessage(""); setDownloaded(false); } }}>
       <DialogContent className="management-dialog">
         <DialogTitle>Give feedback</DialogTitle>
-        <DialogDescription>Prototype only. Your note downloads as a local draft. Nothing is sent.</DialogDescription>
+        <DialogDescription>Write your feedback and download a draft to share with n8n.</DialogDescription>
         <form onSubmit={submit}>
           <div className="management-fields">
             <label>
@@ -80,7 +80,7 @@ function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: bool
             <Button type="button" variant="outline" size="lg" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" size="lg" disabled={!message.trim()}>Download draft</Button>
           </div>
-          {downloaded && <p role="status" className="demo-disclaimer">Draft downloaded. No message was sent.</p>}
+          {downloaded && <p role="status" className="muted-text">Draft downloaded.</p>}
         </form>
       </DialogContent>
     </Dialog>
@@ -124,6 +124,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
                   <Link to="/contact">Message {persona.csm}</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Give feedback</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { void navigate({ to: "/" }); }}>Log out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

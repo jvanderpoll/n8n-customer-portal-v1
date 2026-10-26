@@ -16,6 +16,6 @@ function Overview() {
   return <>
     <WorkspaceTitle title="Overview" trailing={<LastUpdate persona={persona} />} />
     <div className="agreement-list">{running.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}</div>
-    {expired.length > 0 && <p className="overview-footnote">{expired.length} expired {expired.length === 1 ? "subscription" : "subscriptions"}. <Link to="/subscriptions" className="quiet-link">All subscriptions <ArrowUpRight size={14} /></Link></p>}
+    {expired.length > 0 && <p className="overview-footnote">{expired.length} expired {expired.length === 1 ? "subscription" : "subscriptions"}. <Link to="/subscriptions" className="text-link quiet-link">All subscriptions <ArrowUpRight size={14} /></Link></p>}
   </>;
 }

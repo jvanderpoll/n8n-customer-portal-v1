@@ -24,7 +24,7 @@ import {
   type Member,
   type LicenseRequest,
 } from "@/lib/portal-management";
-import { CsvExport } from "./csv-export";
+import { DataTable, type DataColumn } from "./data-table";
 const value = (data: FormData, name: string) => String(data.get(name) ?? "");
 const newId = () => crypto.randomUUID();
 
@@ -145,10 +145,6 @@ function ActionDialog({
               {review && !draft ? "Review request" : submit}
             </Button>
           </div>
-          <p className="demo-disclaimer">
-            Prototype only · session changes. Nothing is sent, purchased, or
-            provisioned.
-          </p>
         </form>
       </DialogContent>
     </Dialog>
@@ -492,65 +488,60 @@ export function RequestLicenses({
 export function OrderRequests() {
   const { account, role } = useManagement();
   if (!account.orders.length) return null;
-  const rows = account.orders.map((o) => [
-    account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId,
-    `${o.quantity} ${o.environment.toLowerCase()} ${o.quantity === 1 ? "license" : "licenses"}${o.note ? ` — ${o.note}` : ""}`,
-    o.status,
-  ]);
+  const columns: DataColumn<LicenseRequest>[] = [
+    {
+      id: "subscription",
+      header: "Subscription",
+      accessor: (o) =>
+        account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId,
+      cell: (o) =>
+        account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId,
+    },
+    {
+      id: "request",
+      header: "Request",
+      accessor: (o) =>
+        `${o.quantity} ${o.environment.toLowerCase()} ${o.quantity === 1 ? "license" : "licenses"}${o.note ? ` — ${o.note}` : ""}`,
+      cell: (o) => (
+        <>
+          {o.quantity} {o.environment.toLowerCase()}{" "}
+          {o.quantity === 1 ? "license" : "licenses"}
+          {o.note && <small className="cell-caption">{o.note}</small>}
+        </>
+      ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      accessor: (o) => o.status,
+      cell: (o) => (
+        <span className={`status-badge ${o.status === "Cancelled" ? "neutral-badge" : "pending-badge"}`}>
+          {o.status}
+        </span>
+      ),
+    },
+  ];
   return (
     <section className="workspace-panel order-requests">
       <div className="panel-heading">
         <div>
-          <h2>
-            License requests{" "}
-            <span className="count-pill">{account.orders.length}</span>
-          </h2>
+          <h2>License requests ({account.orders.length})</h2>
           <span className="supporting">
             Pending requests do not change your active licenses or quota.
           </span>
         </div>
-        <CsvExport filename="license-requests.csv" headers={["Subscription", "Request", "Status"]} rows={rows} />
       </div>
-      <div className="table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Subscription</th>
-              <th>Request</th>
-              <th>Status</th>
-              {role === "admin" && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {account.orders.map((o) => (
-              <tr key={o.id}>
-                <td>
-                  {
-                    account.persona.subscriptions.find(
-                      (s) => s.id === o.subscriptionId,
-                    )?.name
-                  }
-                </td>
-                <td>
-                  {o.quantity} {o.environment.toLowerCase()}{" "}
-                  {o.quantity === 1 ? "license" : "licenses"}
-                  {o.note && <small className="cell-caption">{o.note}</small>}
-                </td>
-                <td>
-                  <span
-                    className={`status-badge ${o.status === "Cancelled" ? "neutral-badge" : "pending-badge"}`}
-                  >
-                    {o.status}
-                  </span>
-                </td>
-                {role === "admin" && (
-                  <td>{o.status === "Pending" && <CancelOrder order={o} />}</td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={account.orders}
+        rowKey={(o) => o.id}
+        searchPlaceholder="Search requests…"
+        csvFilename="license-requests.csv"
+        empty="No license requests."
+        {...(role === "admin"
+          ? { rowActions: (o: LicenseRequest) => (o.status === "Pending" ? <CancelOrder order={o} /> : null) }
+          : {})}
+      />
     </section>
   );
 }
@@ -625,11 +616,13 @@ export function RemovedInstances() {
   const [error, setError] = useState("");
   const rows = account.persona.instances.filter((i) => i.archived);
   if (!rows.length) return null;
+  const columns: DataColumn<(typeof rows)[number]>[] = [
+    { id: "name", header: "Instance", accessor: (i) => i.name, cell: (i) => i.name },
+    { id: "license", header: "License", accessor: (i) => i.license, cell: (i) => i.license },
+  ];
   return (
     <details className="removed-instances">
-      <summary>
-        Removed instances <span className="count-pill">{rows.length}</span>
-      </summary>
+      <summary>Removed instances ({rows.length})</summary>
       <p className="field-hint">
         Removed from inventory. Previously reported executions remain in
         subscription usage.
@@ -639,40 +632,27 @@ export function RemovedInstances() {
           {error}
         </p>
       )}
-      <div className="table-scroll">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Instance</th>
-              <th>License</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((i) => (
-              <tr key={i.id}>
-                <td>{i.name}</td>
-                <td>{i.license}</td>
-                <td>
-                  {role === "admin" && (
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={() =>
-                        setError(
-                          perform({ type: "restore-instance", id: i.id }) ?? "",
-                        )
-                      }
-                    >
-                      Restore {i.name}
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={columns}
+        rows={rows}
+        rowKey={(i) => i.id}
+        searchPlaceholder="Search removed instances…"
+        csvFilename="removed-instances.csv"
+        empty="No removed instances."
+        {...(role === "admin"
+          ? {
+              rowActions: (i: (typeof rows)[number]) => (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setError(perform({ type: "restore-instance", id: i.id }) ?? "")}
+                >
+                  Restore
+                </Button>
+              ),
+            }
+          : {})}
+      />
     </details>
   );
 }
