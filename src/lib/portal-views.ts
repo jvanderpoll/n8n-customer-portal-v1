@@ -15,6 +15,13 @@ export const defaultInstanceFilter: InstanceFilter = {
 
 export const isReporting = (i: Instance) => i.status === "reported" || i.status === "zero";
 
+/** Instance executions as a share of the subscription's used total. Null executions → em dash. */
+export function subscriptionShare(executions: number | null, subscriptionUsed: number): string {
+  if (executions === null) return "—";
+  if (subscriptionUsed <= 0) return "0%";
+  return `${Math.round((executions / subscriptionUsed) * 100)}%`;
+}
+
 export function filterInstances(persona: Persona, filter: InstanceFilter) {
   const query = filter.query.trim().toLowerCase();
   return persona.instances.filter((i) => {

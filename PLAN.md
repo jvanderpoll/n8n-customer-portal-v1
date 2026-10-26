@@ -97,3 +97,4 @@ The diagram says Purchase; the entity model says Subscription. The tree wins for
 - 2026-10-26: tree adopted from the design-brief flowchart. Not executed.
 - 2026-10-26: executed the happy path. Overview, Subscriptions with subscription and license drill-downs, Instances with instance details, Users with read/write and scope, Contact n8n with CSM entry points. Quota is high above 70%; renewal needs attention within 60 days.
 - 2026-10-26: screen label settled as Subscription; single system-admin role superseding read/write and per-subscription scope; sidebar reduced to a bottom-left avatar menu (message CSM, give feedback) with the sample-data caption removed; tables carry a working CSV export and the instances table sorts via the URL; customizable columns remain later.
+- 2026-10-26: instance detail shows billable executions, share of the subscription, key type, and the subscription quota they count toward. No per-instance price, because the docs don't define one.

@@ -7,8 +7,8 @@ import { CreateInstance, InstanceActions, RemovedInstances } from "@/components/
 import { Button } from "@/components/ui/button";
 import { activeInstances } from "@/lib/portal-management";
 import { date, fmt, portalHead, timestamp } from "@/lib/portal-format";
-import { defaultInstanceFilter, filterInstances, paginateInstances } from "@/lib/portal-views";
-import type { Instance } from "@/lib/portal-data";
+import { summarize, type Instance } from "@/lib/portal-data";
+import { defaultInstanceFilter, filterInstances, paginateInstances, subscriptionShare } from "@/lib/portal-views";
 
 const sortValues = ["usage", "name", "report"] as const;
 const searchSchema = z.object({
@@ -55,16 +55,21 @@ function Instances() {
         <div className="toolbar-spacer" />
         <CsvExport
           filename="instances.csv"
-          headers={["Instance", "Subscription", "License", "Environment", "Executions", "Last report", "Reporting status"]}
-          rows={page.rows.map((i) => [
-            i.name,
-            persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name ?? "",
-            persona.licenses.find((l) => l.id === i.license)?.label ?? i.license,
-            i.env,
-            i.executions === null ? "" : String(i.executions),
-            i.lastReport ?? "",
-            i.status,
-          ])}
+          headers={["Instance", "Subscription", "License", "Key type", "Executions", "% of subscription", "Last report", "Reporting status"]}
+          rows={page.rows.map((i) => {
+            const sub = persona.subscriptions.find((s) => s.id === i.subscriptionId);
+            const used = sub ? summarize(sub, persona.instances).used : 0;
+            return [
+              i.name,
+              sub?.name ?? "",
+              persona.licenses.find((l) => l.id === i.license)?.label ?? i.license,
+              persona.licenses.find((l) => l.id === i.license)?.environment ?? i.env,
+              i.executions === null ? "" : String(i.executions),
+              i.executions === null ? "" : subscriptionShare(i.executions, used),
+              i.lastReport ?? "",
+              i.status,
+            ];
+          })}
         />
       </div>
       <InstanceTable instances={page.rows} sort={sort} onSort={(next) => set({ sort: next === "usage" ? undefined : next })} />
@@ -112,27 +117,49 @@ function InstanceTable({
     <SortHeader label="Instance" field="name" sort={sort} onSort={onSort} />
     <th>Subscription</th>
     <th>License</th>
-    <th>Environment</th>
+    <th>Key type</th>
     <SortHeader label="Executions" field="usage" sort={sort} onSort={onSort} className="numeric" />
+    <th className="numeric">% of subscription</th>
     <SortHeader label="Last report" field="report" sort={sort} onSort={onSort} />
     <th>Reporting status</th>
     <th><span className="sr-only">Actions</span></th>
-  </tr></thead><tbody>{instances.map((i) => <tr key={i.id}><td><Link className="table-link" to="/instances" search={{ instance: i.id }}>{i.name}</Link></td><td>{persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name}</td><td><span className="license-name">{persona.licenses.find((l) => l.id === i.license)?.label ?? i.license}</span></td><td>{i.env}</td><td className="numeric">{i.executions === null ? "—" : fmt(i.executions)}</td><td>{i.lastReport ? timestamp(i.lastReport) : "—"}</td><td><ReportingStatus instance={i} /></td><td><InstanceActions instance={i} /></td></tr>)}{!instances.length && <tr><td colSpan={8} className="empty-table">No instances match your filters.</td></tr>}</tbody></table></div>;
+  </tr></thead><tbody>{instances.map((i) => {
+    const sub = persona.subscriptions.find((s) => s.id === i.subscriptionId);
+    const license = persona.licenses.find((l) => l.id === i.license);
+    const used = sub ? summarize(sub, persona.instances).used : 0;
+    return <tr key={i.id}>
+      <td><Link className="table-link" to="/instances" search={{ instance: i.id }}>{i.name}</Link></td>
+      <td>{sub?.name}</td>
+      <td><span className="license-name">{license?.label ?? i.license}</span></td>
+      <td>{license?.environment ?? i.env}</td>
+      <td className="numeric">{i.executions === null ? "—" : fmt(i.executions)}</td>
+      <td className="numeric">{subscriptionShare(i.executions, used)}</td>
+      <td>{i.lastReport ? timestamp(i.lastReport) : "—"}</td>
+      <td><ReportingStatus instance={i} /></td>
+      <td><InstanceActions instance={i} /></td>
+    </tr>;
+  })}{!instances.length && <tr><td colSpan={9} className="empty-table">No instances match your filters.</td></tr>}</tbody></table></div>;
 }
 
 function InstanceDetail({ instance: i }: { instance: Instance }) {
   const persona = usePersona();
   const sub = persona.subscriptions.find((s) => s.id === i.subscriptionId);
   const license = persona.licenses.find((l) => l.id === i.license);
+  const summary = sub ? summarize(sub, persona.instances) : null;
   return <>
     <WorkspaceTitle title={i.name} crumbs={<Crumb><Link to="/instances">Instances</Link></Crumb>} trailing={i.archived ? <span className="status-badge neutral-badge">Removed</span> : <InstanceActions instance={i} />} />
     <section className="workspace-panel">
       <dl className="subscription-facts detail-facts">
-        <div><dt>Executions this period</dt><dd>{i.executions === null ? "No usage reported yet" : fmt(i.executions)}</dd></div>
+        <div><dt>Billable executions this period</dt><dd>{i.executions === null ? "No usage reported yet" : fmt(i.executions)}</dd></div>
+        <div><dt>Share of the subscription</dt><dd>{summary ? subscriptionShare(i.executions, summary.used) : "—"}</dd></div>
         <div><dt>Last report</dt><dd>{i.lastReport ? timestamp(i.lastReport) : "No report received"}</dd></div>
         <div><dt>Reporting status</dt><dd><ReportingStatus instance={i} /></dd></div>
         <div><dt>License</dt><dd>{sub && license ? <Link className="table-link" to="/subscriptions" search={{ subscription: sub.id, license: license.id }}>{license.label}</Link> : i.license}<small className="cell-caption mono-text">{i.license}</small></dd></div>
+        <div><dt>Key type</dt><dd>{license?.environment ?? i.env}</dd></div>
         <div><dt>Subscription</dt><dd>{sub ? <Link className="table-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : "—"}{sub && <small className="cell-caption">{date(sub.start)} — {date(sub.end)}</small>}</dd></div>
+        <div><dt>Subscription included quota</dt><dd>{sub ? `${fmt(sub.quota)} executions` : "—"}</dd></div>
+        <div><dt>Subscription executions used</dt><dd>{summary ? fmt(summary.used) : "—"}</dd></div>
+        <div><dt>Subscription remaining</dt><dd>{summary ? `${fmt(summary.remaining)} executions` : "—"}</dd></div>
         <div><dt>Environment</dt><dd>{i.env}</dd></div>
         <div><dt>Version</dt><dd>{i.version ?? "Not reported"}</dd></div>
       </dl>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { personas, type Persona } from "./portal-data";
-import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, memberFor, paginateInstances, quotaColor, runningFirst, subscriptionView } from "./portal-views";
+import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, memberFor, paginateInstances, quotaColor, runningFirst, subscriptionShare, subscriptionView } from "./portal-views";
 
 function persona(id: string): Persona {
   const result = personas.find((p) => p.id === id);
@@ -10,6 +10,11 @@ function persona(id: string): Persona {
 const hue = (color: string) => Number(color.match(/^hsl\((\d+)/)![1]);
 
 describe("read-only portal selectors", () => {
+  it("formats an instance's share of subscription used total", () => {
+    expect(subscriptionShare(null, 1_000_000)).toBe("—");
+    expect(subscriptionShare(250_000, 1_000_000)).toBe("25%");
+    expect(subscriptionShare(0, 0)).toBe("0%");
+  });
   it("filters instances by subscription and license", () => {
     const p = persona("full");
     expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(32);
