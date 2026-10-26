@@ -126,21 +126,24 @@ export function DataTable<T>({
               size="icon"
               className={cn("filter-icon-button", filtersActive && "is-active")}
               aria-label="Filters"
-              disabled={!filterContent}
             >
               <Filter size={16} />
             </Button>
           </PopoverTrigger>
-          {filterContent && (
-            <PopoverContent align="start" className="filter-popover">
-              <div className="filter-popover-fields">{filterContent}</div>
-              {filtersActive && onClearFilters && (
-                <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={onClearFilters}>
-                  <X size={14} />Clear filters
-                </Button>
-              )}
-            </PopoverContent>
-          )}
+          <PopoverContent align="start" className="filter-popover">
+            {filterContent ? (
+              <>
+                <div className="filter-popover-fields">{filterContent}</div>
+                {filtersActive && onClearFilters && (
+                  <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={onClearFilters}>
+                    <X size={14} />Clear filters
+                  </Button>
+                )}
+              </>
+            ) : (
+              <p className="muted-text">No filters on this list.</p>
+            )}
+          </PopoverContent>
         </Popover>
         {toolbarExtra}
         <div className="toolbar-spacer" />
