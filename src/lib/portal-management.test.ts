@@ -208,6 +208,7 @@ describe("session-only account management", () => {
       scope: ["s1"],
       invitedAt: NOW,
     });
+    expect(next.notice).toBe("");
     expect(timestamp(NOW)).toMatch(/UTC$/);
     expect(() =>
       applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com", role: "viewer", scope: "all" }, admin),

@@ -273,7 +273,6 @@ export function applyManagement(
         scope: normalizeScope(action.scope, p),
         invitedAt: NOW,
       });
-      next.notice = "Invitation added to this demo. No email has been sent.";
       break;
     }
     case "edit-member": {
