@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Layers3, KeyRound, Server, Users, RotateCcw, X, MessageCircle, Settings } from "lucide-react";
+import { LayoutDashboard, Layers3, Server, Users, RotateCcw, X, MessageCircle, Settings } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +48,6 @@ export function useManagement() { const value = useContext(ManagementContext); i
 const navigation = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
   { to: "/subscriptions", label: "Subscriptions", icon: Layers3 },
-  { to: "/licenses", label: "Licenses", icon: KeyRound },
   { to: "/instances", label: "Instances", icon: Server },
   { to: "/users", label: "Users", icon: Users },
 ] as const;

@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
-import { Crumb, InstanceList, LastUpdate, LicenseTable, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
+import { AllLicensesList, Crumb, InstanceList, LastUpdate, LicenseTable, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
 import { RequestLicenses, RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
@@ -33,10 +33,19 @@ function Subscriptions() {
     const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
     return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
   }
-  // Cross-purchase list lives at /licenses; keep this param as a redirect bridge.
+  // Cross-purchase licenses list: /subscriptions?section=licenses (no subscription id).
+  // Keep this on the subscriptions route — do not add a top-level /licenses nav item.
   // With a subscription id, the purchase-detail Licenses tab below still applies.
   if (search.section === "licenses") {
-    return <Navigate to="/licenses" />;
+    const { running } = runningFirst(persona);
+    return <>
+      <WorkspaceTitle
+        title="Licenses across purchases"
+        crumbs={<Crumb><Link to="/subscriptions">Subscriptions</Link></Crumb>}
+        trailing={<div className="page-actions"><LastUpdate persona={persona} />{running.length ? <RequestLicenses /> : null}</div>}
+      />
+      <AllLicensesList />
+    </>;
   }
   const { running, expired } = runningFirst(persona);
   const list = tab === "running" ? running : expired;
