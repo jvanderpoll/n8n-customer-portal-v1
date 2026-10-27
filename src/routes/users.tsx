@@ -1,119 +1,72 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useManagement } from "@/components/portal-shell";
-import { WorkspaceTitle } from "@/components/portal-workspace";
+import { DataTable, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
 import { InviteUser, MemberActions } from "@/components/portal-management";
 import { portalHead } from "@/lib/portal-format";
+import type { Member } from "@/lib/portal-management";
+
 export const Route = createFileRoute("/users")({
-  ssr: import.meta.env.BASE_URL === "/",
-  head: () =>
-    portalHead(
-      "Users & access",
-      "Manage customer-account membership and invitations.",
-    ),
+  head: () => portalHead("Users", "People with access to this customer portal."),
   component: Users,
 });
+
 function Users() {
-  const { account, role } = useManagement();
-  const active = account.members.filter((m) => m.status === "Active"),
-    pending = account.members.filter((m) => m.status === "Invited");
+  const { account } = useManagement();
+  const active = account.members.filter((m) => m.status === "Active");
+  const pending = account.members.filter((m) => m.status === "Invited");
+
+  const peopleColumns: DataColumn<Member>[] = [
+    {
+      id: "name",
+      header: "Name",
+      accessor: (m) => m.name,
+      cell: (m) => (
+        <>
+          <strong>{m.name}</strong>
+          {m.id === "self" && <span className="member-you">You</span>}
+        </>
+      ),
+      csv: (m) => m.name,
+    },
+    { id: "email", header: "Email", accessor: (m) => m.email, cell: (m) => m.email },
+  ];
+
+  const inviteColumns: DataColumn<Member>[] = [
+    { id: "name", header: "Name", accessor: (m) => m.name || "—", cell: (m) => m.name || "—", csv: (m) => m.name },
+    { id: "email", header: "Email", accessor: (m) => m.email, cell: (m) => m.email },
+  ];
+
   return (
     <>
-      <WorkspaceTitle title="Users & access" trailing={<InviteUser />} />
-      <p className="page-intro">
-        Account roles apply to this customer portal. Workflow and instance
-        permissions are managed separately in n8n.
-      </p>
+      <WorkspaceTitle title="Users" trailing={<InviteUser />} />
       <section className="workspace-panel">
         <div className="panel-heading">
-          <h2>
-            Members <span className="count-pill">{active.length}</span>
-          </h2>
+          <h2>People with access ({active.length})</h2>
         </div>
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Account role</th>
-                {role === "Admin" && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {active.map((m) => (
-                <tr key={m.id}>
-                  <td>
-                    <strong>{m.name || m.email}</strong>
-                    {m.id === "self" && (
-                      <span className="count-pill member-you">You</span>
-                    )}
-                    <small className="cell-caption">{m.email}</small>
-                  </td>
-                  <td>
-                    <strong>{m.role}</strong>
-                  </td>
-                  {role === "Admin" && (
-                    <td>
-                      {m.id === "self" ? (
-                        <span className="muted-text">
-                          Account administrator
-                        </span>
-                      ) : (
-                        <MemberActions member={m} />
-                      )}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          columns={peopleColumns}
+          rows={active}
+          rowKey={(m) => m.id}
+          searchPlaceholder="Search people…"
+          csvFilename="users.csv"
+          rowActions={(m) => <MemberActions member={m} />}
+          empty="No people with access."
+        />
       </section>
       <section className="workspace-panel invitations-panel">
         <div className="panel-heading">
-          <h2>
-            Pending invitations{" "}
-            <span className="count-pill">{pending.length}</span>
-          </h2>
+          <h2>Pending invites ({pending.length})</h2>
         </div>
-        {pending.length ? (
-          <div className="table-scroll">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>Account role</th>
-                  <th>Status</th>
-                  {role === "Admin" && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {pending.map((m) => (
-                  <tr key={m.id}>
-                    <td>{m.email}</td>
-                    <td>{m.role}</td>
-                    <td>
-                      <span className="status-badge pending-badge">
-                        Pending
-                      </span>
-                    </td>
-                    {role === "Admin" && (
-                      <td>
-                        <MemberActions member={m} />
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="panel-empty">No pending invitations.</p>
-        )}
+        <DataTable
+          columns={inviteColumns}
+          rows={pending}
+          rowKey={(m) => m.id}
+          searchPlaceholder="Search invites…"
+          csvFilename="pending-invites.csv"
+          rowActions={(m) => <MemberActions member={m} />}
+          empty="No pending invites."
+        />
       </section>
-      <p className="access-note">
-        Roles are proposed for this prototype. Invitations stay pending; no
-        email is sent. Your own administrator access is protected.
-      </p>
     </>
   );
 }

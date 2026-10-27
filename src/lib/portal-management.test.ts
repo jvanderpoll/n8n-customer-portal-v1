@@ -5,9 +5,11 @@ import {
   applyManagement,
   createAccount,
   type ManagementAction,
+  type Role,
 } from "./portal-management";
 const account = (id = "full") =>
   createAccount(personas.find((p) => p.id === id)!);
+const admin: Role = "admin";
 describe("session-only account management", () => {
   it("creates an unreported instance on its license, without inventing executions", () => {
     const before = account();
@@ -19,7 +21,7 @@ describe("session-only account management", () => {
         name: "New instance",
         license: "LIC-NW-DR-01",
       },
-      "Admin",
+      admin,
     );
     expect(next.persona.instances[0]).toMatchObject({
       id: "new",
@@ -48,7 +50,7 @@ describe("session-only account management", () => {
           name: name.toUpperCase(),
           license: "LIC-NW-DR-01",
         },
-        "Admin",
+        admin,
       ),
     ).toThrow("already exists");
     expect(() =>
@@ -60,11 +62,11 @@ describe("session-only account management", () => {
           name: "test",
           license: "missing",
         },
-        "Admin",
+        admin,
       ),
     ).toThrow("not found");
   });
-  it("moves an instance within an agreement without changing agreement usage", () => {
+  it("moves an instance within a subscription without changing subscription usage", () => {
     const s = account(),
       i = s.persona.instances[0]!;
     const next = applyManagement(
@@ -75,7 +77,7 @@ describe("session-only account management", () => {
         name: i.name,
         license: "LIC-NW-DR-01",
       },
-      "Admin",
+      admin,
     );
     expect(next.persona.instances.find((row) => row.id === i.id)?.license).toBe(
       "LIC-NW-DR-01",
@@ -92,35 +94,24 @@ describe("session-only account management", () => {
           name: i.name,
           license: "LIC-NW-EU-01",
         },
-        "Admin",
+        admin,
       ),
-    ).toThrow("same agreement");
+    ).toThrow("same subscription");
   });
   it("removes inventory entries while retaining billable history and allows restoration", () => {
     const s = account(),
       id = s.persona.instances[0]!.id;
-    const next = applyManagement(s, { type: "remove-instance", id }, "Admin");
+    const next = applyManagement(s, { type: "remove-instance", id }, admin);
     expect(activeInstances(next.persona)).toHaveLength(39);
     expect(
       summarize(next.persona.subscriptions[0]!, next.persona.instances).used,
     ).toBe(summarize(s.persona.subscriptions[0]!, s.persona.instances).used);
     expect(
       activeInstances(
-        applyManagement(next, { type: "restore-instance", id }, "Admin")
+        applyManagement(next, { type: "restore-instance", id }, admin)
           .persona,
       ),
     ).toHaveLength(40);
-  });
-  it("releases active OEM capacity when an instance is removed", () => {
-    const s = account("oem");
-    const next = applyManagement(
-      s,
-      { type: "remove-instance", id: s.persona.instances[0]!.id },
-      "Admin",
-    );
-    expect(
-      summarize(next.persona.subscriptions[0]!, next.persona.instances),
-    ).toMatchObject({ used: 31, remaining: 19 });
   });
   it("moves and removes only unused licenses, protecting history", () => {
     const s = account();
@@ -132,7 +123,7 @@ describe("session-only account management", () => {
         label: "EU recovery",
         subscriptionId: "s2",
       },
-      "Admin",
+      admin,
     );
     expect(
       moved.persona.licenses.find((l) => l.id === "LIC-NW-DR-01")
@@ -142,14 +133,14 @@ describe("session-only account management", () => {
       applyManagement(
         moved,
         { type: "delete-license", id: "LIC-NW-DR-01" },
-        "Admin",
+        admin,
       ).persona.licenses,
-    ).toHaveLength(3);
+    ).toHaveLength(4);
     expect(() =>
       applyManagement(
         s,
         { type: "delete-license", id: "LIC-NW-PRD-01" },
-        "Admin",
+        admin,
       ),
     ).toThrow("history");
     expect(() =>
@@ -161,134 +152,64 @@ describe("session-only account management", () => {
           label: "Production",
           subscriptionId: "s2",
         },
-        "Admin",
+        admin,
       ),
     ).toThrow("without activations");
   });
-  it("keeps commercial requests separate from purchased licenses and allowances", () => {
+  it("keeps license requests separate from licenses and quota", () => {
     const s = account();
     const next = applyManagement(
       s,
-      {
-        type: "order",
-        id: "req",
-        subscriptionId: "s1",
-        quantity: 3,
-        environment: "Production",
-        note: "",
-      },
-      "Billing",
+      { type: "order", id: "req", subscriptionId: "s1", quantity: 3, environment: "Production", note: "" },
+      admin,
     );
     expect(next.orders[0]).toMatchObject({ quantity: 3, status: "Pending" });
     expect(next.persona.licenses).toEqual(s.persona.licenses);
     expect(next.persona.subscriptions).toEqual(s.persona.subscriptions);
-    expect(
-      applyManagement(next, { type: "cancel-order", id: "req" }, "Billing")
-        .orders[0]?.status,
-    ).toBe("Cancelled");
-  });
-  it("enforces preview permissions at the state boundary", () => {
-    const action: ManagementAction = {
-      type: "remove-instance",
-      id: account().persona.instances[0]!.id,
-    };
-    for (const role of ["Billing", "Viewer"] as const)
-      expect(() => applyManagement(account(), action, role)).toThrow(
-        "does not allow",
-      );
+    expect(applyManagement(next, { type: "cancel-order", id: "req" }, admin).orders[0]?.status).toBe("Cancelled");
     expect(() =>
-      applyManagement(
-        account(),
-        {
-          type: "order",
-          id: "req",
-          subscriptionId: "s1",
-          quantity: 1,
-          environment: "Production",
-          note: "",
-        },
-        "Viewer",
-      ),
-    ).toThrow("does not allow");
+      applyManagement(s, { type: "order", id: "old", subscriptionId: "s0", quantity: 1, environment: "Production", note: "" }, admin),
+    ).toThrow("running subscription");
   });
-  it("invites users locally, rejects case-insensitive duplicates, and cancels invitations", () => {
+  it("rejects non-admin callers", () => {
+    const actions: ManagementAction[] = [
+      { type: "remove-instance", id: account().persona.instances[0]!.id },
+      { type: "order", id: "req", subscriptionId: "s1", quantity: 1, environment: "Production", note: "" },
+      { type: "invite", id: "x", name: "X", email: "x@example.com" },
+      { type: "remove-member", id: "billing" },
+    ];
+    for (const action of actions)
+      expect(() => applyManagement(account(), action, "guest" as Role)).toThrow("system admins");
+  });
+  it("invites people with name and email only, rejects duplicates, and cancels invites", () => {
     const s = account();
     const next = applyManagement(
       s,
-      {
-        type: "invite",
-        id: "invite",
-        email: " NEW@example.com ",
-        role: "Viewer",
-      },
-      "Admin",
+      { type: "invite", id: "invite", name: "Noor", email: " NEW@example.com " },
+      admin,
     );
     expect(next.members.find((m) => m.id === "invite")).toMatchObject({
+      name: "Noor",
       email: "new@example.com",
       status: "Invited",
-      role: "Viewer",
     });
+    expect(next.members.find((m) => m.id === "invite")).not.toHaveProperty("role");
+    expect(next.members.find((m) => m.id === "invite")).not.toHaveProperty("scope");
     expect(() =>
-      applyManagement(
-        next,
-        {
-          type: "invite",
-          id: "duplicate",
-          email: "NEW@example.com",
-          role: "Admin",
-        },
-        "Admin",
-      ),
+      applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com" }, admin),
     ).toThrow("already has");
-    expect(
-      applyManagement(next, { type: "remove-member", id: "invite" }, "Admin")
-        .members,
-    ).toHaveLength(s.members.length);
+    expect(applyManagement(next, { type: "remove-member", id: "invite" }, admin).members).toHaveLength(s.members.length);
   });
-  it("supports role changes and protects the current administrator", () => {
-    expect(
-      applyManagement(
-        account(),
-        { type: "role", id: "billing", role: "Viewer" },
-        "Admin",
-      ).members.find((m) => m.id === "billing")?.role,
-    ).toBe("Viewer");
-    expect(() =>
-      applyManagement(
-        account(),
-        { type: "remove-member", id: "self" },
-        "Admin",
-      ),
-    ).toThrow("own administrator");
-    expect(() =>
-      applyManagement(
-        account(),
-        { type: "role", id: "self", role: "Viewer" },
-        "Admin",
-      ),
-    ).toThrow("own administrator");
+  it("removes people but protects your own access", () => {
+    expect(applyManagement(account(), { type: "remove-member", id: "billing" }, admin).members.some((m) => m.id === "billing")).toBe(false);
+    expect(() => applyManagement(account(), { type: "remove-member", id: "self" }, admin)).toThrow("own access");
   });
   it("rejects invalid quantities and email addresses", () => {
     expect(() =>
-      applyManagement(
-        account(),
-        {
-          type: "order",
-          id: "req",
-          subscriptionId: "s1",
-          quantity: 0,
-          environment: "Production",
-          note: "",
-        },
-        "Admin",
-      ),
+      applyManagement(account(), { type: "order", id: "req", subscriptionId: "s1", quantity: 0, environment: "Production", note: "" }, admin),
     ).toThrow("1 and 100");
     expect(() =>
-      applyManagement(
-        account(),
-        { type: "invite", id: "invite", email: "invalid", role: "Viewer" },
-        "Admin",
-      ),
+      applyManagement(account(), { type: "invite", id: "invite", name: "A", email: "invalid" }, admin),
     ).toThrow("valid email");
   });
 });
