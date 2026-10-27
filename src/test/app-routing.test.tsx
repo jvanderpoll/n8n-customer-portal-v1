@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { routeTree } from "@/routeTree.gen";
 
-const portalScreens = ["/subscriptions", "/licenses", "/instances", "/users"] as const;
+const portalScreens = ["/subscriptions", "/instances", "/users"] as const;
 
 // Match routes without running loaders or rendering: loaders may need a server or
 // network the test run lacks, and jsdom never loads the stylesheets React waits on.
@@ -20,10 +20,10 @@ describe("App routing", () => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
     expect(router.matchRoutes(path).at(-1)?.routeId).toBe(path);
   });
-  it("exposes /licenses as a portal screen for the cross-purchase list", () => {
+  it("keeps cross-purchase licenses on /subscriptions, not a top-level /licenses route", () => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
-    expect(router.routesById["/licenses"]).toBeDefined();
-    expect(router.matchRoutes("/licenses").at(-1)?.routeId).toBe("/licenses");
+    expect(router.routesById["/licenses"]).toBeUndefined();
+    expect(router.matchRoutes("/subscriptions").at(-1)?.routeId).toBe("/subscriptions");
   });
   it("keeps /contact as a redirect stub, not a portal screen", () => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
