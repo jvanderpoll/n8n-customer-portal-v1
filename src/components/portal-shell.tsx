@@ -24,7 +24,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { personas, type Persona } from "@/lib/portal-data";
 import { applyManagement, createAccount, createEmptyAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const PersonaContext = createContext<Persona | null>(null);
 export function usePersona() {
@@ -109,32 +111,20 @@ function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: bool
 function ContactDialog({
   open,
   onOpenChange,
-  company,
-  user,
   csm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  company: string;
-  user: string;
   csm: string | null;
 }) {
   const [topic, setTopic] = useState<ContactTopic | "">("");
   const [message, setMessage] = useState("");
-  const [downloaded, setDownloaded] = useState(false);
-  const topicLabel = contactTopics.find((item) => item.id === topic)?.label ?? "";
-  const reset = () => { setTopic(""); setMessage(""); setDownloaded(false); };
+  const reset = () => { setTopic(""); setMessage(""); };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!message.trim() || !topic || !topicLabel) return;
-    const text = ["n8n Admin Console · Prototype enquiry draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${contactRecipient(csm)}`, `Topic: ${topicLabel}`, "", message.trim(), ""].join("\n");
-    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = topic === "feedback" ? "n8n-feedback-draft.txt" : "n8n-enquiry-draft.txt";
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setDownloaded(true);
+    if (!message.trim() || !topic) return;
+    onOpenChange(false);
+    toast("Message sent");
   };
   return (
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset(); }}>
@@ -142,14 +132,14 @@ function ContactDialog({
         <DialogTitle>Contact n8n</DialogTitle>
         <DialogDescription>
           {csm
-            ? `Your message will be prepared for ${csm}, your customer success manager. Download a local draft — nothing is sent.`
-            : "No customer success manager is assigned to this account. Your message will be prepared for n8n support. Download a local draft — nothing is sent."}
+            ? `Your message will be sent to ${csm}, your customer success manager.`
+            : "No customer success manager is assigned to this account. Your message will be sent to n8n support."}
         </DialogDescription>
         <form onSubmit={submit}>
           <div className="management-fields">
             <label>
               Topic
-              <Select value={topic || undefined} onValueChange={(value) => { setTopic(value as ContactTopic); setDownloaded(false); }}>
+              <Select value={topic || undefined} onValueChange={(value) => setTopic(value as ContactTopic)}>
                 <SelectTrigger aria-label="Topic">
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
@@ -166,7 +156,7 @@ function ContactDialog({
                 required
                 rows={5}
                 value={message}
-                onChange={(e) => { setMessage(e.target.value); setDownloaded(false); }}
+                onChange={(e) => setMessage(e.target.value)}
                 placeholder="Your question"
                 className="resize-y"
               />
@@ -174,9 +164,8 @@ function ContactDialog({
           </div>
           <div className="dialog-actions">
             <Button type="button" variant="outline" size="lg" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" size="lg" disabled={!message.trim() || !topic}>Download draft</Button>
+            <Button type="submit" size="lg" disabled={!message.trim() || !topic}>Send message</Button>
           </div>
-          {downloaded && <p role="status" className="muted-text">Draft downloaded.</p>}
         </form>
       </DialogContent>
     </Dialog>
@@ -351,9 +340,8 @@ export function PortalShell({ children }: { children: ReactNode }) {
     <ContactDialog
       open={contactOpen}
       onOpenChange={setContactOpen}
-      company={persona.company}
-      user={persona.user}
       csm={persona.csm}
     />
+    <Toaster position="bottom-right" />
   </PersonaContext.Provider></ManagementContext.Provider>;
 }
