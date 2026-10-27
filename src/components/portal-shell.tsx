@@ -327,10 +327,10 @@ export function PortalShell({ children }: { children: ReactNode }) {
           <div className="sidebar-account-block">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" className="sidebar-account" aria-label={`${userName} account menu`}>
+                <button type="button" className="sidebar-account" aria-label={`${userName} account menu`}>
                   <span className="sidebar-avatar" aria-hidden="true">{initials}</span>
                   <span className="sidebar-account-name">{userName}</span>
-                </Button>
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" side="top" className="sidebar-user-menu">
                 <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Give feedback</DropdownMenuItem>
