@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { periodProgress, personas, subscriptionStatus, summarize } from "./portal-data";
+import {
+  NORTHWIND_ANNUAL_QUOTA,
+  NORTHWIND_TERM_EXECUTIONS,
+  periodProgress,
+  personas,
+  placeholderMonthlyExecutionsNorthwind,
+  subscriptionStatus,
+  summarize,
+} from "./portal-data";
 
 const p = (id: string) => personas.find((x) => x.id === id)!;
 
@@ -12,25 +20,29 @@ describe("subscription summary", () => {
   });
   it("usage sums the subscription's instances only", () => {
     const per = p("full");
-    expect(summarize(per.subscriptions[0]!, per.instances).used).toBe(per.instances.filter((i) => i.subscriptionId === "s1").reduce((sum, i) => sum + (i.executions ?? 0), 0));
+    expect(summarize(per.subscriptions[0]!, per.instances).used).toBe(
+      per.instances.filter((i) => i.subscriptionId === "s1").reduce((sum, i) => sum + (i.executions ?? 0), 0),
+    );
+  });
+  it("Northwind term executions and instances match the anonymized client summary", () => {
+    const per = p("full");
+    const sub = per.subscriptions[0]!;
+    expect(sub.quota).toBe(NORTHWIND_ANNUAL_QUOTA);
+    expect(summarize(sub, per.instances).used).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(Math.round((NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA) * 1000) / 10).toBe(3.7);
+    expect(per.instances).toHaveLength(52);
+    expect(per.licenses).toHaveLength(5);
+    expect(per.instances.every((i) => i.version === undefined)).toBe(true);
+    expect(placeholderMonthlyExecutionsNorthwind().reduce((a, b) => a + b, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
   });
   it("counts reporting instances", () => {
     const per = p("full");
-    expect(summarize(per.subscriptions[1]!, per.instances).reportingCount).toBe(8);
+    expect(summarize(per.subscriptions[0]!, per.instances).reportingCount).toBe(52);
   });
-  it("expired subscriptions keep their final reported total", () => {
-    const per = p("full");
-    const expired = per.subscriptions.find((s) => s.id === "s0")!;
-    expect(subscriptionStatus(expired)).toBe("Expired");
-    expect(summarize(expired, per.instances)).toMatchObject({ used: 4_412_870, reportingCount: 0 });
-  });
-  it("period progress treats the end date as inclusive", () => {
+  it("period progress treats the end date as inclusive and uses billingAsOf for Northwind", () => {
     const sub = p("full").subscriptions[0]!;
     expect(subscriptionStatus(sub)).toBe("Running");
-    expect(periodProgress(sub).daysLeft).toBe(10);
-    expect(periodProgress(sub, "2026-11-01T00:00:00Z")).toEqual({ pct: 1, daysLeft: 0 });
-  });
-  it("full customer has 40 instances", () => {
-    expect(p("full").instances).toHaveLength(40);
+    expect(periodProgress(sub).daysLeft).toBe(90);
+    expect(periodProgress(sub, "2027-01-26T00:00:00Z")).toEqual({ pct: 1, daysLeft: 0 });
   });
 });

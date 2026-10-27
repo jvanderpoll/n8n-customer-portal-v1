@@ -88,7 +88,8 @@ export function subscriptionView(persona: Persona, sub: Subscription) {
   const status = subscriptionStatus(sub);
   const summary = summarize(sub, persona.instances);
   const period = status === "Expired" ? { pct: 1, daysLeft: 0 } : periodProgress(sub);
-  const daysToRenewal = sub.renewal ? Math.ceil((Date.parse(sub.renewal) - Date.parse(persona.usageUpdated)) / 86_400_000) : null;
+  const asOf = sub.billingAsOf ?? persona.usageUpdated;
+  const daysToRenewal = sub.renewal ? Math.ceil((Date.parse(sub.renewal) - Date.parse(asOf)) / 86_400_000) : null;
   return {
     status,
     summary,

@@ -26,6 +26,21 @@ export interface Subscription {
   finalExecutions?: number;
   // Contract restrictions. Leave undefined when the data has none.
   requirements?: string[];
+  /**
+   * Annual contract amount in EUR. When set, the summary shows it once and
+   * past-period Amount cells stay — (no invented monthly invoices).
+   */
+  annualAmountEur?: number;
+  /**
+   * Explicit executions per elapsed billing month. When set, pastPeriods and
+   * the overview chart use these instead of the fitted cumulative curve.
+   */
+  monthlyExecutions?: number[];
+  /**
+   * Prototype as-of for this subscription's billing story when it must differ
+   * from global NOW (see Northwind term comments below).
+   */
+  billingAsOf?: string;
 }
 
 export interface License {
@@ -78,7 +93,7 @@ export function summarize(sub: Subscription, instances: Instance[]): Subscriptio
   };
 }
 
-export function periodProgress(sub: Subscription, now = NOW) {
+export function periodProgress(sub: Subscription, now = sub.billingAsOf ?? NOW) {
   const start = Date.parse(sub.start), end = Date.parse(sub.end) + DAY, at = Date.parse(now);
   const pct = Math.max(0, Math.min(1, (at - start) / (end - start)));
   return { pct, daysLeft: Math.max(0, Math.ceil((end - at) / DAY)) };
@@ -92,13 +107,31 @@ function seeded(n: number) {
   return x - Math.floor(x);
 }
 
-function genInstances(subs: { id: string; license: string; env: Instance["env"]; count: number; target: number }[]): Instance[] {
+/** Split `target` across `count` weights so the integers sum exactly. */
+function splitExact(count: number, target: number, seedBase: number): number[] {
+  const weights = Array.from({ length: count }, (_, i) => 0.2 + seeded(seedBase + i * 7));
+  const total = weights.reduce((a, b) => a + b, 0);
+  const parts = weights.map((w) => Math.floor((target * w) / total));
+  let assigned = parts.reduce((a, b) => a + b, 0);
+  let i = 0;
+  while (assigned < target) {
+    parts[i % count]! += 1;
+    assigned += 1;
+    i += 1;
+  }
+  return parts;
+}
+
+function genInstances(
+  subs: { id: string; license: string; env: Instance["env"]; count: number; target: number }[],
+  options: { includeVersion?: boolean } = {},
+): Instance[] {
+  const includeVersion = options.includeVersion ?? true;
   const out: Instance[] = [];
   let k = 1;
   for (const s of subs) {
-    const weights = Array.from({ length: s.count }, (_, i) => 0.2 + seeded(k + i * 7));
-    const total = weights.reduce((a, b) => a + b, 0);
-    weights.forEach((w, i) => {
+    const parts = splitExact(s.count, s.target, k);
+    parts.forEach((executions, i) => {
       const team = teams[(k + i) % teams.length];
       out.push({
         id: `i${k}`,
@@ -107,9 +140,9 @@ function genInstances(subs: { id: string; license: string; env: Instance["env"];
         license: s.license,
         subscriptionId: s.id,
         status: "reported",
-        executions: Math.round((s.target * w) / total / 10) * 10,
+        executions,
         lastReport: hoursAgo(2 + Math.floor(seeded(k) * 20)),
-        version: k % 7 === 1 ? "2.12.1" : "2.13.0",
+        ...(includeVersion ? { version: k % 7 === 1 ? "2.12.1" : "2.13.0" } : {}),
       });
       k++;
     });
@@ -119,32 +152,67 @@ function genInstances(subs: { id: string; license: string; env: Instance["env"];
 
 const license = (id: string, subscriptionId: string, environment: Instance["env"], label: string, status: License["status"] = "Active"): License => ({ id, subscriptionId, environment, label, status });
 
+/**
+ * Placeholder monthly billable executions for Northwind's running term.
+ * Back-loaded (early months small, later larger). Sum = 87,603.
+ * A Hex table export will replace these values when available.
+ *
+ * Term story (documented): 26 Jan 2026 – 25 Jan 2027, renews 26 Jan 2027.
+ * Prototype NOW is 22 Oct 2026; billingAsOf is 28 Oct 2026 so anniversary
+ * month 10 (26 Oct – 25 Nov) has started — "month 10 of 12" in late Oct.
+ */
+export function placeholderMonthlyExecutionsNorthwind(): number[] {
+  return [120, 280, 450, 890, 2_100, 6_800, 11_200, 15_800, 22_100, 27_863];
+}
+
+export const NORTHWIND_TERM_EXECUTIONS = 87_603;
+export const NORTHWIND_ANNUAL_QUOTA = 2_400_000;
+export const NORTHWIND_ANNUAL_AMOUNT_EUR = 111_000;
+
 export const personas: Persona[] = [
   {
     id: "full",
     label: "Enterprise account",
-    hint: "Two running subscriptions, one expired. Renewal is close and quota is getting high.",
+    hint: "One running subscription. Low quota use mid-term; renewal in January.",
     company: "Northwind Logistics B.V.",
     user: "Sanne de Vries · System admin",
     csm: "Lukas Weber",
     usageUpdated: hoursAgo(2),
     subscriptions: [
-      { id: "s1", name: "Enterprise", plan: "Self-hosted Enterprise", quota: 6_000_000, start: "2025-11-01", end: "2026-10-31", renewal: "2026-11-01", quotaResetsAtRenewal: true },
-      { id: "s2", name: "EU expansion", plan: "Self-hosted Enterprise", quota: 2_000_000, start: "2026-03-15", end: "2027-03-14", renewal: "2027-03-15", quotaResetsAtRenewal: true },
-      { id: "s0", name: "Enterprise 2024–25", plan: "Self-hosted Enterprise", quota: 5_000_000, start: "2024-11-01", end: "2025-10-31", renewal: null, quotaResetsAtRenewal: true, finalExecutions: 4_412_870 },
+      {
+        id: "s1",
+        name: "Enterprise",
+        plan: "Self-hosted Enterprise",
+        // Anonymized client-summary shape (not a real customer account).
+        // Term: 26 Jan 2026 – 25 Jan 2027, renews 26 Jan 2027.
+        // billingAsOf 28 Oct 2026 → month 10 of 12 has started (anniversary day 26).
+        quota: NORTHWIND_ANNUAL_QUOTA,
+        start: "2026-01-26",
+        end: "2027-01-25",
+        renewal: "2027-01-26",
+        quotaResetsAtRenewal: true,
+        annualAmountEur: NORTHWIND_ANNUAL_AMOUNT_EUR,
+        monthlyExecutions: placeholderMonthlyExecutionsNorthwind(),
+        billingAsOf: "2026-10-28T06:00:00Z",
+      },
     ],
     licenses: [
       license("LIC-NW-PRD-01", "s1", "Production", "Production"),
       license("LIC-NW-NPR-01", "s1", "Non-production", "Development & staging"),
       license("LIC-NW-DR-01", "s1", "Non-production", "Disaster recovery"),
-      license("LIC-NW-EU-01", "s2", "Production", "EU production"),
-      license("LIC-NW-PRD-00", "s0", "Production", "Production", "Expired"),
+      license("LIC-NW-EU-01", "s1", "Production", "EU production"),
+      license("LIC-NW-BATCH-01", "s1", "Production", "Batch workloads"),
     ],
-    instances: genInstances([
-      { id: "s1", license: "LIC-NW-PRD-01", env: "Production", count: 18, target: 4_172_220 },
-      { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", count: 14, target: 640_120 },
-      { id: "s2", license: "LIC-NW-EU-01", env: "Production", count: 8, target: 912_480 },
-    ]),
+    // 52 instances; executions sum to 87,603. No invented n8n versions.
+    instances: genInstances(
+      [
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", count: 22, target: 41_200 },
+        { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", count: 12, target: 8_400 },
+        { id: "s1", license: "LIC-NW-EU-01", env: "Production", count: 10, target: 22_100 },
+        { id: "s1", license: "LIC-NW-BATCH-01", env: "Production", count: 8, target: 15_903 },
+      ],
+      { includeVersion: false },
+    ),
   },
   {
     id: "over",

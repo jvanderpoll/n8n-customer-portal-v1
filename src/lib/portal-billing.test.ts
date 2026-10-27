@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { personas, summarize, type Persona } from "./portal-data";
+import {
+  NORTHWIND_ANNUAL_AMOUNT_EUR,
+  NORTHWIND_ANNUAL_QUOTA,
+  NORTHWIND_TERM_EXECUTIONS,
+  personas,
+  placeholderMonthlyExecutionsNorthwind,
+  summarize,
+  type Persona,
+} from "./portal-data";
 import {
   BUSINESS_MONTHLY_EXECUTIONS,
   BUSINESS_MONTHLY_PRICE_EUR,
   addContractMonths,
   executionAmountEur,
+  monthlyChartPoints,
   pastPeriods,
   periodExecutionsLabel,
+  quotaPaceSentence,
 } from "./portal-billing";
 
 function persona(id: string): Persona {
@@ -35,72 +45,39 @@ describe("contract anniversary months", () => {
 });
 
 describe("past periods", () => {
-  it("splits a clean anniversary year into equal period quotas that sum to the contract", () => {
-    const sub = persona("full").subscriptions[0]!;
-    const periods = pastPeriods(sub, persona("full").instances);
-    expect(periods.map((p) => p.id)).toEqual([
-      "2025-11-01", "2025-12-01", "2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01",
-      "2026-05-01", "2026-06-01", "2026-07-01", "2026-08-01", "2026-09-01", "2026-10-01",
-    ]);
-    expect(periods[0]).toMatchObject({ start: "2025-11-01", end: "2025-11-30", label: "1 Nov 2025 – 30 Nov 2025" });
-    expect(periods.every((p) => p.quota === 500_000)).toBe(true);
-    expect(periods.reduce((sum, p) => sum + p.quota, 0)).toBe(sub.quota);
-  });
-  it("keeps period executions equal to the subscription total, with the open period unbilled", () => {
+  it("uses the Northwind placeholder monthly series for the anonymized client term", () => {
     const full = persona("full");
     const sub = full.subscriptions[0]!;
+    const series = placeholderMonthlyExecutionsNorthwind();
+    expect(series.reduce((a, b) => a + b, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
     const periods = pastPeriods(sub, full.instances);
-    expect(periods.reduce((sum, p) => sum + p.executions, 0)).toBe(summarize(sub, full.instances).used);
+    expect(periods).toHaveLength(10);
+    expect(periods.map((p) => p.id)).toEqual([
+      "2026-01-26", "2026-02-26", "2026-03-26", "2026-04-26", "2026-05-26",
+      "2026-06-26", "2026-07-26", "2026-08-26", "2026-09-26", "2026-10-26",
+    ]);
+    expect(periods.map((p) => p.executions)).toEqual(series);
+    expect(periods.reduce((sum, p) => sum + p.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
+    // Equal share of the full 12-month contract; only 10 months have started.
+    expect(periods.every((p) => p.quota === NORTHWIND_ANNUAL_QUOTA / 12)).toBe(true);
+    expect(periods.reduce((sum, p) => sum + p.quota, 0)).toBe((NORTHWIND_ANNUAL_QUOTA / 12) * 10);
+    expect(sub.annualAmountEur).toBe(NORTHWIND_ANNUAL_AMOUNT_EUR);
+    expect(periods.every((p) => p.amountEur === null)).toBe(true);
     expect(periods.at(-1)).toMatchObject({
-      id: "2026-10-01",
-      start: "2026-10-01",
-      end: "2026-10-31",
+      id: "2026-10-26",
       standing: "in-progress",
       amountEur: null,
       delta: 0,
     });
+    expect(periods.slice(0, -1).every((p) => p.standing === "under")).toBe(true);
+  });
+  it("keeps Business-rate amounts for personas without an annual amount", () => {
+    const over = persona("over");
+    const sub = over.subscriptions[0]!;
+    const periods = pastPeriods(sub, over.instances);
+    expect(periods.reduce((sum, p) => sum + p.executions, 0)).toBe(summarize(sub, over.instances).used);
+    expect(periods.at(-1)).toMatchObject({ standing: "in-progress", amountEur: null, delta: 0 });
     expect(periods.slice(0, -1).every((p) => p.amountEur != null && p.standing !== "in-progress")).toBe(true);
-  });
-  it("bills a closed year from its final executions", () => {
-    const full = persona("full");
-    const sub = full.subscriptions[2]!;
-    const periods = pastPeriods(sub, full.instances);
-    expect(periods).toHaveLength(12);
-    expect(periods.every((p) => p.standing !== "in-progress" && p.amountEur != null)).toBe(true);
-    expect(periods.reduce((sum, p) => sum + p.executions, 0)).toBe(sub.finalExecutions);
-    expect(periods.reduce((sum, p) => sum + p.quota, 0)).toBe(sub.quota);
-  });
-  it("starts mid-month contracts on the anniversary day, not the 1st", () => {
-    const full = persona("full");
-    const sub = full.subscriptions[1]!;
-    const periods = pastPeriods(sub, full.instances);
-    expect(periods[0]).toMatchObject({
-      id: "2026-03-15",
-      start: "2026-03-15",
-      end: "2026-04-14",
-      label: "15 Mar 2026 – 14 Apr 2026",
-      quota: 166_667,
-    });
-    expect(periods[1]).toMatchObject({
-      start: "2026-04-15",
-      end: "2026-05-14",
-      label: "15 Apr 2026 – 14 May 2026",
-      quota: 166_667,
-    });
-    expect(periods.every((p) => p.quota === 166_667)).toBe(true);
-    expect(periods.at(-1)?.standing).toBe("in-progress");
-    expect(periods.at(-1)?.start).toBe("2026-10-15");
-    expect(periods.reduce((sum, p) => sum + p.executions, 0)).toBe(summarize(sub, full.instances).used);
-  });
-  it("gives equal period quotas on a clean mid-month anniversary year once complete", () => {
-    const full = persona("full");
-    const sub = full.subscriptions[1]!;
-    const periods = pastPeriods(sub, full.instances, "2027-03-14T12:00:00Z");
-    expect(periods).toHaveLength(12);
-    expect(periods[0]?.label).toBe("15 Mar 2026 – 14 Apr 2026");
-    expect(periods.at(-1)).toMatchObject({ start: "2027-02-15", end: "2027-03-14", quota: 166_663 });
-    expect(periods.slice(0, -1).every((p) => p.quota === 166_667)).toBe(true);
-    expect(periods.reduce((sum, p) => sum + p.quota, 0)).toBe(sub.quota);
   });
   it("shows over-quota on a subscription whose executions exceed the contract", () => {
     const over = persona("over");
@@ -112,6 +89,23 @@ describe("past periods", () => {
     const full = persona("full");
     const period = pastPeriods(full.subscriptions[0]!, full.instances)[0]!;
     expect(periodExecutionsLabel(period)).toBe(`${period.executions}/${period.quota}`);
-    expect(periodExecutionsLabel({ executions: 381_299, quota: 500_000 })).toBe("381299/500000");
+    expect(periodExecutionsLabel({ executions: 120, quota: 200_000 })).toBe("120/200000");
+  });
+  it("builds overview chart ranges from the monthly rows", () => {
+    const full = persona("full");
+    const sub = full.subscriptions[0]!;
+    const term = monthlyChartPoints(sub, full.instances, "term");
+    const last3 = monthlyChartPoints(sub, full.instances, "3m");
+    expect(term).toHaveLength(10);
+    expect(last3).toHaveLength(3);
+    expect(term.reduce((sum, p) => sum + p.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(term.at(-1)?.cumulativeQuotaPct).toBeCloseTo(NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA);
+  });
+  it("projects quota pace past renewal when usage is far under term elapsed", () => {
+    const full = persona("full");
+    const sub = full.subscriptions[0]!;
+    const sentence = quotaPaceSentence(sub, NORTHWIND_TERM_EXECUTIONS, 0.755);
+    expect(sentence).toContain("3.7% of quota used");
+    expect(sentence).toContain("not this term");
   });
 });

@@ -17,40 +17,49 @@ describe("read-only portal selectors", () => {
   });
   it("filters instances by subscription and license", () => {
     const p = persona("full");
-    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(32);
-    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-NPR-01" })).toHaveLength(14);
+    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(52);
+    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-NPR-01" })).toHaveLength(12);
   });
   it("search matches license references without case sensitivity", () => {
-    expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-eu-01" })).toHaveLength(8);
+    expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-eu-01" })).toHaveLength(10);
   });
   it("splits reporting and non-reporting instances", () => {
     const p = persona("full");
     const changed = { ...p, instances: p.instances.map((i, n) => n === 0 ? { ...i, status: "pending" as const } : i) };
     expect(filterInstances(changed, { ...defaultInstanceFilter, status: "attention" })).toHaveLength(1);
-    expect(filterInstances(changed, { ...defaultInstanceFilter, status: "reporting" })).toHaveLength(39);
+    expect(filterInstances(changed, { ...defaultInstanceFilter, status: "reporting" })).toHaveLength(51);
   });
-  it("pagination presents all forty instances without duplication", () => {
+  it("pagination presents all fifty-two instances without duplication", () => {
     const rows = filterInstances(persona("full"), defaultInstanceFilter);
     const first = paginateInstances(rows, 1);
+    const second = paginateInstances(rows, 2);
     const last = paginateInstances(rows, 99);
     expect(first.rows).toHaveLength(20);
-    expect(last.page).toBe(2);
-    expect(new Set([...first.rows, ...last.rows].map((i) => i.id)).size).toBe(40);
+    expect(second.rows).toHaveLength(20);
+    expect(last.page).toBe(3);
+    expect(last.rows).toHaveLength(12);
+    expect(new Set([...first.rows, ...second.rows, ...last.rows].map((i) => i.id)).size).toBe(52);
     expect(paginateInstances([], 99)).toEqual({ rows: [], page: 1, pages: 1 });
   });
   it("licenses roll up their instances' executions and carry no quota", () => {
     const p = persona("full");
     const licenses = licensesFor(p, "s1");
-    expect(licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01", "LIC-NW-NPR-01", "LIC-NW-DR-01"]);
+    expect(licenses.map((l) => l.id)).toEqual([
+      "LIC-NW-PRD-01",
+      "LIC-NW-NPR-01",
+      "LIC-NW-DR-01",
+      "LIC-NW-EU-01",
+      "LIC-NW-BATCH-01",
+    ]);
     const prd = licenses[0]!;
     expect(prd.executions).toBe(prd.instances.reduce((sum, i) => sum + (i.executions ?? 0), 0));
     expect(prd).not.toHaveProperty("quota");
     expect(licenses.find((l) => l.id === "LIC-NW-DR-01")).toMatchObject({ instances: [], executions: null });
   });
-  it("lists running subscriptions before expired ones", () => {
+  it("lists the single running Northwind subscription", () => {
     const { running, expired } = runningFirst(persona("full"));
-    expect(running.map((s) => s.id)).toEqual(["s1", "s2"]);
-    expect(expired.map((s) => s.id)).toEqual(["s0"]);
+    expect(running.map((s) => s.id)).toEqual(["s1"]);
+    expect(expired).toEqual([]);
   });
   it("the account's own CSM is the contact", () => {
     expect(contactFor(persona("full"))).toEqual({ kind: "assigned", name: "Lukas Weber" });
@@ -83,14 +92,13 @@ describe("quota color", () => {
 describe("contact your CSM prompts", () => {
   it("asks for contact when quota is high or over", () => {
     const full = persona("full"), over = persona("over");
-    expect(subscriptionView(full, full.subscriptions[0]!).quotaPrompt).toBe("high");
-    expect(subscriptionView(full, full.subscriptions[1]!).quotaPrompt).toBeNull();
+    expect(subscriptionView(full, full.subscriptions[0]!).quotaPrompt).toBeNull();
     expect(subscriptionView(over, over.subscriptions[0]!).quotaPrompt).toBe("over");
   });
   it("asks for contact when renewal is close, never for expired subscriptions", () => {
     const full = persona("full");
-    expect(subscriptionView(full, full.subscriptions[0]!).renewalPrompt).toBe(true);
-    expect(subscriptionView(full, full.subscriptions[1]!).renewalPrompt).toBe(false);
-    expect(subscriptionView(full, full.subscriptions[2]!)).toMatchObject({ status: "Expired", quotaPrompt: null, renewalPrompt: false, period: { pct: 1, daysLeft: 0 } });
+    const over = persona("over");
+    expect(subscriptionView(full, full.subscriptions[0]!).renewalPrompt).toBe(false);
+    expect(subscriptionView(over, over.subscriptions[0]!).renewalPrompt).toBe(false);
   });
 });

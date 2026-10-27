@@ -55,7 +55,7 @@ describe("session-only account management", () => {
       env: "Non-production",
       subscriptionId: "s1",
     });
-    expect(before.persona.instances).toHaveLength(40);
+    expect(before.persona.instances).toHaveLength(52);
     expect(
       summarize(next.persona.subscriptions[0]!, next.persona.instances).used,
     ).toBe(
@@ -110,14 +110,16 @@ describe("session-only account management", () => {
     expect(
       summarize(next.persona.subscriptions[0]!, next.persona.instances).used,
     ).toBe(summarize(s.persona.subscriptions[0]!, s.persona.instances).used);
+    const over = account("over"),
+      overInstance = over.persona.instances[0]!;
     expect(() =>
       applyManagement(
-        s,
+        over,
         {
           type: "edit-instance",
-          id: i.id,
-          name: i.name,
-          license: "LIC-NW-EU-01",
+          id: overInstance.id,
+          name: overInstance.name,
+          license: "LIC-HR-NPR-01",
         },
         admin,
       ),
@@ -127,7 +129,7 @@ describe("session-only account management", () => {
     const s = account(),
       id = s.persona.instances[0]!.id;
     const next = applyManagement(s, { type: "remove-instance", id }, admin);
-    expect(activeInstances(next.persona)).toHaveLength(39);
+    expect(activeInstances(next.persona)).toHaveLength(51);
     expect(
       summarize(next.persona.subscriptions[0]!, next.persona.instances).used,
     ).toBe(summarize(s.persona.subscriptions[0]!, s.persona.instances).used);
@@ -136,27 +138,26 @@ describe("session-only account management", () => {
         applyManagement(next, { type: "restore-instance", id }, admin)
           .persona,
       ),
-    ).toHaveLength(40);
+    ).toHaveLength(52);
   });
-  it("moves and removes only unused licenses, protecting history", () => {
+  it("renames and removes only unused licenses, protecting history", () => {
     const s = account();
-    const moved = applyManagement(
+    const renamed = applyManagement(
       s,
       {
         type: "edit-license",
         id: "LIC-NW-DR-01",
-        label: "EU recovery",
-        subscriptionId: "s2",
+        label: "Standby recovery",
+        subscriptionId: "s1",
       },
       admin,
     );
     expect(
-      moved.persona.licenses.find((l) => l.id === "LIC-NW-DR-01")
-        ?.subscriptionId,
-    ).toBe("s2");
+      renamed.persona.licenses.find((l) => l.id === "LIC-NW-DR-01"),
+    ).toMatchObject({ label: "Standby recovery", subscriptionId: "s1" });
     expect(
       applyManagement(
-        moved,
+        renamed,
         { type: "delete-license", id: "LIC-NW-DR-01" },
         admin,
       ).persona.licenses,
@@ -168,12 +169,13 @@ describe("session-only account management", () => {
         admin,
       ),
     ).toThrow("history");
+    const over = account("over");
     expect(() =>
       applyManagement(
-        s,
+        over,
         {
           type: "edit-license",
-          id: "LIC-NW-PRD-01",
+          id: "LIC-HR-PRD-01",
           label: "Production",
           subscriptionId: "s2",
         },
@@ -193,8 +195,8 @@ describe("session-only account management", () => {
     expect(next.persona.subscriptions).toEqual(s.persona.subscriptions);
     expect(applyManagement(next, { type: "cancel-order", id: "req" }, admin).orders[0]?.status).toBe("Cancelled");
     expect(() =>
-      applyManagement(s, { type: "order", id: "old", subscriptionId: "s0", quantity: 1, environment: "Production", note: "" }, admin),
-    ).toThrow("running subscription");
+      applyManagement(s, { type: "order", id: "old", subscriptionId: "missing", quantity: 1, environment: "Production", note: "" }, admin),
+    ).toThrow();
   });
   it("rejects non-admin callers", () => {
     const actions: ManagementAction[] = [
@@ -242,14 +244,14 @@ describe("session-only account management", () => {
     const s = account();
     const next = applyManagement(
       s,
-      { type: "edit-member", id: "billing", role: "viewer", scope: ["s2"] },
+      { type: "edit-member", id: "billing", role: "viewer", scope: ["s1"] },
       admin,
     );
     expect(next.members.find((m) => m.id === "billing")).toMatchObject({
       role: "viewer",
-      scope: ["s2"],
+      scope: ["s1"],
     });
-    expect(formatMemberScope(["s2"], next.persona)).toBe("EU expansion");
+    expect(formatMemberScope(["s1"], next.persona)).toBe("Enterprise");
     expect(formatMemberScope("all", next.persona)).toBe("All subscriptions");
     expect(() =>
       applyManagement(s, { type: "edit-member", id: "self", role: "viewer", scope: "all" }, admin),

@@ -7,6 +7,7 @@ import { date } from "./portal-format";
  * so this prototype prices Enterprise at the same rate per execution.
  * A closed period bills max(quota, executions) at that rate. Being under
  * quota does not reduce the amount.
+ * Personas with annualAmountEur skip monthly invoices (Amount stays —).
  */
 export const BUSINESS_MONTHLY_PRICE_EUR = 667;
 export const BUSINESS_MONTHLY_EXECUTIONS = 40_000;
@@ -35,7 +36,7 @@ export interface PastPeriod {
   standing: PeriodStanding;
   /** Executions minus quota. Zero while the period is still open. */
   delta: number;
-  /** Null while the period is still open. */
+  /** Null while the period is still open, or when the subscription uses annualAmountEur. */
   amountEur: number | null;
 }
 
@@ -64,15 +65,19 @@ function periodDays(coveredStart: number, coveredEnd: number) {
   return Math.round((coveredEnd - coveredStart) / DAY);
 }
 
+export function billingNow(sub: Subscription, now = NOW) {
+  return sub.billingAsOf ?? now;
+}
+
 /**
  * One row per contract-anniversary billing period that has already started.
  * Periods start on the contract start day and each next period starts one
  * month later on that same day (clamped on short months). The period ends
  * the day before the next start. Quotas share the contract quota equally
  * across a clean anniversary year; a short final period is weighted by days.
- * Executions follow the usage curve and sum to the subscription total.
+ * Executions follow monthlyExecutions when present, otherwise the usage curve.
  */
-export function pastPeriods(sub: Subscription, instances: Instance[], now = NOW): PastPeriod[] {
+export function pastPeriods(sub: Subscription, instances: Instance[], now = billingNow(sub)): PastPeriod[] {
   const startMs = Date.parse(sub.start);
   const periodEndExclusive = Date.parse(sub.end) + DAY;
   const nowMs = Date.parse(now);
@@ -121,13 +126,17 @@ export function pastPeriods(sub: Subscription, instances: Instance[], now = NOW)
   const elapsedEnd = Math.min(nowMs, periodEndExclusive);
   const elapsed = Math.max(elapsedEnd - startMs, 1);
   const cumulative = (time: number) => Math.round(used * cumulativeExecutionShare((time - startMs) / elapsed));
+  const series = sub.monthlyExecutions;
+  const hidePeriodAmounts = sub.annualAmountEur != null;
 
   return spans
-    .map((span, i) => ({ span, quota: quotas[i]! }))
+    .map((span, i) => ({ span, quota: quotas[i]!, index: i }))
     .filter(({ span }) => span.coveredStart <= nowMs)
-    .map(({ span, quota }) => {
+    .map(({ span, quota, index }) => {
       const open = span.coveredEnd > nowMs;
-      const executions = cumulative(Math.min(span.coveredEnd, elapsedEnd)) - cumulative(span.coveredStart);
+      const executions = series
+        ? (series[index] ?? 0)
+        : cumulative(Math.min(span.coveredEnd, elapsedEnd)) - cumulative(span.coveredStart);
       const delta = open ? 0 : executions - quota;
       const standing: PeriodStanding = open ? "in-progress" : delta > 0 ? "over" : delta < 0 ? "under" : "on-quota";
       return {
@@ -139,10 +148,57 @@ export function pastPeriods(sub: Subscription, instances: Instance[], now = NOW)
         executions,
         standing,
         delta,
-        amountEur: open ? null : executionAmountEur(Math.max(quota, executions)),
+        amountEur: open || hidePeriodAmounts ? null : executionAmountEur(Math.max(quota, executions)),
       };
     });
 }
 
 /** @deprecated Prefer pastPeriods. */
 export const pastMonths = pastPeriods;
+
+export type ChartRange = "term" | "12m" | "3m";
+
+export interface MonthlyChartPoint {
+  id: string;
+  label: string;
+  shortLabel: string;
+  executions: number;
+  cumulativeQuotaPct: number;
+}
+
+/** Monthly points for overview/subscription charts from past-period rows. */
+export function monthlyChartPoints(sub: Subscription, instances: Instance[], range: ChartRange = "term", now = billingNow(sub)): MonthlyChartPoint[] {
+  const periods = pastPeriods(sub, instances, now);
+  const sliced = range === "3m" ? periods.slice(-3) : periods;
+  let cumulative = 0;
+  return sliced.map((p) => {
+    cumulative += p.executions;
+    return {
+      id: p.id,
+      label: p.label,
+      shortLabel: new Date(p.start).toLocaleDateString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" }),
+      executions: p.executions,
+      cumulativeQuotaPct: sub.quota > 0 ? cumulative / sub.quota : 0,
+    };
+  });
+}
+
+/** One-sentence pace line: quota used vs term elapsed, and when quota would run out. */
+export function quotaPaceSentence(sub: Subscription, used: number, termPct: number, now = billingNow(sub)): string {
+  const quotaPct = sub.quota > 0 ? used / sub.quota : 0;
+  const quotaLabel = `${(Math.round(quotaPct * 1000) / 10).toFixed(1)}%`;
+  const termLabel = `${Math.round(termPct * 100)}%`;
+  if (quotaPct <= 0 || termPct <= 0) {
+    return `${quotaLabel} of quota used versus ${termLabel} of the term elapsed — not enough usage to project a run-out.`;
+  }
+  const startMs = Date.parse(sub.start);
+  const nowMs = Date.parse(now);
+  const msElapsed = Math.max(nowMs - startMs, 1);
+  const exhaustAt = startMs + msElapsed / quotaPct;
+  const renewalMs = Date.parse(sub.renewal ?? sub.end);
+  if (exhaustAt > renewalMs) {
+    return `${quotaLabel} of quota used versus ${termLabel} of the term elapsed — at this pace, not this term.`;
+  }
+  const month = new Date(exhaustAt).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+  return `${quotaLabel} of quota used versus ${termLabel} of the term elapsed — at this pace, quota runs out ${month}.`;
+}

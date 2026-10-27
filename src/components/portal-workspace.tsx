@@ -1,20 +1,33 @@
+import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Check, ChevronRight, CircleAlert, KeyRound } from "lucide-react";
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { usePersona } from "./portal-shell";
 import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
-import { cumulativeExecutionShare, pastPeriods, periodExecutionsLabel, type PastPeriod } from "@/lib/portal-billing";
+import {
+  billingNow,
+  cumulativeExecutionShare,
+  monthlyChartPoints,
+  pastPeriods,
+  periodExecutionsLabel,
+  quotaPaceSentence,
+  type ChartRange,
+  type PastPeriod,
+} from "@/lib/portal-billing";
 import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { isReporting, licensesFor, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt } from "@/lib/portal-format";
+import { cn } from "@/lib/utils";
 
 export { CsvExport } from "./csv-export";
 export { DataTable, type DataColumn } from "./data-table";
 
 const short = (n: number) => Math.abs(n) >= 1e6 ? `${+(n / 1e6).toFixed(1)}m` : Math.abs(n) >= 1000 ? `${+(n / 1000).toFixed(0)}k` : String(n);
 const percent = (n: number) => `${Math.round(n * 100)}%`;
+const percent1 = (n: number) => `${(Math.round(n * 1000) / 10).toFixed(1)}%`;
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const eurWhole = (amount: number) => `€${amount.toLocaleString("en-GB")}`;
 
 export function WorkspaceTitle({ title, trailing, crumbs }: { title: string; trailing?: React.ReactNode; crumbs?: React.ReactNode }) {
   return <div className="workspace-title-block">{crumbs && <nav aria-label="Breadcrumb" className="breadcrumbs">{crumbs}</nav>}<div className="workspace-title"><h1>{title}</h1>{trailing}</div></div>;
@@ -47,16 +60,18 @@ export function OverviewDashboard() {
   const persona = usePersona();
   const navigate = useNavigate();
   const { running } = runningFirst(persona);
-  const totals = running.reduce(
-    (acc, sub) => {
-      const summary = summarize(sub, persona.instances);
-      return {
-        used: acc.used + summary.used,
-        reporting: acc.reporting + summary.reportingCount,
-      };
-    },
-    { used: 0, reporting: 0 },
-  );
+  const primary = running[0];
+  const primarySummary = primary ? summarize(primary, persona.instances) : null;
+  const primaryView = primary ? subscriptionView(persona, primary) : null;
+  const licenseCount = persona.licenses.filter((l) => l.status === "Active").length;
+  const instanceCount = persona.instances.filter((i) => !i.archived).length;
+  const executionsThisTerm = running.reduce((sum, sub) => sum + summarize(sub, persona.instances).used, 0);
+  const annualQuota = running.reduce((sum, sub) => sum + sub.quota, 0);
+  const quotaPct = annualQuota > 0 ? executionsThisTerm / annualQuota : 0;
+  const nextRenewal = running
+    .map((s) => s.renewal)
+    .filter((r): r is string => Boolean(r))
+    .sort()[0];
   const rows: OverviewSubRow[] = running.map((sub) => {
     const summary = summarize(sub, persona.instances);
     return {
@@ -76,8 +91,8 @@ export function OverviewDashboard() {
       header: "Quota",
       numeric: true,
       accessor: (r) => r.pct,
-      cell: (r) => <span className="quota-figure" style={{ color: quotaTextColor(r.pct) }}>{percent(r.pct)} of quota</span>,
-      csv: (r) => percent(r.pct),
+      cell: (r) => <span className="quota-figure" style={{ color: quotaTextColor(r.pct) }}>{percent1(r.pct)} of quota</span>,
+      csv: (r) => percent1(r.pct),
     },
     {
       id: "executions",
@@ -107,18 +122,40 @@ export function OverviewDashboard() {
     <>
       <div className="metric-strip overview-totals" aria-label="Account totals">
         <Link to="/subscriptions" className="summary-metric summary-metric-link">
-          <span className="metric-label">Running subscriptions</span>
+          <span className="metric-label">Subscriptions</span>
           <strong>{running.length}</strong>
         </Link>
         <Link to="/subscriptions" className="summary-metric summary-metric-link">
-          <span className="metric-label">Executions used</span>
-          <strong>{fmt(totals.used)}</strong>
+          <span className="metric-label">Licenses</span>
+          <strong>{licenseCount}</strong>
         </Link>
         <Link to="/instances" className="summary-metric summary-metric-link">
-          <span className="metric-label">Instances reporting</span>
-          <strong>{totals.reporting}</strong>
+          <span className="metric-label">Instances</span>
+          <strong>{instanceCount}</strong>
         </Link>
+        <div className="summary-metric">
+          <span className="metric-label">Executions this term</span>
+          <strong>{fmt(executionsThisTerm)}</strong>
+        </div>
+        <div className="summary-metric">
+          <span className="metric-label">Annual quota</span>
+          <strong>{fmt(annualQuota)}</strong>
+        </div>
+        <div className="summary-metric">
+          <span className="metric-label">Percent of quota</span>
+          <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
+        </div>
+        <div className="summary-metric">
+          <span className="metric-label">Renewal date</span>
+          <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
+        </div>
       </div>
+      {primary && primarySummary && primaryView && (
+        <section className="workspace-panel chart-panel overview-usage-panel">
+          <OverviewUsageChart subscription={primary} />
+          <p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>
+        </section>
+      )}
       <section className="workspace-panel">
         <div className="panel-heading">
           <div>
@@ -139,6 +176,81 @@ export function OverviewDashboard() {
       <p className="overview-footnote">
         <Link to="/subscriptions" className="text-link quiet-link">View all subscriptions <ArrowUpRight size={14} /></Link>
       </p>
+    </>
+  );
+}
+
+const CHART_RANGES: { id: ChartRange; label: string }[] = [
+  { id: "term", label: "This term" },
+  { id: "12m", label: "Last 12 billing months" },
+  { id: "3m", label: "Last 3 months" },
+];
+
+function OverviewUsageChart({ subscription: sub }: { subscription: Subscription }) {
+  const persona = usePersona();
+  const [range, setRange] = useState<ChartRange>("term");
+  const points = monthlyChartPoints(sub, persona.instances, range);
+  const exportRows = points.map((p) => [p.label, String(p.executions), percent1(p.cumulativeQuotaPct)]);
+  const ceiling = Math.max(...points.map((p) => p.executions), 1) * 1.15;
+  return (
+    <>
+      <div className="panel-heading">
+        <div>
+          <h2>Monthly executions</h2>
+          <span className="supporting">{sub.name}</span>
+        </div>
+        <div className="chart-heading-actions">
+          <div className="range-toggle" role="group" aria-label="Chart range">
+            {CHART_RANGES.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={cn("range-toggle-btn", range === option.id && "is-active")}
+                aria-pressed={range === option.id}
+                onClick={() => setRange(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <CsvExport
+            filename={`${sub.name}-monthly-executions.csv`}
+            headers={["Period", "Executions", "Quota used to date"]}
+            rows={exportRows}
+            label="Download usage chart data"
+          />
+        </div>
+      </div>
+      {points.length === 0 ? (
+        <div className="chart-empty"><strong>No billing months yet</strong><span>Usage appears once a billing period has started.</span></div>
+      ) : (
+        <>
+          <div className="chart-legend">
+            <span><i />Executions</span>
+            <span><i className="legend-quota-pct" />% of quota used to date</span>
+          </div>
+          <div className="usage-chart" role="img" aria-label={`Monthly executions for ${sub.name}`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={points} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}>
+                <CartesianGrid stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="shortLabel" tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="exec" domain={[0, ceiling]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} />
+                <YAxis yAxisId="pct" orientation="right" domain={[0, Math.max(0.05, ...points.map((p) => p.cumulativeQuotaPct)) * 1.2]} tickFormatter={(v: number) => percent1(v)} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} />
+                <Tooltip
+                  labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
+                  formatter={(value, name) => [
+                    name === "cumulativeQuotaPct" ? percent1(Number(value)) : fmt(Number(value)),
+                    name === "cumulativeQuotaPct" ? "% of quota used to date" : "Executions",
+                  ]}
+                  contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+                />
+                <Bar yAxisId="exec" dataKey="executions" fill="var(--color--orange-700)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+                <Line yAxisId="pct" type="monotone" dataKey="cumulativeQuotaPct" stroke="var(--portal-caption)" strokeWidth={2} dot={false} isAnimationActive={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -170,7 +282,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
     </div>
     <div className="usage-meter">
       <div className="usage-meter-head">
-        <strong className="quota-figure" style={figureColor ? { color: figureColor } : undefined}>{percent(summary.pct)}</strong>
+        <strong className="quota-figure" style={figureColor ? { color: figureColor } : undefined}>{percent1(summary.pct)}</strong>
         <span>of quota used · {fmt(summary.used)} of {fmt(sub.quota)} executions</span>
       </div>
       <div className="quota-bar" role="progressbar" aria-label="Quota used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(summary.pct * 100)}>
@@ -185,6 +297,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       <div><dt>Period</dt><dd>{date(sub.start)} — {date(sub.end)}</dd></div>
       <div><dt>Time left</dt><dd>{running ? plural(period.daysLeft, "day") : "Ended"}</dd></div>
       <div><dt>Quota resets at renewal</dt><dd>{sub.quotaResetsAtRenewal ? "Yes" : "No"}</dd></div>
+      {sub.annualAmountEur != null && <div><dt>Annual amount</dt><dd>{eurWhole(sub.annualAmountEur)}</dd></div>}
     </dl>
     <Requirements subscription={sub} />
     <div className="agreement-actions">
@@ -238,7 +351,11 @@ export function PastPeriods({ subscription: sub }: { subscription: Subscription 
       <div className="panel-heading">
         <div>
           <h2>Past periods ({periods.length})</h2>
-          <span className="supporting">Executions are counted per contract billing period. Amount uses the published Business price, €667 for 40,000 executions, because Enterprise is custom. A closed period is billed for its quota, plus any executions over that quota.</span>
+          <span className="supporting">
+            {sub.annualAmountEur != null
+              ? `Executions are counted per contract billing period. The annual amount (${eurWhole(sub.annualAmountEur)}) is shown on the subscription summary; period amounts are not itemized here.`
+              : "Executions are counted per contract billing period. Amount uses the published Business price, €667 for 40,000 executions, because Enterprise is custom. A closed period is billed for its quota, plus any executions over that quota."}
+          </span>
         </div>
       </div>
       <DataTable
@@ -257,7 +374,8 @@ export function PastPeriods({ subscription: sub }: { subscription: Subscription 
 function usageChartPoints(sub: Subscription, used: number, ended: boolean) {
   const start = Date.parse(sub.start);
   const end = Date.parse(sub.end);
-  const now = ended ? end : Math.min(Date.parse(NOW), end);
+  const asOf = Date.parse(billingNow(sub));
+  const now = ended ? end : Math.min(asOf, end);
   const data: { time: number; date: string; used: number | null; quota: number }[] = Array.from({ length: 13 }, (_, i) => {
     const time = start + (now - start) * i / 12;
     return {
@@ -275,6 +393,51 @@ export function UsagePanel({ subscription: sub }: { subscription: Subscription }
   const persona = usePersona();
   const { summary, status } = subscriptionView(persona, sub);
   const ended = status === "Expired";
+  if (sub.monthlyExecutions?.length) {
+    const points = monthlyChartPoints(sub, persona.instances, "term");
+    const exportRows = points.map((p) => [p.label, String(p.executions), percent1(p.cumulativeQuotaPct)]);
+    const ceiling = Math.max(...points.map((p) => p.executions), 1) * 1.15;
+    return (
+      <section className="workspace-panel chart-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Monthly executions</h2>
+            <span className="supporting">Billable executions per billing month this term</span>
+          </div>
+          <CsvExport
+            filename={`${sub.name}-monthly-executions.csv`}
+            headers={["Period", "Executions", "Quota used to date"]}
+            rows={exportRows}
+            label="Download usage chart data"
+          />
+        </div>
+        <div className="chart-legend">
+          <span><i />Executions</span>
+          <span><i className="legend-quota-pct" />% of quota used to date</span>
+        </div>
+        <div className="usage-chart" role="img" aria-label={`Monthly executions for ${sub.name}, total ${fmt(summary.used)}`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={points} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}>
+              <CartesianGrid stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="shortLabel" tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} />
+              <YAxis yAxisId="exec" domain={[0, ceiling]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} />
+              <YAxis yAxisId="pct" orientation="right" domain={[0, Math.max(0.05, ...points.map((p) => p.cumulativeQuotaPct)) * 1.2]} tickFormatter={(v: number) => percent1(v)} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} />
+              <Tooltip
+                labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
+                formatter={(value, name) => [
+                  name === "cumulativeQuotaPct" ? percent1(Number(value)) : fmt(Number(value)),
+                  name === "cumulativeQuotaPct" ? "% of quota used to date" : "Executions",
+                ]}
+                contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+              />
+              <Bar yAxisId="exec" dataKey="executions" fill="var(--color--orange-700)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+              <Line yAxisId="pct" type="monotone" dataKey="cumulativeQuotaPct" stroke="var(--portal-caption)" strokeWidth={2} dot={false} isAnimationActive={false} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+    );
+  }
   const { data } = usageChartPoints(sub, summary.used, ended);
   const exportRows = data
     .filter((point) => point.used != null)
