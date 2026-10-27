@@ -156,6 +156,32 @@ export function pastPeriods(sub: Subscription, instances: Instance[], now = bill
 /** @deprecated Prefer pastPeriods. */
 export const pastMonths = pastPeriods;
 
+/** Plan tiers from the public pricing page (n8n.io/pricing), ascending. Used when requesting a new subscription. */
+export const PLAN_OPTIONS = ["Starter", "Pro", "Business", "Enterprise"] as const;
+export type PlanOption = (typeof PLAN_OPTIONS)[number];
+
+/** Base tier parsed out of a subscription's plan label, e.g. "Self-hosted Enterprise" -> "Enterprise". */
+export function planTier(planLabel: string): PlanOption | null {
+  return PLAN_OPTIONS.find((tier) => planLabel.includes(tier)) ?? null;
+}
+
+/**
+ * Feature highlights sourced from n8n.io/pricing's Enterprise tier, trimmed to headline
+ * items. Only Enterprise is populated: it is the only tier any fixture subscription uses,
+ * and Starter/Pro/Business feature lists were not sourced for this prototype.
+ */
+export const PLAN_FEATURES: Partial<Record<PlanOption, string[]>> = {
+  Enterprise: [
+    "Unlimited shared projects",
+    "200+ concurrent executions",
+    "365 days insights",
+    "SSO / LDAP and custom roles, audit logging",
+    "Dedicated support with SLA",
+    "Queue mode and worker view",
+    "Custom overage fees, pay-by-invoice",
+  ],
+};
+
 export type ChartRange = "term" | "12m" | "3m";
 
 export interface MonthlyChartPoint {

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { RequestSubscription } from "@/components/portal-management";
 import { usePersona } from "@/components/portal-shell";
 import { LastUpdate, OverviewDashboard, WorkspaceTitle } from "@/components/portal-workspace";
 import { portalHead } from "@/lib/portal-format";
@@ -13,7 +14,7 @@ function Overview() {
   return (
     <>
       <WorkspaceTitle title="Overview" trailing={<LastUpdate persona={persona} />} />
-      <OverviewDashboard />
+      <OverviewDashboard emptyAction={<RequestSubscription />} />
     </>
   );
 }

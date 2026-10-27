@@ -27,6 +27,12 @@ export interface Subscription {
   // Contract restrictions. Leave undefined when the data has none.
   requirements?: string[];
   /**
+   * OEM-specific cap on concurrently licensed instances. Leave undefined when
+   * the contract has no instance limit — Requirements hides the line rather
+   * than showing an invented cap.
+   */
+  instanceLimit?: number;
+  /**
    * Annual contract amount in EUR. When set, the summary shows it once and
    * past-period Amount cells stay — (no invented monthly invoices).
    */
@@ -57,7 +63,8 @@ export interface Persona {
   hint: string;
   company: string;
   user: string;
-  csm: string;
+  /** Assigned customer success manager. Null falls back to general support in Contact n8n. */
+  csm: string | null;
   usageUpdated: string;
   subscriptions: Subscription[];
   instances: Instance[];
@@ -174,7 +181,7 @@ export const personas: Persona[] = [
     id: "full",
     label: "Enterprise account",
     hint: "One running subscription. Low quota use mid-term; renewal in January.",
-    company: "Northwind Logistics B.V.",
+    company: "Fieldstone Software B.V.",
     user: "Sanne de Vries · System admin",
     csm: "Lukas Weber",
     usageUpdated: hoursAgo(2),
@@ -218,18 +225,34 @@ export const personas: Persona[] = [
     id: "over",
     label: "Over quota",
     hint: "Production usage exceeds the quota.",
-    company: "Halvorsen Retail Group AS",
+    company: "Driftline Technologies AS",
     user: "Erik Halvorsen · System admin",
     csm: "Marta Rossi",
     usageUpdated: hoursAgo(3),
     subscriptions: [
-      { id: "s1", name: "Enterprise – Production", plan: "Self-hosted Enterprise", quota: 3_000_000, start: "2026-01-01", end: "2026-12-31", renewal: "2027-01-01", quotaResetsAtRenewal: true },
-      { id: "s2", name: "Enterprise – Non-production", plan: "Self-hosted Enterprise", quota: 500_000, start: "2026-01-01", end: "2026-12-31", renewal: "2027-01-01", quotaResetsAtRenewal: true },
+      // Self-hosted production, capped at 15 licensed instances (12 in use — demonstrates "N of M available").
+      { id: "s1", name: "Enterprise – Production", plan: "Self-hosted Enterprise", quota: 3_000_000, start: "2026-01-01", end: "2026-12-31", renewal: "2027-01-01", quotaResetsAtRenewal: true, instanceLimit: 15 },
+      // n8n Cloud, a second purchase on the same account — demonstrates mixed hosting and "several purchases."
+      { id: "s2", name: "Enterprise – Non-production", plan: "n8n Cloud Enterprise", quota: 500_000, start: "2026-01-01", end: "2026-12-31", renewal: "2027-01-01", quotaResetsAtRenewal: true },
     ],
     licenses: [license("LIC-HR-PRD-01", "s1", "Production", "Production"), license("LIC-HR-NPR-01", "s2", "Non-production", "Staging")],
-    instances: genInstances([
-      { id: "s1", license: "LIC-HR-PRD-01", env: "Production", count: 12, target: 3_418_900 },
-      { id: "s2", license: "LIC-HR-NPR-01", env: "Non-production", count: 6, target: 211_560 },
-    ]),
+    instances: [
+      ...genInstances([
+        { id: "s1", license: "LIC-HR-PRD-01", env: "Production", count: 12, target: 3_418_900 },
+        { id: "s2", license: "LIC-HR-NPR-01", env: "Non-production", count: 6, target: 211_560 },
+      ]),
+      // Confirmed zero usage (reported, executions 0) — not missing data. Compare against pending/error instances elsewhere.
+      {
+        id: "i19",
+        name: "stg-sandbox-20",
+        env: "Non-production",
+        license: "LIC-HR-NPR-01",
+        subscriptionId: "s2",
+        status: "zero",
+        executions: 0,
+        lastReport: hoursAgo(5),
+        version: "2.13.0",
+      },
+    ],
   },
 ];

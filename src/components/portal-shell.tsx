@@ -57,13 +57,17 @@ function userInitials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join("");
 }
 
-function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: boolean; onOpenChange: (open: boolean) => void; company: string; user: string; csm: string }) {
+function contactRecipient(csm: string | null) {
+  return csm ? `${csm} (customer success manager)` : "n8n support";
+}
+
+function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: boolean; onOpenChange: (open: boolean) => void; company: string; user: string; csm: string | null }) {
   const [message, setMessage] = useState("");
   const [downloaded, setDownloaded] = useState(false);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!message.trim()) return;
-    const text = ["n8n Customer Portal · Prototype feedback draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${csm} (customer success manager)`, "Topic: Feedback", "", message.trim(), ""].join("\n");
+    const text = ["n8n Customer Portal · Prototype feedback draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${contactRecipient(csm)}`, "Topic: Feedback", "", message.trim(), ""].join("\n");
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -113,7 +117,7 @@ function ContactDialog({
   onOpenChange: (open: boolean) => void;
   company: string;
   user: string;
-  csm: string;
+  csm: string | null;
 }) {
   const [topic, setTopic] = useState<ContactTopic | "">("");
   const [message, setMessage] = useState("");
@@ -123,7 +127,7 @@ function ContactDialog({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!message.trim() || !topic || !topicLabel) return;
-    const text = ["n8n Customer Portal · Prototype enquiry draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${csm} (customer success manager)`, `Topic: ${topicLabel}`, "", message.trim(), ""].join("\n");
+    const text = ["n8n Customer Portal · Prototype enquiry draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${contactRecipient(csm)}`, `Topic: ${topicLabel}`, "", message.trim(), ""].join("\n");
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -137,7 +141,9 @@ function ContactDialog({
       <DialogContent className="management-dialog">
         <DialogTitle>Contact n8n</DialogTitle>
         <DialogDescription>
-          Your message will be prepared for {csm}, your customer success manager. Download a local draft — nothing is sent.
+          {csm
+            ? `Your message will be prepared for ${csm}, your customer success manager. Download a local draft — nothing is sent.`
+            : "No customer success manager is assigned to this account. Your message will be prepared for n8n support. Download a local draft — nothing is sent."}
         </DialogDescription>
         <form onSubmit={submit}>
           <div className="management-fields">
@@ -310,6 +316,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
               <MessageCircle size={17} />
               Contact n8n
             </Button>
+            <span className="sidebar-csm">{persona.csm ?? "n8n support"}</span>
           </div>
           <div className="sidebar-user">
             <DropdownMenu>

@@ -18,6 +18,7 @@ import {
 import { ActionMenu, ActionMenuItem } from "./action-menu";
 import { useManagement, usePersona } from "./portal-shell";
 import { type Instance, type License, subscriptionStatus } from "@/lib/portal-data";
+import { PLAN_OPTIONS } from "@/lib/portal-billing";
 import {
   isRole,
   ROLE_LABELS,
@@ -454,6 +455,11 @@ export function CreateInstance({
     const s = persona.subscriptions.find((s) => s.id === l.subscriptionId);
     return l.status === "Active" && s && subscriptionStatus(s) === "Running";
   });
+  if (!available.length) {
+    // No active license on a running subscription: there is nothing to create an instance
+    // against yet. Offer the path that unblocks it, instead of a disabled button.
+    return <RequestSubscription label="Request a subscription to create instances" />;
+  }
   const initial =
     available.find((l) => l.subscriptionId === subscriptionId) ?? available[0];
   return (
@@ -464,7 +470,6 @@ export function CreateInstance({
       submit="Create instance"
       icon={<Plus size={16} />}
       variant="primary"
-      disabled={!initial}
       onSuccess={(d) => {
         const l = available.find((l) => l.id === value(d, "license"));
         void navigate({
@@ -641,6 +646,96 @@ export function LicenseActions({ license: l }: { license: License }) {
     </ActionMenu>
   );
 }
+/** Requests a brand-new subscription when the account has none yet. Pricing and activation require n8n. */
+export function RequestSubscription({
+  label = "Request a subscription",
+}: {
+  label?: string;
+}) {
+  const { role } = useManagement();
+  if (role !== "admin") return null;
+  return (
+    <ActionDialog
+      title="Request a subscription"
+      description="Tell n8n which plan you're interested in. Pricing, quota and activation require confirmation from n8n — this prototype does not complete a purchase."
+      label={label}
+      submit="Save request"
+      icon={<Plus size={16} />}
+      variant="primary"
+      action={(d) => ({
+        type: "order",
+        id: newId(),
+        subscriptionId: null,
+        plan: value(d, "plan"),
+        quantity: Number(value(d, "quantity")),
+        environment: value(d, "environment") as Instance["env"],
+        note: value(d, "note").trim(),
+      })}
+      review={(d) => (
+        <>
+          <h3>Review your request</h3>
+          <dl>
+            <div>
+              <dt>Plan</dt>
+              <dd>{value(d, "plan")}</dd>
+            </div>
+            <div>
+              <dt>Quantity</dt>
+              <dd>{value(d, "quantity")} licenses</dd>
+            </div>
+            <div>
+              <dt>Environment</dt>
+              <dd>{value(d, "environment")}</dd>
+            </div>
+            <div>
+              <dt>Notes</dt>
+              <dd>{value(d, "note") || "None"}</dd>
+            </div>
+            <div>
+              <dt>Pricing</dt>
+              <dd>To be confirmed · no charge in this prototype</dd>
+            </div>
+          </dl>
+          <p>Saving this request does not create a subscription or charge your account.</p>
+        </>
+      )}
+    >
+      <label>
+        Plan
+        <select name="plan" defaultValue="Enterprise">
+          {PLAN_OPTIONS.map((plan) => (
+            <option key={plan} value={plan}>
+              {plan}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="form-columns">
+        <label>
+          Quantity
+          <input name="quantity" type="number" min={1} max={100} step={1} defaultValue={1} required />
+        </label>
+        <label>
+          Environment
+          <select name="environment">
+            <option>Production</option>
+            <option>Non-production</option>
+          </select>
+        </label>
+      </div>
+      <label>
+        Notes <span className="field-optional">optional</span>
+        <textarea
+          name="note"
+          rows={3}
+          maxLength={500}
+          placeholder="What are you looking to use n8n for?"
+        />
+      </label>
+    </ActionDialog>
+  );
+}
+
 export function RequestLicenses({
   subscriptionId,
 }: {
@@ -759,9 +854,18 @@ export function OrderRequests() {
       id: "subscription",
       header: "Subscription",
       accessor: (o) =>
-        account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId,
+        o.subscriptionId
+          ? (account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId)
+          : `New subscription — ${o.plan}`,
       cell: (o) =>
-        account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId,
+        o.subscriptionId ? (
+          account.persona.subscriptions.find((s) => s.id === o.subscriptionId)?.name ?? o.subscriptionId
+        ) : (
+          <>
+            New subscription
+            <small className="cell-caption">{o.plan}</small>
+          </>
+        ),
     },
     {
       id: "request",

@@ -292,6 +292,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 }
 .prototype-reset:hover { text-decoration: underline; }
 .sidebar-contact { display: grid; }
+.sidebar-csm { padding: 0 var(--spacing--xs) var(--spacing--2xs); font-size: var(--font-size--sm); color: var(--portal-secondary); }
 .sidebar-contact-trigger { width: 100%; justify-content: flex-start; gap: var(--spacing--xs); color: var(--portal-secondary); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); min-height: 44px; padding-left: var(--spacing--xs); padding-right: var(--spacing--xs); }
 .sidebar-contact-trigger:hover { color: var(--portal-text); }
 .sidebar-user-menu { min-width: 200px; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
@@ -594,6 +595,14 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .filter-menu > summary:focus-visible { outline: 2px solid var(--color--black-alpha-200); outline-offset: 2px; }
 
 /* Subscription view */
+.account-banner { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--spacing--xs); margin-bottom: var(--spacing--lg); }
+.account-banner-label { font-size: var(--font-size--sm); color: var(--portal-secondary); font-weight: var(--font-weight--medium); }
+.account-banner-name { font-size: var(--font-size--lg); font-weight: var(--font-weight--bold); color: var(--portal-text); }
+.account-banner-user { font-size: var(--font-size--sm); color: var(--portal-secondary); }
+.account-banner-user::before { content: "·"; margin-right: var(--spacing--xs); }
+.empty-state-panel { display: grid; justify-items: start; gap: var(--spacing--sm); padding: var(--spacing--xl) var(--spacing--lg); }
+.empty-state-panel h2 { font-size: var(--font-size--md); font-weight: var(--font-weight--bold); }
+.plan-included .quiet-link { margin-top: var(--spacing--2xs); }
 .workspace-title-block { margin-bottom: var(--spacing--lg); }
 .workspace-title-block .workspace-title { margin-bottom: 0; }
 .breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing--4xs); font-size: var(--font-size--sm); color: var(--portal-secondary); margin-bottom: var(--spacing--2xs); }

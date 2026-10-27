@@ -183,6 +183,19 @@ describe("session-only account management", () => {
       ),
     ).toThrow("without activations");
   });
+  it("requests a brand-new subscription when none exists yet, without requiring one", () => {
+    const empty = createEmptyAccount(personas.find((p) => p.id === "full")!);
+    const next = applyManagement(
+      empty,
+      { type: "order", id: "new-sub", subscriptionId: null, plan: "Enterprise", quantity: 2, environment: "Production", note: "" },
+      admin,
+    );
+    expect(next.orders[0]).toMatchObject({ subscriptionId: null, plan: "Enterprise", status: "Pending" });
+    expect(next.notice).toContain("Subscription request saved");
+    expect(() =>
+      applyManagement(empty, { type: "order", id: "no-plan", subscriptionId: null, quantity: 1, environment: "Production", note: "" }, admin),
+    ).toThrow("Choose a plan");
+  });
   it("keeps license requests separate from licenses and quota", () => {
     const s = account();
     const next = applyManagement(

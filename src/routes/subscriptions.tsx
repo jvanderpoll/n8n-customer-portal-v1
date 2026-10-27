@@ -4,7 +4,7 @@ import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
 import { Crumb, InstanceList, LastUpdate, LicenseTable, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
-import { RequestLicenses, LicenseActions, OrderRequests } from "@/components/portal-management";
+import { RequestLicenses, RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ function Subscriptions() {
   const { running, expired } = runningFirst(persona);
   const list = tab === "running" ? running : expired;
   return <>
-    <WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><LastUpdate persona={persona} /><RequestLicenses /></div>} />
+    <WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><LastUpdate persona={persona} />{running.length ? <RequestLicenses /> : <RequestSubscription />}</div>} />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription status">
       <button type="button" role="tab" aria-selected={tab === "running"} className={cn("subscription-tab", tab === "running" && "is-active")} onClick={() => setTab("running")}>
         Running ({running.length})
@@ -87,7 +87,7 @@ function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscri
         <div><dt>Subscription</dt><dd><Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
         <div><dt>Environment</dt><dd>{license.environment}</dd></div>
         <div><dt>Status</dt><dd>{license.status}</dd></div>
-        <div><dt>Executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
+        <div><dt>Billable executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
         <div><dt>Instances reporting</dt><dd>{license.reportingCount}</dd></div>
       </dl>
       <p className="contract-note">This license has no quota of its own. Its executions count toward the {sub.name} quota.</p>

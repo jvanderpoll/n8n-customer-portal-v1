@@ -1,16 +1,30 @@
 import { type Instance, type Persona, type Subscription, periodProgress, subscriptionStatus, summarize } from "./portal-data";
 
+export type Hosting = "Cloud" | "Self-hosted";
+
+/** Derived from the subscription's plan label; hosting is not a separate modeled field. */
+export function subscriptionHosting(sub: Subscription): Hosting {
+  return /cloud/i.test(sub.plan) ? "Cloud" : "Self-hosted";
+}
+
+/** Hosting for an instance, via its subscription's plan. Falls back to self-hosted if the subscription is unknown. */
+export function instanceHosting(instance: Instance, persona: Persona): Hosting {
+  const sub = persona.subscriptions.find((s) => s.id === instance.subscriptionId);
+  return sub ? subscriptionHosting(sub) : "Self-hosted";
+}
+
 export type InstanceFilter = {
   subscription: string;
   license: string;
   status: "all" | "reporting" | "attention";
   environment: "all" | Instance["env"];
+  hosting: "all" | Hosting;
   query: string;
   sort: "usage" | "name" | "report";
 };
 
 export const defaultInstanceFilter: InstanceFilter = {
-  subscription: "all", license: "all", status: "all", environment: "all", query: "", sort: "usage",
+  subscription: "all", license: "all", status: "all", environment: "all", hosting: "all", query: "", sort: "usage",
 };
 
 export const isReporting = (i: Instance) => i.status === "reported" || i.status === "zero";
@@ -29,6 +43,7 @@ export function filterInstances(persona: Persona, filter: InstanceFilter) {
     return !i.archived && (filter.subscription === "all" || i.subscriptionId === filter.subscription)
       && (filter.license === "all" || i.license === filter.license)
       && (filter.environment === "all" || i.env === filter.environment)
+      && (filter.hosting === "all" || instanceHosting(i, persona) === filter.hosting)
       && (filter.status === "all" || (filter.status === "reporting" ? isReporting(i) : !isReporting(i)))
       && (!query || `${i.name} ${i.license} ${subscription?.name ?? ""}`.toLowerCase().includes(query));
   }).sort((a, b) => {
@@ -108,8 +123,9 @@ export function runningFirst(persona: Persona) {
   return { running, expired };
 }
 
-export function contactFor(persona: Persona) {
-  return { kind: "assigned" as const, name: persona.csm };
+/** Assigned CSM, or a general-support fallback when the account has none. */
+export function contactFor(persona: Persona): { kind: "assigned"; name: string } | { kind: "general" } {
+  return persona.csm ? { kind: "assigned", name: persona.csm } : { kind: "general" };
 }
 
 export function memberFor(persona: Persona) {

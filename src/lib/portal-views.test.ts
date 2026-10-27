@@ -63,7 +63,10 @@ describe("read-only portal selectors", () => {
   });
   it("the account's own CSM is the contact", () => {
     expect(contactFor(persona("full"))).toEqual({ kind: "assigned", name: "Lukas Weber" });
-    expect(memberFor(persona("full"))).toEqual({ id: "full-admin", name: "Sanne de Vries", role: "System admin", company: "Northwind Logistics B.V." });
+    expect(memberFor(persona("full"))).toEqual({ id: "full-admin", name: "Sanne de Vries", role: "System admin", company: "Fieldstone Software B.V." });
+  });
+  it("falls back to general support when no CSM is assigned", () => {
+    expect(contactFor({ ...persona("full"), csm: null })).toEqual({ kind: "general" });
   });
 });
 

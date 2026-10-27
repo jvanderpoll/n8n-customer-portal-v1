@@ -20,7 +20,10 @@ const invitedHoursAgo = (hours: number) =>
 
 export type LicenseRequest = {
   id: string;
-  subscriptionId: string;
+  /** Null when requesting a brand-new subscription (no subscription exists yet). */
+  subscriptionId: string | null;
+  /** Plan tier of interest. Only set (and required) when subscriptionId is null. */
+  plan?: string;
   quantity: number;
   environment: Instance["env"];
   note: string;
@@ -43,7 +46,9 @@ export type ManagementAction =
   | {
       type: "order";
       id: string;
-      subscriptionId: string;
+      /** Null requests a brand-new subscription instead of licenses under an existing one. */
+      subscriptionId: string | null;
+      plan?: string;
       quantity: number;
       environment: Instance["env"];
       note: string;
@@ -250,8 +255,12 @@ export function applyManagement(
       break;
     }
     case "order": {
-      if (subscriptionStatus(subscription(action.subscriptionId)) === "Expired")
-        fail("Choose a running subscription.");
+      if (action.subscriptionId) {
+        if (subscriptionStatus(subscription(action.subscriptionId)) === "Expired")
+          fail("Choose a running subscription.");
+      } else if (!action.plan?.trim()) {
+        fail("Choose a plan.");
+      }
       if (
         !Number.isInteger(action.quantity) ||
         action.quantity < 1 ||
@@ -259,8 +268,9 @@ export function applyManagement(
       )
         fail("Choose between 1 and 100 licenses.");
       next.orders.unshift({ ...action, status: "Pending" });
-      next.notice =
-        "License request saved in this demo. Nothing has been ordered or sent.";
+      next.notice = action.subscriptionId
+        ? "License request saved in this demo. Nothing has been ordered or sent."
+        : "Subscription request saved in this demo. Nothing has been purchased or activated.";
       break;
     }
     case "cancel-order": {

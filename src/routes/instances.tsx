@@ -1,17 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
-import { Crumb, DataTable, ReportingStatus, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
+import { Crumb, DataTable, LastUpdate, ReportingStatus, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
 import { BulkRemoveInstances, CreateInstance, InstanceActions, RemovedInstances } from "@/components/portal-management";
 import { activeInstances } from "@/lib/portal-management";
 import { date, fmt, portalHead, timestamp } from "@/lib/portal-format";
 import { summarize, type Instance } from "@/lib/portal-data";
-import { defaultInstanceFilter, filterInstances, subscriptionShare } from "@/lib/portal-views";
+import { defaultInstanceFilter, filterInstances, instanceHosting, subscriptionShare } from "@/lib/portal-views";
 
 const searchSchema = z.object({
   subscription: z.string().optional().catch(undefined),
   license: z.string().optional().catch(undefined),
   status: z.enum(["reporting", "attention"]).optional().catch(undefined),
+  hosting: z.enum(["Cloud", "Self-hosted"]).optional().catch(undefined),
   query: z.string().optional().catch(undefined),
   instance: z.string().optional().catch(undefined),
   page: z.coerce.number().int().positive().optional().catch(undefined),
@@ -35,15 +36,17 @@ function Instances() {
   const subscription = persona.subscriptions.some((s) => s.id === search.subscription) ? search.subscription! : "all";
   const licenses = persona.licenses.filter((l) => subscription === "all" || l.subscriptionId === subscription);
   const license = licenses.some((l) => l.id === search.license) ? search.license! : "all";
+  const hosting = search.hosting ?? "all";
   const filteredRows = filterInstances(persona, {
     ...defaultInstanceFilter,
     subscription,
     license,
     status: search.status ?? "all",
+    hosting,
     query: "",
     sort: "usage",
   });
-  const filtersActive = subscription !== "all" || license !== "all" || Boolean(search.status);
+  const filtersActive = subscription !== "all" || license !== "all" || Boolean(search.status) || hosting !== "all";
   const count = activeInstances(persona).length;
 
   const columns: DataColumn<Instance>[] = [
@@ -68,11 +71,17 @@ function Instances() {
     },
     {
       id: "executions",
-      header: "Executions",
+      header: "Billable executions",
       numeric: true,
       accessor: (i) => i.executions,
       cell: (i) => (i.executions === null ? "—" : fmt(i.executions)),
       csv: (i) => (i.executions === null ? "" : String(i.executions)),
+    },
+    {
+      id: "hosting",
+      header: "Hosting",
+      accessor: (i) => instanceHosting(i, persona),
+      cell: (i) => instanceHosting(i, persona),
     },
     {
       id: "share",
@@ -111,7 +120,7 @@ function Instances() {
   ];
 
   return <>
-    <WorkspaceTitle title={`Instances (${count})`} trailing={<div className="page-actions"><CreateInstance subscriptionId={subscription === "all" ? undefined : subscription} /></div>} />
+    <WorkspaceTitle title={`Instances (${count})`} trailing={<div className="page-actions"><LastUpdate persona={persona} /><CreateInstance subscriptionId={subscription === "all" ? undefined : subscription} /></div>} />
     <section className="workspace-panel">
       <DataTable
         columns={columns}
@@ -157,6 +166,14 @@ function Instances() {
                 <option value="attention">Not reporting</option>
               </select>
             </label>
+            <label>
+              Hosting
+              <select value={hosting} onChange={(e) => set({ hosting: e.target.value === "all" ? undefined : e.target.value as "Cloud" | "Self-hosted", page: undefined })}>
+                <option value="all">All</option>
+                <option value="Cloud">Cloud</option>
+                <option value="Self-hosted">Self-hosted</option>
+              </select>
+            </label>
           </>
         }
       />
@@ -180,6 +197,7 @@ function InstanceDetail({ instance: i }: { instance: Instance }) {
         <div><dt>Reporting status</dt><dd><ReportingStatus instance={i} /></dd></div>
         <div><dt>License</dt><dd>{sub && license ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id, license: license.id }}>{license.label}</Link> : i.license}<small className="cell-caption mono-text">{i.license}</small></dd></div>
         <div><dt>Key type</dt><dd>{license?.environment ?? i.env}</dd></div>
+        <div><dt>Hosting</dt><dd>{sub ? instanceHosting(i, persona) : "—"}</dd></div>
         <div><dt>Subscription</dt><dd>{sub ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : "—"}{sub && <small className="cell-caption">{date(sub.start)} — {date(sub.end)}</small>}</dd></div>
         <div><dt>Subscription included quota</dt><dd>{sub ? `${fmt(sub.quota)} executions` : "—"}</dd></div>
         <div><dt>Subscription executions used</dt><dd>{summary ? fmt(summary.used) : "—"}</dd></div>

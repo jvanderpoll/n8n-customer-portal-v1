@@ -7,8 +7,10 @@ import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
 import {
   cumulativeUsageChart,
+  PLAN_FEATURES,
   pastPeriods,
   periodExecutionsLabel,
+  planTier,
   quotaOnChartScale,
   quotaPaceSentence,
   type ChartRange,
@@ -16,7 +18,7 @@ import {
   type UsageBreakdown,
 } from "@/lib/portal-billing";
 import { summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
-import { isReporting, licensesFor, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
+import { instanceHosting, isReporting, licensesFor, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt } from "@/lib/portal-format";
 import { cn } from "@/lib/utils";
 
@@ -41,9 +43,36 @@ export function LastUpdate({ persona }: { persona: Persona }) {
   return <span className="update-label">Last update {ago(persona.usageUpdated)}</span>;
 }
 
-function Requirements({ subscription }: { subscription: Subscription }) {
-  if (!subscription.requirements?.length) return null;
-  return <div className="contract-note"><strong>Contract requirements</strong><ul>{subscription.requirements.map((r) => <li key={r}>{r}</li>)}</ul></div>;
+/** Shows contract restrictions only when they apply; hides the whole block when the contract has none. */
+function Requirements({ subscription, instanceCount }: { subscription: Subscription; instanceCount: number }) {
+  const extra = subscription.requirements ?? [];
+  const limitLine = subscription.instanceLimit != null
+    ? `${Math.max(0, subscription.instanceLimit - instanceCount)} of ${subscription.instanceLimit} instances available`
+    : null;
+  if (!limitLine && !extra.length) return null;
+  return (
+    <div className="contract-note">
+      <strong>Contract requirements</strong>
+      <ul>
+        {limitLine && <li>{limitLine}</li>}
+        {extra.map((r) => <li key={r}>{r}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+/** Headline features for the subscription's plan tier, sourced from n8n.io/pricing. Hidden when the tier isn't sourced. */
+function PlanIncluded({ plan }: { plan: string }) {
+  const tier = planTier(plan);
+  const features = tier ? PLAN_FEATURES[tier] : undefined;
+  if (!tier || !features?.length) return null;
+  return (
+    <div className="contract-note plan-included">
+      <strong>What's included with {tier}</strong>
+      <ul>{features.map((f) => <li key={f}>{f}</li>)}</ul>
+      <a className="quiet-link" href="https://n8n.io/pricing/" target="_blank" rel="noreferrer">See full plan details <ArrowUpRight size={14} /></a>
+    </div>
+  );
 }
 
 type OverviewSubRow = {
@@ -56,7 +85,7 @@ type OverviewSubRow = {
   renewalSort: string;
 };
 
-export function OverviewDashboard() {
+export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNode }) {
   const persona = usePersona();
   const navigate = useNavigate();
   const { running } = runningFirst(persona);
@@ -96,7 +125,7 @@ export function OverviewDashboard() {
     },
     {
       id: "executions",
-      header: "Executions",
+      header: "Billable executions",
       numeric: true,
       accessor: (r) => r.used,
       cell: (r) => fmt(r.used),
@@ -118,8 +147,14 @@ export function OverviewDashboard() {
     },
   ];
 
+  const isEmpty = running.length === 0;
   return (
     <>
+      <div className="account-banner">
+        <span className="account-banner-label">Account</span>
+        <strong className="account-banner-name">{persona.company}</strong>
+        <span className="account-banner-user">{persona.user}</span>
+      </div>
       <div className="metric-strip overview-totals" aria-label="Account totals">
         <div className="overview-metric-row overview-counts">
           <Link to="/subscriptions" className="summary-metric summary-metric-link">
@@ -139,47 +174,59 @@ export function OverviewDashboard() {
             <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
           </div>
         </div>
-        <div className="overview-metric-row overview-usage">
-          <div className="summary-metric">
-            <span className="metric-label">Executions this term</span>
-            <strong>{fmt(executionsThisTerm)}</strong>
+        {!isEmpty && (
+          <div className="overview-metric-row overview-usage">
+            <div className="summary-metric">
+              <span className="metric-label">Executions this term</span>
+              <strong>{fmt(executionsThisTerm)}</strong>
+            </div>
+            <div className="summary-metric">
+              <span className="metric-label">Annual quota</span>
+              <strong>{fmt(annualQuota)}</strong>
+            </div>
+            <div className="summary-metric">
+              <span className="metric-label">Percent of quota</span>
+              <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
+            </div>
           </div>
-          <div className="summary-metric">
-            <span className="metric-label">Annual quota</span>
-            <strong>{fmt(annualQuota)}</strong>
-          </div>
-          <div className="summary-metric">
-            <span className="metric-label">Percent of quota</span>
-            <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
-          </div>
-        </div>
+        )}
       </div>
-      {primary && primarySummary && primaryView && (
-        <section className="workspace-panel chart-panel overview-usage-panel">
-          <BillableExecutionsChart subscription={primary} showPurchaseLink />
-          <p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>
+      {isEmpty ? (
+        <section className="workspace-panel empty-state-panel">
+          <h2>No subscriptions yet</h2>
+          <p className="supporting">Request a subscription to start creating instances and reporting usage.</p>
+          {emptyAction}
         </section>
+      ) : (
+        <>
+          {primary && primarySummary && primaryView && (
+            <section className="workspace-panel chart-panel overview-usage-panel">
+              <BillableExecutionsChart subscription={primary} showPurchaseLink />
+              <p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>
+            </section>
+          )}
+          <section className="workspace-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>Running subscriptions</h2>
+                <span className="supporting">Quota use and renewal for each active contract.</span>
+              </div>
+            </div>
+            <DataTable
+              columns={columns}
+              rows={rows}
+              rowKey={(r) => r.id}
+              searchPlaceholder="Search subscriptions…"
+              csvFilename="running-subscriptions.csv"
+              empty="No subscriptions."
+              onRowClick={(r) => void navigate({ to: "/subscriptions", search: { subscription: r.id } })}
+            />
+          </section>
+          <p className="overview-footnote">
+            <Link to="/subscriptions" className="text-link quiet-link">View all subscriptions <ArrowUpRight size={14} /></Link>
+          </p>
+        </>
       )}
-      <section className="workspace-panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Running subscriptions</h2>
-            <span className="supporting">Quota use and renewal for each active contract.</span>
-          </div>
-        </div>
-        <DataTable
-          columns={columns}
-          rows={rows}
-          rowKey={(r) => r.id}
-          searchPlaceholder="Search subscriptions…"
-          csvFilename="running-subscriptions.csv"
-          empty="No subscriptions."
-          onRowClick={(r) => void navigate({ to: "/subscriptions", search: { subscription: r.id } })}
-        />
-      </section>
-      <p className="overview-footnote">
-        <Link to="/subscriptions" className="text-link quiet-link">View all subscriptions <ArrowUpRight size={14} /></Link>
-      </p>
     </>
   );
 }
@@ -298,7 +345,7 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false }
                   labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
                   formatter={(value, name) => [
                     fmt(Number(value)),
-                    name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Executions",
+                    name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Billable executions",
                   ]}
                   contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
                 />
@@ -356,12 +403,15 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
     <dl className="subscription-facts">
       <div><dt>Period</dt><dd>{date(sub.start)} — {date(sub.end)}</dd></div>
       <div><dt>Time left</dt><dd>{running ? plural(period.daysLeft, "day") : "Ended"}</dd></div>
+      <div><dt>Remaining</dt><dd>{fmt(summary.remaining)} executions</dd></div>
       <div><dt>Quota resets at renewal</dt><dd>{sub.quotaResetsAtRenewal ? "Yes" : "No"}</dd></div>
       {sub.annualAmountEur != null && <div><dt>Annual amount</dt><dd>{eurWhole(sub.annualAmountEur)}</dd></div>}
     </dl>
-    <Requirements subscription={sub} />
+    <Requirements subscription={sub} instanceCount={summary.instanceCount} />
+    <PlanIncluded plan={sub.plan} />
     <div className="agreement-actions">
       <span>{plural(summary.reportingCount, "instance")} reporting</span>
+      {view.quotaPrompt && <Link to="/instances" search={{ subscription: sub.id }} className="quiet-link">View top instances <ArrowUpRight size={14} /></Link>}
       {linked && <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>}
     </div>
   </section>;
@@ -383,7 +433,7 @@ export function PastPeriods({ subscription: sub }: { subscription: Subscription 
     { id: "period", header: "Period", accessor: (p) => p.start, cell: (p) => p.label, csv: (p) => p.label },
     {
       id: "executions",
-      header: "Executions",
+      header: "Billable executions",
       numeric: true,
       accessor: (p) => p.executions,
       cell: (p) => {
@@ -462,7 +512,7 @@ export function LicenseTable({ subscription: sub, actions }: { subscription: Sub
     { id: "environment", header: "Environment", accessor: (l) => l.environment, cell: (l) => l.environment },
     {
       id: "executions",
-      header: "Executions",
+      header: "Billable executions",
       numeric: true,
       accessor: (l) => l.executions,
       cell: (l) => (l.executions === null ? "—" : fmt(l.executions)),
@@ -517,11 +567,17 @@ export function InstanceList({ instances, empty = "No instances activated on thi
     },
     {
       id: "executions",
-      header: "Executions",
+      header: "Billable executions",
       numeric: true,
       accessor: (i) => i.executions,
       cell: (i) => (i.executions === null ? "—" : fmt(i.executions)),
       csv: (i) => (i.executions === null ? "" : String(i.executions)),
+    },
+    {
+      id: "hosting",
+      header: "Hosting",
+      accessor: (i) => instanceHosting(i, persona),
+      cell: (i) => instanceHosting(i, persona),
     },
     {
       id: "status",
