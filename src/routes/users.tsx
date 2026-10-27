@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useManagement, usePersona } from "@/components/portal-shell";
 import { DataTable, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
-import { InviteUser, MemberActions } from "@/components/portal-management";
+import { BulkRemoveMembers, InviteUser, MemberActions } from "@/components/portal-management";
 import { portalHead, timestamp } from "@/lib/portal-format";
 import {
   formatMemberScope,
@@ -159,6 +159,10 @@ function Users() {
             searchPlaceholder="Search people…"
             csvFilename="users.csv"
             rowActions={(m) => <MemberActions member={m} />}
+            isRowSelectable={(m) => m.id !== "self"}
+            bulkActions={({ selectedRows, clearSelection }) => (
+              <BulkRemoveMembers members={selectedRows} onDone={clearSelection} />
+            )}
             empty="No people with access."
             filterContent={filterContent}
             filtersActive={filtersActive}
@@ -175,6 +179,9 @@ function Users() {
             searchPlaceholder="Search invites…"
             csvFilename="pending-invites.csv"
             rowActions={(m) => <MemberActions member={m} />}
+            bulkActions={({ selectedRows, clearSelection }) => (
+              <BulkRemoveMembers members={selectedRows} onDone={clearSelection} />
+            )}
             empty="No pending invites."
             initialSort={{ id: "invited", dir: "desc" }}
             filterContent={filterContent}

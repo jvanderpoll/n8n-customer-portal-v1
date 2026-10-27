@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
 import { Crumb, DataTable, ReportingStatus, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
-import { CreateInstance, InstanceActions, RemovedInstances } from "@/components/portal-management";
+import { BulkRemoveInstances, CreateInstance, InstanceActions, RemovedInstances } from "@/components/portal-management";
 import { activeInstances } from "@/lib/portal-management";
 import { date, fmt, portalHead, timestamp } from "@/lib/portal-format";
 import { summarize, type Instance } from "@/lib/portal-data";
@@ -14,6 +14,7 @@ const searchSchema = z.object({
   status: z.enum(["reporting", "attention"]).optional().catch(undefined),
   query: z.string().optional().catch(undefined),
   instance: z.string().optional().catch(undefined),
+  page: z.coerce.number().int().positive().optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/instances")({
@@ -118,11 +119,17 @@ function Instances() {
         rowKey={(i) => i.id}
         searchPlaceholder="Search name or license…"
         search={search.query ?? ""}
-        onSearchChange={(value) => set({ query: value || undefined })}
+        onSearchChange={(value) => set({ query: value || undefined, page: undefined })}
         csvFilename="instances.csv"
         empty="No instances match your filters."
         onRowClick={(i) => void navigate({ to: "/instances", search: { instance: i.id } })}
         rowActions={(i) => <InstanceActions instance={i} />}
+        bulkActions={({ selectedRows, clearSelection }) => (
+          <BulkRemoveInstances instances={selectedRows} onDone={clearSelection} />
+        )}
+        pageSize={20}
+        page={search.page ?? 1}
+        onPageChange={(page) => set({ page: page <= 1 ? undefined : page })}
         initialSort={{ id: "executions", dir: "desc" }}
         filtersActive={filtersActive}
         onClearFilters={() => void navigate({ search: { query: search.query }, replace: true })}
@@ -130,21 +137,21 @@ function Instances() {
           <>
             <label>
               Subscription
-              <select value={subscription} onChange={(e) => set({ subscription: e.target.value === "all" ? undefined : e.target.value, license: undefined })}>
+              <select value={subscription} onChange={(e) => set({ subscription: e.target.value === "all" ? undefined : e.target.value, license: undefined, page: undefined })}>
                 <option value="all">All</option>
                 {persona.subscriptions.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
             <label>
               License
-              <select value={license} onChange={(e) => set({ license: e.target.value === "all" ? undefined : e.target.value })}>
+              <select value={license} onChange={(e) => set({ license: e.target.value === "all" ? undefined : e.target.value, page: undefined })}>
                 <option value="all">All</option>
                 {licenses.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
               </select>
             </label>
             <label>
               Reporting
-              <select value={search.status ?? "all"} onChange={(e) => set({ status: e.target.value === "all" ? undefined : e.target.value as "reporting" | "attention" })}>
+              <select value={search.status ?? "all"} onChange={(e) => set({ status: e.target.value === "all" ? undefined : e.target.value as "reporting" | "attention", page: undefined })}>
                 <option value="all">All</option>
                 <option value="reporting">Reporting</option>
                 <option value="attention">Not reporting</option>

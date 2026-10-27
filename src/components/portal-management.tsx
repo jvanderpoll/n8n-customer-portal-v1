@@ -252,6 +252,195 @@ function ActionDialog({
     </Dialog>
   );
 }
+/** Confirm one bulk destructive action; optionally require typing Delete once. */
+export function BulkConfirmDialog({
+  title,
+  description,
+  label,
+  submit,
+  confirmDelete = false,
+  disabled = false,
+  onConfirm,
+}: {
+  title: string;
+  description: string;
+  label: string;
+  submit: string;
+  confirmDelete?: boolean;
+  disabled?: boolean;
+  onConfirm: () => string | void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const deleteConfirmed = !confirmDelete || confirmText === DELETE_CONFIRM;
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        setError("");
+        setConfirmText("");
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" variant="destructive" size="sm" disabled={disabled}>
+          {label}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="management-dialog">
+        <DialogTitle>{title}</DialogTitle>
+        <DialogDescription>{description}</DialogDescription>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (confirmDelete && confirmText !== DELETE_CONFIRM) return;
+            const failure = onConfirm();
+            setError(failure ?? "");
+            if (!failure) {
+              setOpen(false);
+              setConfirmText("");
+            }
+          }}
+        >
+          {confirmDelete && (
+            <div className="management-fields">
+              <label>
+                Type Delete to confirm
+                <input
+                  name="delete-confirm"
+                  autoComplete="off"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="Delete"
+                  aria-required="true"
+                />
+              </label>
+            </div>
+          )}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="dialog-actions">
+            <Button type="button" variant="outline" size="lg" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="destructive" size="lg" disabled={!deleteConfirmed}>
+              {submit}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function performAll(
+  perform: (action: ManagementAction) => string | undefined,
+  actions: ManagementAction[],
+) {
+  for (const action of actions) {
+    const failure = perform(action);
+    if (failure) return failure;
+  }
+}
+
+export function BulkRemoveInstances({
+  instances,
+  onDone,
+}: {
+  instances: Instance[];
+  onDone: () => void;
+}) {
+  const { perform, role } = useManagement();
+  if (role !== "admin" || !instances.length) return null;
+  const count = instances.length;
+  return (
+    <BulkConfirmDialog
+      title="Remove?"
+      description={`${count} ${count === 1 ? "instance" : "instances"} will leave the inventory. Reported usage is retained. This does not shut down or delete self-hosted servers.`}
+      label="Remove"
+      submit="Remove"
+      confirmDelete
+      onConfirm={() => {
+        const failure = performAll(
+          perform,
+          instances.map((i) => ({ type: "remove-instance" as const, id: i.id })),
+        );
+        if (!failure) onDone();
+        return failure;
+      }}
+    />
+  );
+}
+
+export function BulkRemoveMembers({
+  members,
+  onDone,
+}: {
+  members: Member[];
+  onDone: () => void;
+}) {
+  const { perform, role } = useManagement();
+  const removable = members.filter((m) => m.id !== "self");
+  if (role !== "admin" || !removable.length) return null;
+  const invited = removable.every((m) => m.status === "Invited");
+  const count = removable.length;
+  return (
+    <BulkConfirmDialog
+      title={invited ? "Cancel invitation?" : "Remove?"}
+      description={
+        invited
+          ? `${count} ${count === 1 ? "invitation" : "invitations"} will be cancelled.`
+          : `${count} ${count === 1 ? "person" : "people"} will no longer have access to this customer portal.`
+      }
+      label={invited ? "Cancel invitation" : "Remove"}
+      submit={invited ? "Cancel invitation" : "Remove"}
+      confirmDelete={false}
+      onConfirm={() => {
+        const failure = performAll(
+          perform,
+          removable.map((m) => ({ type: "remove-member" as const, id: m.id })),
+        );
+        if (!failure) onDone();
+        return failure;
+      }}
+    />
+  );
+}
+
+export function BulkCancelOrders({
+  orders,
+  onDone,
+}: {
+  orders: LicenseRequest[];
+  onDone: () => void;
+}) {
+  const { perform, role } = useManagement();
+  const pending = orders.filter((o) => o.status === "Pending");
+  if (role !== "admin" || !pending.length) return null;
+  const count = pending.length;
+  return (
+    <BulkConfirmDialog
+      title="Cancel license request?"
+      description={`${count} ${count === 1 ? "request" : "requests"} will remain in the demo history as cancelled.`}
+      label="Cancel request"
+      submit="Cancel request"
+      confirmDelete
+      onConfirm={() => {
+        const failure = performAll(
+          perform,
+          pending.map((o) => ({ type: "cancel-order" as const, id: o.id })),
+        );
+        if (!failure) onDone();
+        return failure;
+      }}
+    />
+  );
+}
+
 export function CreateInstance({
   subscriptionId,
 }: {
@@ -615,8 +804,18 @@ export function OrderRequests() {
         searchPlaceholder="Search requests…"
         csvFilename="license-requests.csv"
         empty="No license requests."
+        isRowSelectable={(o) => o.status === "Pending"}
         {...(role === "admin"
-          ? { rowActions: (o: LicenseRequest) => (o.status === "Pending" ? <CancelOrder order={o} /> : null) }
+          ? {
+              rowActions: (o: LicenseRequest) => (o.status === "Pending" ? <CancelOrder order={o} /> : null),
+              bulkActions: ({
+                selectedRows,
+                clearSelection,
+              }: {
+                selectedRows: LicenseRequest[];
+                clearSelection: () => void;
+              }) => <BulkCancelOrders orders={selectedRows} onDone={clearSelection} />,
+            }
           : {})}
       />
     </section>

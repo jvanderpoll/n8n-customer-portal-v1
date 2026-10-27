@@ -20,7 +20,7 @@ export function downloadCsv(filename: string, headers: string[], rows: string[][
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function copyCsv(headers: string[], rows: string[][]) {
+export async function copyCsv(headers: string[], rows: string[][]) {
   const text = toCsv(headers, rows);
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(text);
