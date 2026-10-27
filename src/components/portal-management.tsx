@@ -679,15 +679,15 @@ export function MemberActions({ member: m }: { member: Member }) {
     <ActionMenu label={`${invited ? "Manage invitation for" : "Manage access for"} ${m.email}`}>
       {isSelf ? (
         <>
-          <ActionMenuItem label="Edit access" icon={<Pencil size={16} />} disabled />
+          <ActionMenuItem label="Manage access" icon={<Pencil size={16} />} disabled />
           <ActionMenuItem label="Remove" icon={<Trash2 size={16} />} danger disabled />
         </>
       ) : (
         <>
           <ActionDialog
-            title="Edit access"
+            title="Manage access"
             description={`Change the role and subscription scope for ${m.email}. Changes apply only in this demo session.`}
-            label="Edit access"
+            label="Manage access"
             variant="menu"
             icon={<Pencil size={16} />}
             submit="Save changes"
