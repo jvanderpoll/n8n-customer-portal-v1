@@ -9,18 +9,10 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 const pagesBuild = process.env["GITHUB_PAGES"] === "true";
 
 export default defineConfig({
-  vite: {
-    // Dual-stack bind (same as the Lovable default). Do not start with
-    // `--host 0.0.0.0`: that is IPv4-only, so ::1 and Cursor tunnels that
-    // reconnect after a Ctrl-C restart fail with ECONNREFUSED / -102.
-    server: {
-      host: "::",
-      port: 8080,
-      strictPort: true,
-    },
-    ...(pagesBuild ? { base: "/n8n-customer-portal-v1/" } : {}),
-  },
-  ...(pagesBuild ? { nitro: false } : {}),
+  ...(pagesBuild ? {
+    vite: { base: "/n8n-customer-portal-v1/" },
+    nitro: false,
+  } : {}),
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

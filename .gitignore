@@ -5,6 +5,3 @@ dist/
 .nitro/
 .env
 .env.*
-
-# Stale empty remnant; deleted from the tree and must not reappear via HMR churn.
-src/components/portal-shared.tsx
