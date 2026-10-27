@@ -4,7 +4,14 @@ import { useManagement, usePersona } from "@/components/portal-shell";
 import { DataTable, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
 import { InviteUser, MemberActions } from "@/components/portal-management";
 import { portalHead } from "@/lib/portal-format";
-import { formatMemberScope, ROLE_LABELS, type Member } from "@/lib/portal-management";
+import {
+  formatMemberScope,
+  isRole,
+  ROLE_LABELS,
+  ROLES,
+  type Member,
+  type Role,
+} from "@/lib/portal-management";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/users")({
@@ -12,12 +19,72 @@ export const Route = createFileRoute("/users")({
   component: Users,
 });
 
+type RoleFilter = "all" | Role;
+/** "" = no filter; "all" = All subscriptions; otherwise a subscription id. */
+type ScopeFilter = "" | "all" | string;
+
+function matchesScope(member: Member, scopeFilter: ScopeFilter) {
+  if (!scopeFilter) return true;
+  if (scopeFilter === "all") return member.scope === "all";
+  return Array.isArray(member.scope) && member.scope.includes(scopeFilter);
+}
+
 function Users() {
   const { account } = useManagement();
   const persona = usePersona();
   const active = account.members.filter((m) => m.status === "Active");
   const pending = account.members.filter((m) => m.status === "Invited");
   const [tab, setTab] = useState<"people" | "invites">("people");
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("");
+
+  const filtersActive = roleFilter !== "all" || scopeFilter !== "";
+  const clearFilters = () => {
+    setRoleFilter("all");
+    setScopeFilter("");
+  };
+
+  const filterMembers = (members: Member[]) =>
+    members.filter(
+      (m) => (roleFilter === "all" || m.role === roleFilter) && matchesScope(m, scopeFilter),
+    );
+
+  const filterContent = (
+    <>
+      <label>
+        Role
+        <select
+          value={roleFilter}
+          onChange={(e) => {
+            const value = e.target.value;
+            setRoleFilter(value === "all" || isRole(value) ? value : "all");
+          }}
+        >
+          <option value="all">All</option>
+          {ROLES.map((role) => (
+            <option key={role} value={role}>
+              {ROLE_LABELS[role]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Scope
+        <select
+          value={scopeFilter || "any"}
+          onChange={(e) => setScopeFilter(e.target.value === "any" ? "" : e.target.value)}
+        >
+          <option value="any">All</option>
+          <option value="all">All subscriptions</option>
+          {persona.subscriptions.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
 
   const peopleColumns: DataColumn<Member>[] = [
     {
@@ -79,24 +146,30 @@ function Users() {
         <section className="workspace-panel">
           <DataTable
             columns={peopleColumns}
-            rows={active}
+            rows={filterMembers(active)}
             rowKey={(m) => m.id}
             searchPlaceholder="Search people…"
             csvFilename="users.csv"
             rowActions={(m) => <MemberActions member={m} />}
             empty="No people with access."
+            filterContent={filterContent}
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
           />
         </section>
       ) : (
         <section className="workspace-panel">
           <DataTable
             columns={inviteColumns}
-            rows={pending}
+            rows={filterMembers(pending)}
             rowKey={(m) => m.id}
             searchPlaceholder="Search invites…"
             csvFilename="pending-invites.csv"
             rowActions={(m) => <MemberActions member={m} />}
             empty="No pending invites."
+            filterContent={filterContent}
+            filtersActive={filtersActive}
+            onClearFilters={clearFilters}
           />
         </section>
       )}

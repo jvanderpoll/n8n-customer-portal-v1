@@ -260,10 +260,20 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .summary-metric { padding: 0 var(--spacing--lg); display: flex; flex-direction: column; gap: var(--spacing--2xs); border-right: 1px solid var(--border); min-width: 0; }
 .summary-metric:last-child { border: 0; }
 .summary-metric-link { color: inherit; text-decoration: none; border-radius: var(--radius--3xs); outline-offset: 4px; }
+.summary-metric-link:hover,
+.summary-metric-link:focus-visible {
+  background: var(--portal-subtle);
+  text-decoration: none;
+}
 .summary-metric-link:hover .metric-label,
-.summary-metric-link:focus-visible .metric-label { text-decoration: underline; color: var(--portal-text); }
+.summary-metric-link:focus-visible .metric-label {
+  text-decoration: none;
+  color: var(--portal-text);
+}
 .summary-metric-link:hover > strong,
-.summary-metric-link:focus-visible > strong { text-decoration: underline; }
+.summary-metric-link:focus-visible > strong {
+  text-decoration: none;
+}
 .summary-metric-link:focus-visible { outline: 2px solid var(--color--black-alpha-200); }
 .metric-label { font-size: var(--font-size--sm); color: var(--portal-secondary); font-weight: var(--font-weight--medium); }
 .summary-metric > strong { font-size: var(--font-size--2xl); font-weight: var(--font-weight--bold); line-height: var(--line-height--sm); letter-spacing: var(--letter-spacing--tight); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--portal-text); }
