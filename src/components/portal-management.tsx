@@ -255,7 +255,7 @@ export function InstanceActions({ instance: i }: { instance: Instance }) {
       <ActionDialog
         title="Edit instance"
         description="Rename this instance or move it to another license within the same subscription. This does not redeploy the instance."
-        label="Edit / move"
+        label="Edit"
         icon={<Pencil size={16} />}
         variant="menu"
         submit="Save changes"
