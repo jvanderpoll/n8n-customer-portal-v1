@@ -635,10 +635,10 @@ export function InviteUser() {
   if (role !== "admin") return null;
   return (
     <ActionDialog
-      title="Invite a person"
+      title="Invite people"
       description="Give someone access to this customer portal. This does not grant access to workflows or instances in n8n."
       label="Invite"
-      submit="Create invitation"
+      submit="Send invite"
       icon={<UserPlus size={16} />}
       variant="primary"
       action={(d) => ({
