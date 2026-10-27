@@ -637,7 +637,7 @@ export function InviteUser() {
     <ActionDialog
       title="Invite people"
       description="Give someone access to this customer portal. This does not grant access to workflows or instances in n8n."
-      label="Invite"
+      label="Invite people"
       submit="Send invite"
       icon={<UserPlus size={16} />}
       variant="primary"
