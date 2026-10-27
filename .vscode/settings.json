@@ -1,0 +1,10 @@
+{
+  "remote.autoForwardPorts": true,
+  "remote.autoForwardPortsSource": "hybrid",
+  "remote.portsAttributes": {
+    "8080": {
+      "label": "n8n Customer Portal (Vite)",
+      "onAutoForward": "openPreview"
+    }
+  }
+}
