@@ -16,6 +16,8 @@ import {
   monthlyChartPoints,
   pastPeriods,
   periodExecutionsLabel,
+  cumulativeUsageChart,
+  quotaOnChartScale,
   quotaPaceSentence,
 } from "./portal-billing";
 
@@ -100,6 +102,40 @@ describe("past periods", () => {
     expect(last3).toHaveLength(3);
     expect(term.reduce((sum, p) => sum + p.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
     expect(term.at(-1)?.cumulativeQuotaPct).toBeCloseTo(NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA);
+  });
+  it("plots cumulative billable executions by billing month against quota", () => {
+    const full = persona("full");
+    const sub = full.subscriptions[0]!;
+    const { points, series } = cumulativeUsageChart(sub, full.instances, full.licenses, "term", "subscription");
+    expect(series).toEqual([{ id: "subscription", name: "Enterprise", executions: NORTHWIND_TERM_EXECUTIONS }]);
+    expect(points).toHaveLength(10);
+    expect(points.at(-1)?.cumulative).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(points.at(-1)?.quota).toBe(NORTHWIND_ANNUAL_QUOTA);
+    expect(points.at(-1)?.values.subscription).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(points.map((point) => point.cumulative)).toEqual([120, 400, 850, 1740, 3840, 10640, 21840, 37640, 59740, 87603]);
+    expect(quotaOnChartScale(NORTHWIND_TERM_EXECUTIONS, NORTHWIND_ANNUAL_QUOTA)).toBe(false);
+  });
+  it("splits the same cumulative total across licenses and instances", () => {
+    const full = persona("full");
+    const sub = full.subscriptions[0]!;
+    const byLicense = cumulativeUsageChart(sub, full.instances, full.licenses, "term", "license");
+    expect(byLicense.series.map((item) => item.name)).toEqual(["Production", "EU production", "Batch workloads", "Development & staging"]);
+    expect(byLicense.series.reduce((sum, item) => sum + item.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
+    const lastLicense = byLicense.points.at(-1)!;
+    expect(Object.values(lastLicense.values).reduce((sum, value) => sum + value, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(lastLicense.cumulative).toBe(NORTHWIND_TERM_EXECUTIONS);
+    const byInstance = cumulativeUsageChart(sub, full.instances, full.licenses, "3m", "instance");
+    expect(byInstance.series).toHaveLength(8);
+    expect(byInstance.series.at(-1)?.name).toBe("Other instances");
+    expect(byInstance.points).toHaveLength(3);
+    expect(byInstance.points.at(-1)?.cumulative).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(byInstance.points[0]?.cumulative).toBe(37640);
+    const over = persona("over");
+    const production = over.subscriptions[0]!;
+    const overChart = cumulativeUsageChart(production, over.instances, over.licenses, "term", "subscription");
+    const peak = overChart.points.at(-1)?.cumulative ?? 0;
+    expect(peak).toBe(summarize(production, over.instances).used);
+    expect(quotaOnChartScale(peak, production.quota)).toBe(true);
   });
   it("projects quota pace past renewal when usage is far under term elapsed", () => {
     const full = persona("full");
