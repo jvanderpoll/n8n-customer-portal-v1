@@ -269,14 +269,6 @@ function UsageLines({
   const peak = Math.max(1, ...points.flatMap((point) => series.map((item) => point.values[item.id] ?? 0)), ...(showQuota ? [quota] : []));
   return (
     <>
-      <div className="chart-legend">
-        <div className="chart-legend-series">
-          {series.map((item, index) => (
-            <span key={item.id}><i className="series-swatch" style={{ background: SERIES_COLORS[index % SERIES_COLORS.length] }} />{item.name}</span>
-          ))}
-          {showQuota && <span><i className="legend-quota" />Quota · {fmt(quota)}</span>}
-        </div>
-      </div>
       <div className="usage-chart" role="img" aria-label={label}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartRows} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}>
@@ -297,6 +289,12 @@ function UsageLines({
             ))}
           </ComposedChart>
         </ResponsiveContainer>
+      </div>
+      <div className="chart-legend">
+        {series.map((item, index) => (
+          <span key={item.id}><i className="series-swatch" style={{ background: SERIES_COLORS[index % SERIES_COLORS.length] }} />{item.name}</span>
+        ))}
+        {showQuota && <span><i className="legend-quota" />Quota · {fmt(quota)}</span>}
       </div>
     </>
   );
