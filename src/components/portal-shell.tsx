@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { personas, type Persona } from "@/lib/portal-data";
+import { NOW, personas, type Persona } from "@/lib/portal-data";
 import { contactFor } from "@/lib/portal-views";
 import { applyManagement, createAccount, createEmptyAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,13 @@ export function usePersona() {
   return persona;
 }
 
-const ManagementContext = createContext<{ account: AccountState; role: Role; perform: (action: ManagementAction) => string | null } | null>(null);
+const ManagementContext = createContext<{
+  account: AccountState;
+  role: Role;
+  perform: (action: ManagementAction) => string | null;
+  /** Session-only: stamp usageUpdated to the prototype clock (no network). */
+  refreshUsage: () => void;
+} | null>(null);
 export function useManagement() { const value = useContext(ManagementContext); if (!value) throw new Error("Management requires the portal shell"); return value; }
 
 const navigation = [
@@ -270,6 +276,12 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const [account, setAccount] = useState(() => createAccount(personas[0]!));
   const role: Role = "admin";
   const perform = (action: ManagementAction) => { try { setAccount(applyManagement(account, action, role)); return null; } catch (error) { return error instanceof Error ? error.message : "Unable to complete this action."; } };
+  const refreshUsage = () => {
+    setAccount((current) => ({
+      ...current,
+      persona: { ...current.persona, usageUpdated: NOW },
+    }));
+  };
   const activeRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
   const persona = account.persona;
   if (!persona) return null;
@@ -301,7 +313,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
     void navigate({ to: "/", replace: true });
   };
 
-  return <ManagementContext.Provider value={{ account, role, perform }}><PersonaContext.Provider value={persona}>
+  return <ManagementContext.Provider value={{ account, role, perform, refreshUsage }}><PersonaContext.Provider value={persona}>
     <div className="portal-layout">
       <aside className="portal-sidebar">
         <Link to="/" className="portal-brand" aria-label="n8n Admin Console"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="n8n" width="120" height="24" /><span>Admin Console</span></Link>

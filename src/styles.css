@@ -310,6 +310,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .workspace-title { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing--sm); margin-bottom: var(--spacing--lg); }
 .workspace-title h1 { font-size: var(--font-size--2xl); line-height: var(--line-height--sm); font-weight: var(--font-weight--bold); letter-spacing: var(--letter-spacing--tight); color: var(--portal-text); }
 .update-label { display: inline-flex; align-items: center; gap: var(--spacing--4xs); font-size: var(--font-size--sm); color: var(--portal-secondary); }
+.update-label .update-refresh { width: 28px; height: 28px; min-height: 28px; color: var(--portal-secondary); }
+.update-label .update-refresh .is-spinning { animation: update-refresh-spin 0.28s linear; }
+@keyframes update-refresh-spin { to { transform: rotate(360deg); } }
 .agreement-context { display: flex; align-items: center; gap: var(--spacing--xl); padding-bottom: var(--spacing--lg); }
 .eyebrow { display: block; color: var(--portal-secondary); font-size: var(--font-size--sm); margin-bottom: var(--spacing--4xs); }
 .agreement-picker { display: flex; position: relative; align-items: center; min-width: 180px; }

@@ -14,6 +14,7 @@ vi.mock("@/components/portal-shell", () => ({
     account,
     role: "admin" as const,
     perform: () => null,
+    refreshUsage: () => {},
   }),
   usePersona: () => account.persona,
 }));
