@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Check, ChevronRight, CircleAlert, KeyRound } from "lucide-react";
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -13,14 +12,12 @@ import {
   planTier,
   quotaOnChartScale,
   quotaPaceSentence,
-  type ChartRange,
   type PastPeriod,
   type UsageBreakdown,
 } from "@/lib/portal-billing";
 import { summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { instanceHosting, isReporting, licensesFor, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt } from "@/lib/portal-format";
-import { cn } from "@/lib/utils";
 
 export { CsvExport } from "./csv-export";
 export { DataTable, type DataColumn } from "./data-table";
@@ -201,8 +198,11 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         <>
           {primary && primarySummary && primaryView && (
             <section className="workspace-panel chart-panel overview-usage-panel">
-              <BillableExecutionsChart subscription={primary} showPurchaseLink />
-              <p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>
+              <BillableExecutionsChart
+                subscription={primary}
+                showPurchaseLink
+                note={<p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>}
+              />
             </section>
           )}
           <section className="workspace-panel">
@@ -231,16 +231,9 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
   );
 }
 
-const CHART_RANGES: { id: ChartRange; label: string }[] = [
-  { id: "term", label: "This term" },
-  { id: "12m", label: "Last 12 billing months" },
-  { id: "3m", label: "Last 3 months" },
-];
-
-const USAGE_BREAKDOWNS: { id: UsageBreakdown; label: string }[] = [
-  { id: "subscription", label: "Subscription" },
-  { id: "license", label: "License" },
-  { id: "instance", label: "Instance" },
+const BREAKDOWN_CHARTS: { id: UsageBreakdown; title: string }[] = [
+  { id: "license", title: "By license" },
+  { id: "instance", title: "By instance" },
 ];
 
 const SERIES_COLORS = [
@@ -254,26 +247,71 @@ const SERIES_COLORS = [
   "var(--color--yellow-800)",
 ];
 
-function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false }: { subscription: Subscription; showPurchaseLink?: boolean }) {
-  const persona = usePersona();
-  const [range, setRange] = useState<ChartRange>("term");
-  const [breakdown, setBreakdown] = useState<UsageBreakdown>("subscription");
-  const summary = summarize(sub, persona.instances);
-  const { points, series } = cumulativeUsageChart(sub, persona.instances, persona.licenses, range, breakdown);
-  const showQuota = breakdown === "subscription" && quotaOnChartScale(points.at(-1)?.cumulative ?? 0, sub.quota);
+function UsageLines({
+  label,
+  quota,
+  points,
+  series,
+  showQuota,
+}: {
+  label: string;
+  quota: number;
+  points: ReturnType<typeof cumulativeUsageChart>["points"];
+  series: ReturnType<typeof cumulativeUsageChart>["series"];
+  showQuota: boolean;
+}) {
   const chartRows = points.map((point) => ({
     label: point.label,
     shortLabel: point.shortLabel,
     ...point.values,
     ...(showQuota ? { quota: point.quota } : {}),
   }));
-  const peak = Math.max(1, ...points.flatMap((point) => series.map((item) => point.values[item.id] ?? 0)), ...(showQuota ? [sub.quota] : []));
-  const ceiling = peak * 1.15;
-  const exportRows = points.map((point) => [
+  const peak = Math.max(1, ...points.flatMap((point) => series.map((item) => point.values[item.id] ?? 0)), ...(showQuota ? [quota] : []));
+  return (
+    <>
+      <div className="chart-legend">
+        <div className="chart-legend-series">
+          {series.map((item, index) => (
+            <span key={item.id}><i className="series-swatch" style={{ background: SERIES_COLORS[index % SERIES_COLORS.length] }} />{item.name}</span>
+          ))}
+          {showQuota && <span><i className="legend-quota" />Quota · {fmt(quota)}</span>}
+        </div>
+      </div>
+      <div className="usage-chart" role="img" aria-label={label}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartRows} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}>
+            <CartesianGrid stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="shortLabel" tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, peak * 1.15]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} />
+            <Tooltip
+              labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
+              formatter={(value, name) => [
+                fmt(Number(value)),
+                name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Billable executions",
+              ]}
+              contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+            />
+            {showQuota && <Line type="linear" dataKey="quota" stroke="var(--portal-caption)" strokeDasharray="5 5" strokeWidth={1.25} dot={false} isAnimationActive={false} />}
+            {series.map((item, index) => (
+              <Line key={item.id} type="monotone" dataKey={item.id} stroke={SERIES_COLORS[index % SERIES_COLORS.length]} strokeWidth={2} dot={false} isAnimationActive={false} />
+            ))}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+    </>
+  );
+}
+
+function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, note }: { subscription: Subscription; showPurchaseLink?: boolean; note?: React.ReactNode }) {
+  const persona = usePersona();
+  const summary = summarize(sub, persona.instances);
+  const subscriptionChart = cumulativeUsageChart(sub, persona.instances, persona.licenses, "term", "subscription");
+  const showQuota = quotaOnChartScale(subscriptionChart.points.at(-1)?.cumulative ?? 0, sub.quota);
+  const exportRows = subscriptionChart.points.map((point) => [
     point.label,
     String(point.cumulative),
     String(point.quota),
-    ...series.map((item) => String(point.values[item.id] ?? 0)),
+    ...subscriptionChart.series.map((item) => String(point.values[item.id] ?? 0)),
   ]);
   return (
     <>
@@ -284,77 +322,47 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false }
             {fmt(summary.used)} of {fmt(sub.quota)} quota · <strong className="quota-figure" style={{ color: quotaTextColor(summary.pct) }}>{percent1(summary.pct)}</strong>
           </span>
         </div>
-        {showPurchaseLink && (
-          <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>
-        )}
-      </div>
-      <div className="chart-toolbar">
-        <div className="range-toggle" role="group" aria-label="Chart range">
-          {CHART_RANGES.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              className={cn("range-toggle-btn", range === option.id && "is-active")}
-              aria-pressed={range === option.id}
-              onClick={() => setRange(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="chart-heading-actions">
+          {showPurchaseLink && (
+            <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>
+          )}
+          <CsvExport
+            filename={`${sub.name}-billable-executions.csv`}
+            headers={["Billing month", "Cumulative billable executions", "Quota", ...subscriptionChart.series.map((item) => item.name)]}
+            rows={exportRows}
+            label="Download usage chart data"
+          />
         </div>
-        <CsvExport
-          filename={`${sub.name}-billable-executions.csv`}
-          headers={["Billing month", "Cumulative billable executions", "Quota", ...series.map((item) => item.name)]}
-          rows={exportRows}
-          label="Download usage chart data"
-        />
       </div>
-      {points.length === 0 ? (
+      {subscriptionChart.points.length === 0 ? (
         <div className="chart-empty"><strong>No billing months yet</strong><span>Usage appears once a billing period has started.</span></div>
       ) : (
         <>
-          <div className="chart-legend">
-            <div className="range-toggle" role="group" aria-label="Break the total down by">
-              {USAGE_BREAKDOWNS.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  className={cn("range-toggle-btn", breakdown === option.id && "is-active")}
-                  aria-pressed={breakdown === option.id}
-                  onClick={() => setBreakdown(option.id)}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <div className="chart-legend-series">
-              {series.map((item, index) => (
-                <span key={item.id}><i className="series-swatch" style={{ background: SERIES_COLORS[index % SERIES_COLORS.length] }} />{item.name}</span>
-              ))}
-              <span><i className="legend-quota" />{showQuota ? `Quota · ${fmt(sub.quota)}` : `Quota ${fmt(sub.quota)} is above this scale`}</span>
-            </div>
-          </div>
-          <div className="usage-chart" role="img" aria-label={`Cumulative billable executions for ${sub.name}, ${fmt(summary.used)} of ${fmt(sub.quota)} quota`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartRows} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}>
-                <CartesianGrid stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="shortLabel" tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, ceiling]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} />
-                <Tooltip
-                  labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
-                  formatter={(value, name) => [
-                    fmt(Number(value)),
-                    name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Billable executions",
-                  ]}
-                  contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+          <UsageLines
+            label={`Cumulative billable executions for ${sub.name}, ${fmt(summary.used)} of ${fmt(sub.quota)} quota`}
+            quota={sub.quota}
+            points={subscriptionChart.points}
+            series={subscriptionChart.series}
+            showQuota={showQuota}
+          />
+          {!showQuota && <p className="chart-quota-note">Quota {fmt(sub.quota)} is above this scale.</p>}
+          {note}
+          {BREAKDOWN_CHARTS.map((chart) => {
+            const drawn = cumulativeUsageChart(sub, persona.instances, persona.licenses, "term", chart.id);
+            if (!drawn.series.length) return null;
+            return (
+              <section key={chart.id} className="chart-section" aria-label={chart.title}>
+                <h3>{chart.title}</h3>
+                <UsageLines
+                  label={`${chart.title} for ${sub.name}`}
+                  quota={sub.quota}
+                  points={drawn.points}
+                  series={drawn.series}
+                  showQuota={false}
                 />
-                {showQuota && <Line type="linear" dataKey="quota" stroke="var(--portal-caption)" strokeDasharray="5 5" strokeWidth={1.25} dot={false} isAnimationActive={false} />}
-                {series.map((item, index) => (
-                  <Line key={item.id} type="monotone" dataKey={item.id} stroke={SERIES_COLORS[index % SERIES_COLORS.length]} strokeWidth={2} dot={false} isAnimationActive={false} />
-                ))}
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
+              </section>
+            );
+          })}
         </>
       )}
     </>
