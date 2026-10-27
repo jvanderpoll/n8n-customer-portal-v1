@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import {
+  memberDestructiveDialogCopy,
+  memberDisplayName,
+} from "@/components/portal-management";
 import { NOW, personas, summarize } from "./portal-data";
 import { timestamp } from "./portal-format";
 import {
@@ -241,6 +245,40 @@ describe("session-only account management", () => {
   it("removes people but protects your own access", () => {
     expect(applyManagement(account(), { type: "remove-member", id: "billing" }, admin).members.some((m) => m.id === "billing")).toBe(false);
     expect(() => applyManagement(account(), { type: "remove-member", id: "self" }, admin)).toThrow("own access");
+  });
+  it("builds remove-person and cancel-invite dialog copy from the display name", () => {
+    expect(memberDisplayName({ name: "Tom Bakker", email: "billing@example.com" })).toBe("Tom Bakker");
+    expect(memberDisplayName({ name: "  ", email: "billing@example.com" })).toBe("billing@example.com");
+    expect(
+      memberDestructiveDialogCopy({
+        name: "Tom Bakker",
+        email: "billing@example.com",
+        status: "Active",
+      }),
+    ).toEqual({
+      title: "Remove?",
+      description: "Tom Bakker will no longer have access to this customer portal.",
+    });
+    expect(
+      memberDestructiveDialogCopy({
+        name: "",
+        email: "billing@example.com",
+        status: "Active",
+      }),
+    ).toEqual({
+      title: "Remove?",
+      description: "billing@example.com will no longer have access to this customer portal.",
+    });
+    expect(
+      memberDestructiveDialogCopy({
+        name: "Operations team",
+        email: "operations@example.com",
+        status: "Invited",
+      }),
+    ).toEqual({
+      title: "Cancel invitation?",
+      description: "Operations team will no longer have a pending invitation.",
+    });
   });
   it("rejects invalid quantities and email addresses", () => {
     expect(() =>

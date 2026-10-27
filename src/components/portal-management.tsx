@@ -120,6 +120,8 @@ function ActionDialog({
   icon,
   variant = "secondary",
   danger = false,
+  /** When true (default for danger), require typing Delete before submit. */
+  confirmDelete,
   disabled = false,
   review,
   onSuccess,
@@ -133,6 +135,7 @@ function ActionDialog({
   icon?: ReactNode;
   variant?: "primary" | "secondary" | "menu";
   danger?: boolean;
+  confirmDelete?: boolean;
   disabled?: boolean;
   review?: (data: FormData) => ReactNode;
   onSuccess?: (data: FormData) => void;
@@ -142,7 +145,8 @@ function ActionDialog({
     [error, setError] = useState(""),
     [draft, setDraft] = useState<FormData | null>(null),
     [confirmText, setConfirmText] = useState("");
-  const deleteConfirmed = !danger || confirmText === DELETE_CONFIRM;
+  const needsDeleteConfirm = confirmDelete ?? danger;
+  const deleteConfirmed = !needsDeleteConfirm || confirmText === DELETE_CONFIRM;
   return (
     <Dialog
       open={open}
@@ -174,7 +178,7 @@ function ActionDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (danger && confirmText !== DELETE_CONFIRM) return;
+            if (needsDeleteConfirm && confirmText !== DELETE_CONFIRM) return;
             const data = draft ?? new FormData(e.currentTarget);
             if (review && !draft) {
               setDraft(data);
@@ -192,7 +196,7 @@ function ActionDialog({
         >
           <div className="management-fields" hidden={Boolean(draft)}>
             {children}
-            {danger && (
+            {needsDeleteConfirm && (
               <label>
                 Type Delete to confirm
                 <input
@@ -668,11 +672,31 @@ export function InviteUser() {
     </ActionDialog>
   );
 }
+/** Display name for remove/cancel-invite copy; falls back to email when empty. */
+export function memberDisplayName(member: Pick<Member, "name" | "email">) {
+  return member.name.trim() || member.email;
+}
+
+/** Title and body for removing a person or cancelling an invitation. */
+export function memberDestructiveDialogCopy(member: Pick<Member, "name" | "email" | "status">) {
+  const invited = member.status === "Invited";
+  const who = memberDisplayName(member);
+  return {
+    title: invited ? "Cancel invitation?" : "Remove?",
+    description: `${who} ${
+      invited
+        ? "will no longer have a pending invitation."
+        : "will no longer have access to this customer portal."
+    }`,
+  };
+}
+
 export function MemberActions({ member: m }: { member: Member }) {
   const { role } = useManagement();
   if (role !== "admin") return null;
   const invited = m.status === "Invited";
   const isSelf = m.id === "self";
+  const destructive = memberDestructiveDialogCopy(m);
   return (
     <ActionMenu label={`${invited ? "Manage invitation for" : "Manage access for"} ${m.email}`}>
       {isSelf ? (
@@ -699,13 +723,14 @@ export function MemberActions({ member: m }: { member: Member }) {
             <RoleScopeFields member={m} />
           </ActionDialog>
           <ActionDialog
-            title={invited ? "Cancel invitation?" : `Remove ${m.name || m.email}?`}
-            description={`${m.email} ${invited ? "will no longer have a pending invitation." : "will no longer have access to this customer portal."}`}
+            title={destructive.title}
+            description={destructive.description}
             label={invited ? "Cancel invitation" : "Remove"}
             variant="menu"
             icon={<Trash2 size={16} />}
             submit={invited ? "Cancel invitation" : "Remove"}
             danger
+            confirmDelete={false}
             action={() => ({ type: "remove-member", id: m.id })}
           />
         </>
