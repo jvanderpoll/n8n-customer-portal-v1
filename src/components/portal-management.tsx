@@ -709,7 +709,7 @@ export function RequestLicenses({
     >
       <label>
         Subscription
-        <select name="subscription" defaultValue={subscriptionId}>
+        <select name="subscription" defaultValue={running.some((s) => s.id === subscriptionId) ? subscriptionId : running[0]?.id}>
           {running
             .map((s) => (
               <option key={s.id} value={s.id}>

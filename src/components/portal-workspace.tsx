@@ -441,7 +441,7 @@ export function UsagePanel({ subscription: sub }: { subscription: Subscription }
 
 type LicenseRow = ReturnType<typeof licensesFor>[number];
 
-export function LicenseTable({ subscription: sub }: { subscription: Subscription }) {
+export function LicenseTable({ subscription: sub, actions }: { subscription: Subscription; actions?: React.ReactNode }) {
   const persona = usePersona();
   const navigate = useNavigate();
   const licenses = licensesFor(persona, sub.id);
@@ -483,6 +483,7 @@ export function LicenseTable({ subscription: sub }: { subscription: Subscription
           <h2>Licenses ({licenses.length})</h2>
           <span className="supporting">Usage sums from each license’s instances. The quota applies to the subscription.</span>
         </div>
+        {actions}
       </div>
       <DataTable
         columns={columns}

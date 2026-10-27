@@ -70,7 +70,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
         </>
       )}
       {section === "periods" && <PastPeriods subscription={sub} />}
-      {section === "licenses" && <LicenseTable subscription={sub} />}
+      {section === "licenses" && <LicenseTable subscription={sub} actions={<RequestLicenses subscriptionId={sub.id} />} />}
     </div>
   </>;
 }
