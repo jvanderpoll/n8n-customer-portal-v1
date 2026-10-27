@@ -291,7 +291,7 @@ describe("session-only account management", () => {
       }),
     ).toEqual({
       title: "Remove?",
-      description: "Tom Bakker will no longer have access to this customer portal.",
+      description: "Tom Bakker will no longer have access to this Admin Console.",
     });
     expect(
       memberDestructiveDialogCopy({
@@ -301,7 +301,7 @@ describe("session-only account management", () => {
       }),
     ).toEqual({
       title: "Remove?",
-      description: "billing@example.com will no longer have access to this customer portal.",
+      description: "billing@example.com will no longer have access to this Admin Console.",
     });
     expect(
       memberDestructiveDialogCopy({

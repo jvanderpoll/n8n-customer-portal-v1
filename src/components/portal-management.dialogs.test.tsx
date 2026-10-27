@@ -31,7 +31,7 @@ describe("destructive management dialogs", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Remove?" })).toBeInTheDocument();
     expect(
-      within(dialog).getByText("Tom Bakker will no longer have access to this customer portal."),
+      within(dialog).getByText("Tom Bakker will no longer have access to this Admin Console."),
     ).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Type Delete to confirm")).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Remove" })).toBeEnabled();
@@ -79,7 +79,7 @@ describe("destructive management dialogs", () => {
     fireEvent.click(screen.getByRole("button", { name: `Manage access for ${nameless.email}` }));
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
     expect(
-      screen.getByText(`${nameless.email} will no longer have access to this customer portal.`),
+      screen.getByText(`${nameless.email} will no longer have access to this Admin Console.`),
     ).toBeInTheDocument();
   });
 });

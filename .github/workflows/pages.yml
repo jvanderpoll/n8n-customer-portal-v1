@@ -1,4 +1,4 @@
-name: Publish customer portal to GitHub Pages
+name: Publish Admin Console to GitHub Pages
 
 on:
   push:

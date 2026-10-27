@@ -11,7 +11,7 @@ export function ago(iso: string) {
 export const timestamp = (iso: string) => `${date(iso)}, ${new Date(iso).toISOString().slice(11, 16)} UTC`;
 
 export function portalHead(title: string, description: string) {
-  const fullTitle = `${title} · n8n Customer Portal v0`;
+  const fullTitle = `${title} · n8n Admin Console v0`;
   return { meta: [
     { title: fullTitle }, { name: "description", content: description },
     { property: "og:title", content: fullTitle }, { property: "og:description", content: description },

@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/users")({
-  head: () => portalHead("Users", "People with access to this customer portal."),
+  head: () => portalHead("Users", "People with access to this Admin Console."),
   component: Users,
 });
 

@@ -67,7 +67,7 @@ function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: bool
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!message.trim()) return;
-    const text = ["n8n Customer Portal · Prototype feedback draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${contactRecipient(csm)}`, "Topic: Feedback", "", message.trim(), ""].join("\n");
+    const text = ["n8n Admin Console · Prototype feedback draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${contactRecipient(csm)}`, "Topic: Feedback", "", message.trim(), ""].join("\n");
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -127,7 +127,7 @@ function ContactDialog({
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!message.trim() || !topic || !topicLabel) return;
-    const text = ["n8n Customer Portal · Prototype enquiry draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${contactRecipient(csm)}`, `Topic: ${topicLabel}`, "", message.trim(), ""].join("\n");
+    const text = ["n8n Admin Console · Prototype enquiry draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${contactRecipient(csm)}`, `Topic: ${topicLabel}`, "", message.trim(), ""].join("\n");
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -307,7 +307,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   return <ManagementContext.Provider value={{ account, role, perform }}><PersonaContext.Provider value={persona}>
     <div className="portal-layout">
       <aside className="portal-sidebar">
-        <Link to="/" className="portal-brand" aria-label="n8n Customer Portal"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="n8n" width="120" height="24" /><span>Customer portal</span></Link>
+        <Link to="/" className="portal-brand" aria-label="n8n Admin Console"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="n8n" width="120" height="24" /><span>Admin Console</span></Link>
         <span className="nav-caption">WORKSPACE</span>
         <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
         <div className="sidebar-bottom">

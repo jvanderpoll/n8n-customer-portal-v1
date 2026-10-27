@@ -395,7 +395,7 @@ export function BulkRemoveMembers({
       description={
         invited
           ? `${count} ${count === 1 ? "invitation" : "invitations"} will be cancelled.`
-          : `${count} ${count === 1 ? "person" : "people"} will no longer have access to this customer portal.`
+          : `${count} ${count === 1 ? "person" : "people"} will no longer have access to this Admin Console.`
       }
       label={invited ? "Cancel invitation" : "Remove"}
       submit={invited ? "Cancel invitation" : "Remove"}
@@ -943,7 +943,7 @@ export function InviteUser() {
   return (
     <ActionDialog
       title="Invite people"
-      description="Give someone access to this customer portal. This does not grant access to workflows or instances in n8n."
+      description="Give someone access to this Admin Console. This does not grant access to workflows or instances in n8n."
       label="Invite people"
       submit="Send invite"
       icon={<UserPlus size={16} />}
@@ -989,7 +989,7 @@ export function memberDestructiveDialogCopy(member: Pick<Member, "name" | "email
     description: `${who} ${
       invited
         ? "will no longer have a pending invitation."
-        : "will no longer have access to this customer portal."
+        : "will no longer have access to this Admin Console."
     }`,
   };
 }
