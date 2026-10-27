@@ -487,7 +487,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .usage-meter { display: grid; gap: var(--spacing--2xs); padding: var(--spacing--2xs) var(--spacing--lg) var(--spacing--lg); }
 .usage-meter-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--spacing--xs); font-size: var(--font-size--sm); color: var(--portal-secondary); }
 .usage-meter-head > strong { font-size: var(--font-size--3xl, 2rem); font-weight: var(--font-weight--bold); line-height: var(--line-height--sm); letter-spacing: var(--letter-spacing--tight); font-variant-numeric: tabular-nums; color: var(--portal-text); }
-.usage-meter-head .usage-contact { margin-left: auto; }
 .quota-bar { position: relative; height: 10px; border-radius: var(--radius--full); background: var(--color--neutral-200, var(--color--neutral-150)); }
 .quota-bar > span { display: block; height: 100%; border-radius: inherit; }
 .time-marker { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--portal-text); border-radius: 1px; }
@@ -496,7 +495,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .subscription-tabs { display: flex; gap: var(--spacing--lg); margin-bottom: var(--spacing--lg); border-bottom: 1px solid var(--border); }
 .subscription-tab { appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: var(--spacing--2xs) 0; font: inherit; font-size: var(--font-size--md); font-weight: var(--font-weight--medium); color: var(--portal-text); cursor: pointer; }
 .subscription-tab.is-active { border-bottom-color: var(--portal-text); }
-.contact-topic-menu { z-index: 100; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
 .subscription-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing--lg); padding: var(--spacing--sm) var(--spacing--lg) var(--spacing--lg); border-top: 1px solid var(--border); }
 .subscription-facts.detail-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; padding-top: var(--spacing--lg); }
 .subscription-facts dt { font-size: var(--font-size--sm); color: var(--portal-secondary); margin-bottom: var(--spacing--4xs); }
@@ -528,10 +526,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .filter-select select { border: 1px solid var(--input); min-height: 40px; padding: var(--spacing--2xs) var(--spacing--xs); border-radius: var(--radius--3xs); color: var(--portal-text); background: var(--portal-surface); font-size: var(--font-size--sm); }
 .pager { display: flex; justify-content: end; align-items: center; gap: var(--spacing--xs); padding: var(--spacing--sm) var(--spacing--lg); border-top: 1px solid var(--border); }
 .row-menu { width: 56px; text-align: right; }
-.contact-panel { padding: var(--spacing--lg); margin-bottom: var(--spacing--lg); }
-.contact-panel h2 { font-size: var(--font-size--md); font-weight: var(--font-weight--bold); }
-.contact-person { display: flex; align-items: start; gap: var(--spacing--xs); }
-.contact-person > svg { margin-top: 2px; color: var(--portal-secondary); }
 .choice-group { display: grid; gap: var(--spacing--2xs); border: 0; padding: 0; margin: 0; }
 .choice-group legend { font-weight: var(--font-weight--medium); margin-bottom: var(--spacing--2xs); }
 .management-fields label.choice { display: flex; align-items: start; gap: var(--spacing--xs); font-weight: var(--font-weight--regular); }
