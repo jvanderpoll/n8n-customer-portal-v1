@@ -229,12 +229,10 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .sidebar-contact-trigger { width: 100%; justify-content: flex-start; gap: var(--spacing--xs); color: var(--portal-secondary); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); min-height: 44px; padding-left: var(--spacing--xs); padding-right: var(--spacing--xs); }
 .sidebar-contact-trigger:hover { color: var(--portal-text); }
 .sidebar-contact-menu,
-.sidebar-user-menu,
-.export-menu { min-width: 200px; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
+.sidebar-user-menu { min-width: 200px; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
 .sidebar-contact-menu [role="menuitem"],
 .sidebar-user-menu [role="menuitem"],
-.sidebar-user-menu a,
-.export-menu [role="menuitem"] { color: var(--portal-text); text-decoration: none; }
+.sidebar-user-menu a { color: var(--portal-text); text-decoration: none; }
 .sidebar-user { display: flex; justify-content: flex-start; align-items: center; }
 .sidebar-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: var(--radius--3xs); color: var(--portal-text); font-size: var(--font-size--sm); font-weight: var(--font-weight--bold); }
 .table-block { display: grid; gap: var(--spacing--2xs); }

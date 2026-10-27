@@ -1,11 +1,7 @@
-import { Download } from "lucide-react";
+import { useState } from "react";
+import { Clipboard, Download } from "lucide-react";
+import { ActionMenu, ActionMenuItem } from "@/components/action-menu";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 function escapeCsv(value: string) {
   return /[",\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
@@ -54,21 +50,36 @@ export function CsvExport({
   label?: string;
 }) {
   const disabled = !rows.length;
+  const [open, setOpen] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <ActionMenu
+      label={label}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
         <Button type="button" variant="outline" size="icon" disabled={disabled} aria-label={label}>
           <Download size={16} />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="export-menu">
-        <DropdownMenuItem disabled={disabled} onSelect={() => { void copyCsv(headers, rows); }}>
-          Copy to clipboard
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={disabled} onSelect={() => downloadCsv(filename, headers, rows)}>
-          Download as CSV
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      }
+    >
+      <ActionMenuItem
+        label="Copy to clipboard"
+        icon={<Clipboard size={16} />}
+        disabled={disabled}
+        onClick={() => {
+          void copyCsv(headers, rows);
+          setOpen(false);
+        }}
+      />
+      <ActionMenuItem
+        label="Download as CSV"
+        icon={<Download size={16} />}
+        disabled={disabled}
+        onClick={() => {
+          downloadCsv(filename, headers, rows);
+          setOpen(false);
+        }}
+      />
+    </ActionMenu>
   );
 }

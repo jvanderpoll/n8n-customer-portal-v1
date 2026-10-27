@@ -2,7 +2,6 @@ import { useState, type ReactNode } from "react";
 import { Button } from "./ui/button";
 import { useNavigate } from "@tanstack/react-router";
 import {
-  MoreHorizontal,
   Plus,
   ArrowRightLeft,
   Pencil,
@@ -16,7 +15,7 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "./ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { ActionMenu, ActionMenuItem } from "./action-menu";
 import { useManagement, usePersona } from "./portal-shell";
 import { type Instance, type License, subscriptionStatus } from "@/lib/portal-data";
 import {
@@ -25,6 +24,7 @@ import {
   type LicenseRequest,
 } from "@/lib/portal-management";
 import { DataTable, type DataColumn } from "./data-table";
+export { ActionMenu, ActionMenuItem } from "./action-menu";
 const value = (data: FormData, name: string) => String(data.get(name) ?? "");
 const newId = () => crypto.randomUUID();
 
@@ -74,22 +74,19 @@ function ActionDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button
-          type="button"
-          disabled={disabled}
-          variant={
-            variant === "primary"
-              ? "default"
-              : variant === "menu"
-                ? "ghost"
-                : "outline"
-          }
-          size={variant === "menu" ? "default" : "lg"}
-          className={`${variant === "menu" ? "management-menu-action" : ""} ${danger ? "danger-text" : ""}`}
-        >
-          {icon}
-          {label}
-        </Button>
+        {variant === "menu" ? (
+          <ActionMenuItem label={label} icon={icon} danger={danger} disabled={disabled} />
+        ) : (
+          <Button
+            type="button"
+            disabled={disabled}
+            variant={variant === "primary" ? "default" : "outline"}
+            size="lg"
+          >
+            {icon}
+            {label}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="management-dialog">
         <DialogTitle>{title}</DialogTitle>
@@ -169,31 +166,6 @@ function ActionDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-export function ActionMenu({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="icon-action"
-          aria-label={label}
-        >
-          <MoreHorizontal size={20} />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="action-menu">
-        {children}
-      </PopoverContent>
-    </Popover>
   );
 }
 export function CreateInstance({
