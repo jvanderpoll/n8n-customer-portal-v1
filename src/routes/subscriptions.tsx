@@ -33,7 +33,9 @@ function Subscriptions() {
     const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
     return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
   }
-  // Overview aggregate: licenses across purchases (no subscription id).
+  // Cross-purchase licenses list: /subscriptions?section=licenses (no subscription id).
+  // Keep this on the subscriptions route — do not add a top-level /licenses nav item.
+  // With a subscription id, the purchase-detail Licenses tab below still applies.
   if (search.section === "licenses") {
     const { running } = runningFirst(persona);
     return <>

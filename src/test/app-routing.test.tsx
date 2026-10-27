@@ -20,6 +20,11 @@ describe("App routing", () => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
     expect(router.matchRoutes(path).at(-1)?.routeId).toBe(path);
   });
+  it("keeps cross-purchase licenses on /subscriptions, not a top-level /licenses route", () => {
+    const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
+    expect(router.routesById["/licenses"]).toBeUndefined();
+    expect(router.matchRoutes("/subscriptions").at(-1)?.routeId).toBe("/subscriptions");
+  });
   it("keeps /contact as a redirect stub, not a portal screen", () => {
     const router = createRouter({ routeTree, context: { queryClient: new QueryClient() } });
     expect(router.matchRoutes("/contact").at(-1)?.routeId).toBe("/contact");
