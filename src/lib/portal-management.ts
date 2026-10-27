@@ -83,20 +83,24 @@ function normalizeScope(scope: MemberScope, persona: Persona): MemberScope {
   return ids;
 }
 
+function selfMember(persona: Persona): Member {
+  return {
+    id: "self",
+    name: persona.user.split(" · ")[0]!,
+    email: "admin@example.com",
+    status: "Active",
+    role: "admin",
+    scope: "all",
+  };
+}
+
 export function createAccount(persona: Persona): AccountState {
   return {
     persona: structuredClone(persona),
     orders: [],
     notice: "",
     members: [
-      {
-        id: "self",
-        name: persona.user.split(" · ")[0]!,
-        email: "admin@example.com",
-        status: "Active",
-        role: "admin",
-        scope: "all",
-      },
+      selfMember(persona),
       {
         id: "billing",
         name: "Tom Bakker",
@@ -124,6 +128,20 @@ export function createAccount(persona: Persona): AccountState {
         invitedAt: invitedHoursAgo(6),
       },
     ],
+  };
+}
+
+/** Session-only empty portal: signed-in member only, no subscriptions/licenses/instances/invites. */
+export function createEmptyAccount(persona: Persona): AccountState {
+  const next = structuredClone(persona);
+  next.subscriptions = [];
+  next.licenses = [];
+  next.instances = [];
+  return {
+    persona: next,
+    orders: [],
+    notice: "",
+    members: [selfMember(persona)],
   };
 }
 

@@ -40,7 +40,7 @@ function Subscriptions() {
     </div>
     <div className="agreement-list">
       {list.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}
-      {!list.length && <p className="panel-empty">{tab === "running" ? "No running subscriptions." : "No expired subscriptions."}</p>}
+      {!list.length && <p className="panel-empty">{tab === "running" ? "No subscriptions." : "No expired subscriptions."}</p>}
     </div>
     <OrderRequests />
   </>;

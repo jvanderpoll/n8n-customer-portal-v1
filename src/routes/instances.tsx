@@ -121,7 +121,7 @@ function Instances() {
         search={search.query ?? ""}
         onSearchChange={(value) => set({ query: value || undefined, page: undefined })}
         csvFilename="instances.csv"
-        empty="No instances match your filters."
+        empty={count === 0 && !filtersActive ? "No instances." : "No instances match your filters."}
         onRowClick={(i) => void navigate({ to: "/instances", search: { instance: i.id } })}
         rowActions={(i) => <InstanceActions instance={i} />}
         bulkActions={({ selectedRows, clearSelection }) => (

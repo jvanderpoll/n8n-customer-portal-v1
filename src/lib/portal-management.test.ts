@@ -9,6 +9,7 @@ import {
   activeInstances,
   applyManagement,
   createAccount,
+  createEmptyAccount,
   formatMemberScope,
   type ManagementAction,
   type Role,
@@ -17,6 +18,24 @@ const account = (id = "full") =>
   createAccount(personas.find((p) => p.id === id)!);
 const admin: Role = "admin";
 describe("session-only account management", () => {
+  it("empty portal keeps only the signed-in member and has no subscriptions or instances", () => {
+    const persona = personas.find((p) => p.id === "full")!;
+    const empty = createEmptyAccount(persona);
+    expect(empty.members).toHaveLength(1);
+    expect(empty.members[0]).toMatchObject({
+      id: "self",
+      name: persona.user.split(" · ")[0],
+      status: "Active",
+      role: "admin",
+    });
+    expect(empty.persona.subscriptions).toEqual([]);
+    expect(empty.persona.licenses).toEqual([]);
+    expect(empty.persona.instances).toEqual([]);
+    expect(empty.orders).toEqual([]);
+    expect(empty.persona.company).toBe(persona.company);
+    expect(empty.persona.user).toBe(persona.user);
+    expect(activeInstances(empty.persona)).toHaveLength(0);
+  });
   it("creates an unreported instance on its license, without inventing executions", () => {
     const before = account();
     const next = applyManagement(

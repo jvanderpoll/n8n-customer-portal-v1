@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { LayoutDashboard, Layers3, Server, ChevronRight, Users, RotateCcw, X, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Layers3, Server, Users, RotateCcw, X, MessageCircle, Settings } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { personas, type Persona } from "@/lib/portal-data";
-import { applyManagement, createAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
+import { applyManagement, createAccount, createEmptyAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -176,8 +176,88 @@ function ContactDialog({
   );
 }
 
+function selectedPersona(id: string) {
+  return personas.find((p) => p.id === id) ?? personas[0]!;
+}
+
+function PrototypeSettings({
+  pid,
+  emptyPortal,
+  onScenarioChange,
+  onEmptyChange,
+  onReset,
+}: {
+  pid: string;
+  emptyPortal: boolean;
+  onScenarioChange: (id: string) => void;
+  onEmptyChange: (empty: boolean) => void;
+  onReset: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent | PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="prototype-settings" ref={rootRef}>
+      {open && (
+        <div className="prototype-settings-panel" role="dialog" aria-label="Prototype settings">
+          <label className="prototype-empty-toggle" htmlFor="prototype-empty-portal">
+            <input
+              id="prototype-empty-portal"
+              type="checkbox"
+              checked={emptyPortal}
+              onChange={(e) => onEmptyChange(e.target.checked)}
+            />
+            Empty portal
+          </label>
+          <label htmlFor="prototype-persona">Scenario</label>
+          <select
+            id="prototype-persona"
+            value={pid}
+            onChange={(e) => onScenarioChange(e.target.value)}
+          >
+            {personas.map((p) => (
+              <option key={p.id} value={p.id}>{p.label}</option>
+            ))}
+          </select>
+          <button type="button" className="prototype-reset" onClick={onReset}>
+            <RotateCcw size={14} aria-hidden="true" />
+            Reset demo
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        className="prototype-settings-trigger"
+        aria-label="Prototype settings"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Settings size={20} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 export function PortalShell({ children }: { children: ReactNode }) {
   const [pid, setPid] = useState("full");
+  const [emptyPortal, setEmptyPortal] = useState(false);
   const [revision, setRevision] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -190,6 +270,30 @@ export function PortalShell({ children }: { children: ReactNode }) {
   if (!persona) return null;
   const userName = persona.user.split(" · ")[0]!;
   const initials = userInitials(userName);
+
+  const loadScenario = (id: string, empty: boolean) => {
+    const next = selectedPersona(id);
+    setAccount(empty ? createEmptyAccount(next) : createAccount(next));
+  };
+
+  const onScenarioChange = (id: string) => {
+    setPid(id);
+    loadScenario(id, emptyPortal);
+    void navigate({ to: "/", replace: true });
+  };
+
+  const onEmptyChange = (empty: boolean) => {
+    setEmptyPortal(empty);
+    loadScenario(pid, empty);
+    void navigate({ to: "/", replace: true });
+  };
+
+  const onReset = () => {
+    setEmptyPortal(false);
+    loadScenario(pid, false);
+    setRevision((r) => r + 1);
+    void navigate({ to: "/", replace: true });
+  };
 
   return <ManagementContext.Provider value={{ account, role, perform }}><PersonaContext.Provider value={persona}>
     <div className="portal-layout">
@@ -204,12 +308,6 @@ export function PortalShell({ children }: { children: ReactNode }) {
               Contact n8n
             </Button>
           </div>
-          <details className="prototype-menu">
-            <summary>Prototype <ChevronRight size={12} /></summary>
-            <label htmlFor="prototype-persona">Scenario</label>
-            <select id="prototype-persona" value={pid} onChange={(e) => { setPid(e.target.value); setAccount(createAccount(personas.find(p => p.id === e.target.value)!)); void navigate({ to: "/", replace: true }); }}>{personas.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}</select>
-            <Button variant="ghost" size="sm" className="reset-demo" onClick={() => { setAccount(createAccount(personas.find(p => p.id === pid)!)); setRevision(r => r + 1); void navigate({ to: "/", replace: true }); }}><RotateCcw size={14} />Reset demo</Button>
-          </details>
           <div className="sidebar-user">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -225,13 +323,20 @@ export function PortalShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="portal-main">
         <main className="portal-content">
-          <div key={`${pid}-${revision}`}>
+          <div key={`${pid}-${emptyPortal}-${revision}`}>
             {account.notice && <div className="management-notice" role="status"><span>{account.notice}</span><Button variant="ghost" size="icon" aria-label="Dismiss notification" onClick={() => setAccount({ ...account, notice: "" })}><X size={16} /></Button></div>}
             {children}
           </div>
         </main>
       </div>
     </div>
+    <PrototypeSettings
+      pid={pid}
+      emptyPortal={emptyPortal}
+      onScenarioChange={onScenarioChange}
+      onEmptyChange={onEmptyChange}
+      onReset={onReset}
+    />
     <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} company={persona.company} user={persona.user} csm={persona.csm} />
     <ContactDialog
       open={contactOpen}

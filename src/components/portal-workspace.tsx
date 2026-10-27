@@ -132,7 +132,7 @@ export function OverviewDashboard() {
           rowKey={(r) => r.id}
           searchPlaceholder="Search subscriptions…"
           csvFilename="running-subscriptions.csv"
-          empty="No running subscriptions."
+          empty="No subscriptions."
           onRowClick={(r) => void navigate({ to: "/subscriptions", search: { subscription: r.id } })}
         />
       </section>
