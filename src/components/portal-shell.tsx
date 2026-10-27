@@ -198,16 +198,18 @@ function PrototypeSettings({
 
   useEffect(() => {
     if (!open) return;
-    const onPointerDown = (event: MouseEvent | PointerEvent) => {
+    const onOutside = (event: Event) => {
       if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("pointerdown", onOutside);
+    document.addEventListener("mousedown", onOutside);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("pointerdown", onOutside);
+      document.removeEventListener("mousedown", onOutside);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
