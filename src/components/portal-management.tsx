@@ -19,7 +19,6 @@ import { ActionMenu, ActionMenuItem } from "./action-menu";
 import { useManagement, usePersona } from "./portal-shell";
 import { type Instance, type License, subscriptionStatus } from "@/lib/portal-data";
 import {
-  formatMemberScope,
   isRole,
   ROLE_LABELS,
   ROLES,
@@ -671,7 +670,6 @@ export function InviteUser() {
 }
 export function MemberActions({ member: m }: { member: Member }) {
   const { role } = useManagement();
-  const persona = usePersona();
   if (role !== "admin") return null;
   const invited = m.status === "Invited";
   const isSelf = m.id === "self";
@@ -698,9 +696,6 @@ export function MemberActions({ member: m }: { member: Member }) {
               scope: readScope(d),
             })}
           >
-            <p className="role-guidance">
-              Current access: {ROLE_LABELS[m.role]} · {formatMemberScope(m.scope, persona)}
-            </p>
             <RoleScopeFields member={m} />
           </ActionDialog>
           <ActionDialog
