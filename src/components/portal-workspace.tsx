@@ -201,10 +201,10 @@ const SERIES_COLORS = [
   "var(--color--purple-700)",
   "var(--color--blue-700)",
   "var(--color--green-800)",
-  "var(--color--red-700)",
-  "var(--color--orange-800)",
-  "hsl(198 72% 32%)",
-  "hsl(262 32% 42%)",
+  "var(--color--mint-800)",
+  "var(--color--pink-700)",
+  "var(--color--gold-700)",
+  "var(--color--yellow-800)",
 ];
 
 function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false }: { subscription: Subscription; showPurchaseLink?: boolean }) {

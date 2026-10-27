@@ -299,10 +299,12 @@ export function DataTable<T>({
       {selectedCount > 0 && (
         <div className="data-table-selection-bar" role="status" aria-live="polite">
           <span className="selection-count">{selectedCount} selected</span>
-          <div className="selection-actions">{selectionBarActions}</div>
-          <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
-            Clear
-          </Button>
+          <div className="selection-actions">
+            {selectionBarActions}
+            <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
+              Clear
+            </Button>
+          </div>
         </div>
       )}
       <div className="table-scroll">

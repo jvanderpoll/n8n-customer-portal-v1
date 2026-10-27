@@ -62,8 +62,8 @@ export function licensesFor(persona: Persona, subscriptionId: string) {
 export const QUOTA_HIGH = 0.7;
 export const RENEWAL_ATTENTION_DAYS = 60;
 
-// Green through 70%, then a continuous hue shift via yellow and orange to red at 100%.
-const QUOTA_STOPS: [pct: number, hue: number, lightness: number][] = [[QUOTA_HIGH, 135, 36], [0.8, 48, 46], [0.9, 28, 48], [1, 0, 42]];
+// Green through 70%, then a continuous hue shift via yellow to deep brand orange at 100%+ (no danger-red).
+const QUOTA_STOPS: [pct: number, hue: number, lightness: number][] = [[QUOTA_HIGH, 135, 36], [0.8, 48, 46], [0.9, 32, 44], [1, 24, 38]];
 function quotaHueLightness(pct: number) {
   const p = Math.max(QUOTA_HIGH, Math.min(1, pct));
   const i = Math.max(1, QUOTA_STOPS.findIndex(([at]) => at >= p));

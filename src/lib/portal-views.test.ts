@@ -68,10 +68,10 @@ describe("read-only portal selectors", () => {
 });
 
 describe("quota color", () => {
-  it("stays green through 70% and reaches red at 100%", () => {
+  it("stays green through 70% and reaches deep orange at 100%", () => {
     expect(quotaColor(0)).toBe(quotaColor(0.7));
     expect(hue(quotaColor(0.7))).toBeGreaterThan(100);
-    expect(hue(quotaColor(1))).toBe(0);
+    expect(hue(quotaColor(1))).toBe(24);
     expect(quotaColor(1.4)).toBe(quotaColor(1));
   });
   it("shifts continuously through yellow and orange", () => {
@@ -82,7 +82,7 @@ describe("quota color", () => {
   });
   it("keeps text colors on the same hue scale, darkened for readability", () => {
     expect(hue(quotaTextColor(0.8))).toBe(hue(quotaColor(0.8)));
-    expect(hue(quotaTextColor(1))).toBe(0);
+    expect(hue(quotaTextColor(1))).toBe(24);
     const bar = quotaColor(0.8).match(/(\d+)%\)$/)?.[1];
     const text = quotaTextColor(0.8).match(/(\d+)%\)$/)?.[1];
     expect(Number(text)).toBeLessThan(Number(bar));
