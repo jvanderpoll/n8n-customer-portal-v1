@@ -262,7 +262,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .summary-metric-link { color: inherit; text-decoration: none; border-radius: var(--radius--3xs); outline-offset: 4px; }
 .summary-metric-link:hover,
 .summary-metric-link:focus-visible {
-  background: var(--portal-subtle);
+  background: var(--color--neutral-100);
   text-decoration: none;
 }
 .summary-metric-link:hover .metric-label,
