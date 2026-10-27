@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowUpRight, Check, ChevronRight, CircleAlert, KeyRound } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, CircleAlert, Info, KeyRound } from "lucide-react";
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { usePersona } from "./portal-shell";
 import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
+import { Button } from "@/components/ui/button";
+import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   cumulativeUsageChart,
   PLAN_FEATURES,
@@ -58,17 +60,26 @@ function Requirements({ subscription, instanceCount }: { subscription: Subscript
   );
 }
 
-/** Headline features for the subscription's plan tier, sourced from n8n.io/pricing. Hidden when the tier isn't sourced. */
-function PlanIncluded({ plan }: { plan: string }) {
+/** Headline features for the subscription's plan tier, shown in a tooltip next to the plan name. Hidden when the tier isn't sourced. */
+function PlanIncludedHint({ plan }: { plan: string }) {
   const tier = planTier(plan);
   const features = tier ? PLAN_FEATURES[tier] : undefined;
   if (!tier || !features?.length) return null;
+  const title = `What's included with ${tier}`;
   return (
-    <div className="contract-note plan-included">
-      <strong>What's included with {tier}</strong>
-      <ul>{features.map((f) => <li key={f}>{f}</li>)}</ul>
-      <a className="quiet-link" href="https://n8n.io/pricing/" target="_blank" rel="noreferrer">See full plan details <ArrowUpRight size={14} /></a>
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <UiTooltip>
+        <TooltipTrigger asChild>
+          <Button type="button" variant="ghost" size="icon" className="plan-included-trigger" aria-label={title}>
+            <Info aria-hidden="true" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="start" className="plan-included-tooltip !text-sm">
+          <strong>{title}</strong>
+          <ul>{features.map((f) => <li key={f}>{f}</li>)}</ul>
+        </TooltipContent>
+      </UiTooltip>
+    </TooltipProvider>
   );
 }
 
@@ -336,8 +347,8 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
         <div className="chart-empty"><strong>No billing months yet</strong><span>Usage appears once a billing period has started.</span></div>
       ) : (
         <>
-          <div className="chart-columns">
-            <section className="chart-column" aria-label="Total">
+          <div className="chart-stack">
+            <section className="chart-column chart-column--total" aria-label="Total">
               <h3>Total</h3>
               <UsageLines
                 label={`Cumulative billable executions for ${sub.name}, ${fmt(summary.used)} of ${fmt(sub.quota)} quota`}
@@ -348,22 +359,24 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
               />
               {!showQuota && <p className="chart-quota-note">Quota {fmt(sub.quota)} is above this scale.</p>}
             </section>
-            {BREAKDOWN_CHARTS.map((chart) => {
-              const drawn = cumulativeUsageChart(sub, persona.instances, persona.licenses, "term", chart.id);
-              if (!drawn.series.length) return null;
-              return (
-                <section key={chart.id} className="chart-column" aria-label={chart.title}>
-                  <h3>{chart.title}</h3>
-                  <UsageLines
-                    label={`${chart.title} for ${sub.name}`}
-                    quota={sub.quota}
-                    points={drawn.points}
-                    series={drawn.series}
-                    showQuota={false}
-                  />
-                </section>
-              );
-            })}
+            <div className="chart-columns">
+              {BREAKDOWN_CHARTS.map((chart) => {
+                const drawn = cumulativeUsageChart(sub, persona.instances, persona.licenses, "term", chart.id);
+                if (!drawn.series.length) return null;
+                return (
+                  <section key={chart.id} className="chart-column" aria-label={chart.title}>
+                    <h3>{chart.title}</h3>
+                    <UsageLines
+                      label={`${chart.title} for ${sub.name}`}
+                      quota={sub.quota}
+                      points={drawn.points}
+                      series={drawn.series}
+                      showQuota={false}
+                    />
+                  </section>
+                );
+              })}
+            </div>
           </div>
           {note}
         </>
@@ -389,7 +402,10 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
         <KeyRound className="agreement-symbol" size={18} aria-hidden="true" />
         <div>
           <h2>{linked ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : sub.name}</h2>
-          <span className="supporting">{sub.plan}</span>
+          <span className="supporting plan-name-row">
+            <span>{sub.plan}</span>
+            <PlanIncludedHint plan={sub.plan} />
+          </span>
         </div>
       </div>
       <div className="lead-date">
@@ -418,7 +434,6 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       {sub.annualAmountEur != null && <div><dt>Annual amount</dt><dd>{eurWhole(sub.annualAmountEur)}</dd></div>}
     </dl>
     <Requirements subscription={sub} instanceCount={summary.instanceCount} />
-    <PlanIncluded plan={sub.plan} />
     <div className="agreement-actions">
       <span>{plural(summary.reportingCount, "instance")} reporting</span>
       {view.quotaPrompt && <Link to="/instances" search={{ subscription: sub.id }} className="quiet-link">View top instances <ArrowUpRight size={14} /></Link>}
