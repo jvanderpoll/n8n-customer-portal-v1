@@ -34,8 +34,16 @@ const navigation = [
   { to: "/subscriptions", label: "Subscriptions", icon: Layers3 },
   { to: "/instances", label: "Instances", icon: Server },
   { to: "/users", label: "Users", icon: Users },
-  { to: "/contact", label: "Contact n8n", icon: MessageCircle },
 ] as const;
+
+const contactTopics = [
+  { id: "quota", label: "Quota" },
+  { id: "renewal", label: "Renewal" },
+  { id: "reporting", label: "Usage reporting" },
+  { id: "access", label: "Portal access" },
+  { id: "other", label: "Other" },
+] as const;
+type ContactTopic = (typeof contactTopics)[number]["id"];
 
 function userInitials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join("");
@@ -86,10 +94,72 @@ function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: bool
   );
 }
 
+function ContactDialog({
+  open,
+  onOpenChange,
+  topic,
+  company,
+  user,
+  csm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  topic: ContactTopic | null;
+  company: string;
+  user: string;
+  csm: string;
+}) {
+  const [message, setMessage] = useState("");
+  const [downloaded, setDownloaded] = useState(false);
+  const topicLabel = contactTopics.find((item) => item.id === topic)?.label ?? "Other";
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!message.trim() || !topic) return;
+    const text = ["n8n Customer Portal · Prototype enquiry draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${csm} (customer success manager)`, `Topic: ${topicLabel}`, "", message.trim(), ""].join("\n");
+    const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "n8n-enquiry-draft.txt";
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setDownloaded(true);
+  };
+  return (
+    <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) { setMessage(""); setDownloaded(false); } }}>
+      <DialogContent className="management-dialog">
+        <DialogTitle>Contact n8n</DialogTitle>
+        <DialogDescription>Write a message about {topicLabel.toLowerCase()} and download a local draft. Nothing is sent.</DialogDescription>
+        <form onSubmit={submit}>
+          <div className="management-fields">
+            <p className="muted-text">Topic: <span className="font-medium text-foreground">{topicLabel}</span></p>
+            <label>
+              Message
+              <Textarea
+                required
+                rows={5}
+                value={message}
+                onChange={(e) => { setMessage(e.target.value); setDownloaded(false); }}
+                placeholder="Your question"
+                className="resize-y"
+              />
+            </label>
+          </div>
+          <div className="dialog-actions">
+            <Button type="button" variant="outline" size="lg" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" size="lg" disabled={!message.trim()}>Download draft</Button>
+          </div>
+          {downloaded && <p role="status" className="muted-text">Draft downloaded.</p>}
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function PortalShell({ children }: { children: ReactNode }) {
   const [pid, setPid] = useState("full");
   const [revision, setRevision] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [contactTopic, setContactTopic] = useState<ContactTopic | null>(null);
   const navigate = useNavigate();
   const [account, setAccount] = useState(() => createAccount(personas[0]!));
   const role: Role = "admin";
@@ -107,6 +177,23 @@ export function PortalShell({ children }: { children: ReactNode }) {
         <span className="nav-caption">WORKSPACE</span>
         <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
         <div className="sidebar-bottom">
+          <div className="sidebar-contact">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="ghost" className="sidebar-contact-trigger">
+                  <MessageCircle size={17} />
+                  Contact n8n
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="sidebar-contact-menu">
+                {contactTopics.map((topic) => (
+                  <DropdownMenuItem key={topic.id} onSelect={() => setContactTopic(topic.id)}>
+                    {topic.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <details className="prototype-menu">
             <summary>Prototype <ChevronRight size={12} /></summary>
             <label htmlFor="prototype-persona">Scenario</label>
@@ -119,9 +206,6 @@ export function PortalShell({ children }: { children: ReactNode }) {
                 <Button type="button" variant="ghost" size="icon" className="sidebar-avatar" aria-label={`${userName} account menu`}>{initials}</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" side="top" className="sidebar-user-menu">
-                <DropdownMenuItem asChild>
-                  <Link to="/contact">Message {persona.csm}</Link>
-                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Give feedback</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => { void navigate({ to: "/" }); }}>Log out</DropdownMenuItem>
               </DropdownMenuContent>
@@ -139,5 +223,13 @@ export function PortalShell({ children }: { children: ReactNode }) {
       </div>
     </div>
     <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} company={persona.company} user={persona.user} csm={persona.csm} />
+    <ContactDialog
+      open={contactTopic != null}
+      onOpenChange={(open) => { if (!open) setContactTopic(null); }}
+      topic={contactTopic}
+      company={persona.company}
+      user={persona.user}
+      csm={persona.csm}
+    />
   </PersonaContext.Provider></ManagementContext.Provider>;
 }

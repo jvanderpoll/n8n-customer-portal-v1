@@ -1,11 +1,12 @@
 import { NOW, summarize, type Instance, type Subscription } from "./portal-data";
+import { date } from "./portal-format";
 
 /**
  * Published n8n Business price, billed annually: €667 per month for 40,000
  * workflow executions. Enterprise is "Contact Sales" with custom executions,
  * so this prototype prices Enterprise at the same rate per execution.
- * A closed month bills its quota. Executions over that quota are added at
- * the same rate. Being under quota does not reduce the amount.
+ * A closed period bills max(quota, executions) at that rate. Being under
+ * quota does not reduce the amount.
  */
 export const BUSINESS_MONTHLY_PRICE_EUR = 667;
 export const BUSINESS_MONTHLY_EXECUTIONS = 40_000;
@@ -22,70 +23,91 @@ export function executionAmountEur(executions: number) {
   return Math.round((executions * BUSINESS_MONTHLY_PRICE_EUR * 100) / BUSINESS_MONTHLY_EXECUTIONS) / 100;
 }
 
-export type MonthStanding = "under" | "over" | "on-quota" | "in-progress";
+export type PeriodStanding = "under" | "over" | "on-quota" | "in-progress";
 
-export interface PastMonth {
+export interface PastPeriod {
   id: string;
   label: string;
   start: string;
+  end: string;
   quota: number;
   executions: number;
-  standing: MonthStanding;
-  /** Executions minus quota. Zero while the month is still open. */
+  standing: PeriodStanding;
+  /** Executions minus quota. Zero while the period is still open. */
   delta: number;
-  /** Null while the month is still open. */
+  /** Null while the period is still open. */
   amountEur: number | null;
 }
 
-function monthWeight(year: number, month: number, coveredStart: number, coveredEnd: number) {
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-  const coveredDays = Math.round((coveredEnd - coveredStart) / DAY);
-  return coveredDays / daysInMonth;
+/** @deprecated Prefer PastPeriod; kept for call sites mid-rename. */
+export type PastMonth = PastPeriod;
+/** @deprecated Prefer PeriodStanding. */
+export type MonthStanding = PeriodStanding;
+
+/** Advance by `months`, keeping the contract day and clamping to the last day of a short month. */
+export function addContractMonths(startMs: number, months: number): number {
+  const base = new Date(startMs);
+  const day = base.getUTCDate();
+  const monthIndex = base.getUTCMonth() + months;
+  const year = base.getUTCFullYear() + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return Date.UTC(year, month, Math.min(day, lastDay));
+}
+
+function periodDays(coveredStart: number, coveredEnd: number) {
+  return Math.round((coveredEnd - coveredStart) / DAY);
 }
 
 /**
- * One row per calendar month of the contract that has already started.
- * Monthly quotas share the contract quota in proportion to the days of
- * each month that fall inside the contract, and sum to the contract quota.
- * Monthly executions follow the usage curve and sum to the executions
- * already shown for the subscription.
+ * One row per contract-anniversary billing period that has already started.
+ * Periods start on the contract start day and each next period starts one
+ * month later on that same day (clamped on short months). The period ends
+ * the day before the next start. Quotas share the contract quota equally
+ * across a clean anniversary year; a short final period is weighted by days.
+ * Executions follow the usage curve and sum to the subscription total.
  */
-export function pastMonths(sub: Subscription, instances: Instance[], now = NOW): PastMonth[] {
+export function pastPeriods(sub: Subscription, instances: Instance[], now = NOW): PastPeriod[] {
   const startMs = Date.parse(sub.start);
   const periodEndExclusive = Date.parse(sub.end) + DAY;
   const nowMs = Date.parse(now);
-  const spans: { id: string; label: string; start: string; coveredStart: number; coveredEnd: number; weight: number }[] = [];
-  let year = new Date(startMs).getUTCFullYear();
-  let month = new Date(startMs).getUTCMonth();
-  const end = new Date(periodEndExclusive - DAY);
-  const endYear = end.getUTCFullYear();
-  const endMonth = end.getUTCMonth();
+  const spans: { id: string; label: string; start: string; end: string; coveredStart: number; coveredEnd: number; days: number }[] = [];
+  let index = 0;
 
-  while (year < endYear || (year === endYear && month <= endMonth)) {
-    const monthStart = Date.UTC(year, month, 1);
-    const nextMonth = Date.UTC(year, month + 1, 1);
-    const coveredStart = Math.max(monthStart, startMs);
-    const coveredEnd = Math.min(nextMonth, periodEndExclusive);
+  while (true) {
+    const coveredStart = addContractMonths(startMs, index);
+    if (coveredStart >= periodEndExclusive) break;
+    const nextStart = addContractMonths(startMs, index + 1);
+    const coveredEnd = Math.min(nextStart, periodEndExclusive);
+    if (coveredEnd <= coveredStart) break;
+    const endInclusive = coveredEnd - DAY;
+    const startIso = new Date(coveredStart).toISOString().slice(0, 10);
+    const endIso = new Date(endInclusive).toISOString().slice(0, 10);
     spans.push({
-      id: `${year}-${String(month + 1).padStart(2, "0")}`,
-      label: new Date(monthStart).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" }),
-      start: new Date(coveredStart).toISOString().slice(0, 10),
+      id: startIso,
+      label: `${date(startIso)} – ${date(endIso)}`,
+      start: startIso,
+      end: endIso,
       coveredStart,
       coveredEnd,
-      weight: monthWeight(year, month, coveredStart, coveredEnd),
+      days: periodDays(coveredStart, coveredEnd),
     });
-    month += 1;
-    if (month === 12) {
-      month = 0;
-      year += 1;
-    }
+    index += 1;
+    if (coveredEnd >= periodEndExclusive) break;
   }
 
-  const totalWeight = spans.reduce((sum, span) => sum + span.weight, 0);
+  // A clean anniversary year keeps equal quotas even when February is shorter.
+  // Weight by days only when the contract truncates the final period early.
+  const last = spans.at(-1);
+  const naturalLastEnd = addContractMonths(startMs, spans.length);
+  const lastShort = Boolean(last && last.coveredEnd < naturalLastEnd);
+  const totalDays = spans.reduce((sum, s) => sum + s.days, 0);
   let assigned = 0;
-  const quotas = spans.map((span, index) => {
-    if (index === spans.length - 1) return sub.quota - assigned;
-    const quota = Math.round((sub.quota * span.weight) / totalWeight);
+  const quotas = spans.map((span, i) => {
+    if (i === spans.length - 1) return sub.quota - assigned;
+    const quota = lastShort
+      ? Math.round((sub.quota * span.days) / totalDays)
+      : Math.round(sub.quota / spans.length);
     assigned += quota;
     return quota;
   });
@@ -96,17 +118,18 @@ export function pastMonths(sub: Subscription, instances: Instance[], now = NOW):
   const cumulative = (time: number) => Math.round(used * cumulativeExecutionShare((time - startMs) / elapsed));
 
   return spans
-    .map((span, index) => ({ span, quota: quotas[index]! }))
+    .map((span, i) => ({ span, quota: quotas[i]! }))
     .filter(({ span }) => span.coveredStart <= nowMs)
     .map(({ span, quota }) => {
       const open = span.coveredEnd > nowMs;
       const executions = cumulative(Math.min(span.coveredEnd, elapsedEnd)) - cumulative(span.coveredStart);
       const delta = open ? 0 : executions - quota;
-      const standing: MonthStanding = open ? "in-progress" : delta > 0 ? "over" : delta < 0 ? "under" : "on-quota";
+      const standing: PeriodStanding = open ? "in-progress" : delta > 0 ? "over" : delta < 0 ? "under" : "on-quota";
       return {
         id: span.id,
         label: span.label,
         start: span.start,
+        end: span.end,
         quota,
         executions,
         standing,
@@ -115,3 +138,6 @@ export function pastMonths(sub: Subscription, instances: Instance[], now = NOW):
       };
     });
 }
+
+/** @deprecated Prefer pastPeriods. */
+export const pastMonths = pastPeriods;

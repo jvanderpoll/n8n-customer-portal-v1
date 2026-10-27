@@ -2,10 +2,11 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Check, ChevronRight, CircleAlert, KeyRound } from "lucide-react";
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { usePersona } from "./portal-shell";
+import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
-import { cumulativeExecutionShare, pastMonths, type PastMonth } from "@/lib/portal-billing";
-import { NOW, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
-import { isReporting, licensesFor, quotaColor, subscriptionView } from "@/lib/portal-views";
+import { cumulativeExecutionShare, pastPeriods, type PastPeriod } from "@/lib/portal-billing";
+import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
+import { isReporting, licensesFor, quotaColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt } from "@/lib/portal-format";
 
 export { CsvExport } from "./csv-export";
@@ -32,13 +33,78 @@ function Requirements({ subscription }: { subscription: Subscription }) {
   return <div className="contract-note"><strong>Contract requirements</strong><ul>{subscription.requirements.map((r) => <li key={r}>{r}</li>)}</ul></div>;
 }
 
+export function OverviewDashboard() {
+  const persona = usePersona();
+  const { running, expired } = runningFirst(persona);
+  const totals = running.reduce(
+    (acc, sub) => {
+      const summary = summarize(sub, persona.instances);
+      return {
+        used: acc.used + summary.used,
+        reporting: acc.reporting + summary.reportingCount,
+      };
+    },
+    { used: 0, reporting: 0 },
+  );
+
+  return (
+    <>
+      <div className="metric-strip overview-totals" aria-label="Account totals">
+        <div className="summary-metric">
+          <span className="metric-label">Running subscriptions</span>
+          <strong>{running.length}</strong>
+        </div>
+        <div className="summary-metric">
+          <span className="metric-label">Executions used</span>
+          <strong>{fmt(totals.used)}</strong>
+        </div>
+        <div className="summary-metric">
+          <span className="metric-label">Instances reporting</span>
+          <strong>{totals.reporting}</strong>
+        </div>
+      </div>
+      <section className="workspace-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Running subscriptions</h2>
+            <span className="supporting">Quota use and renewal for each active contract.</span>
+          </div>
+        </div>
+        {running.length ? (
+          <ul className="overview-subscription-list">
+            {running.map((sub) => {
+              const summary = summarize(sub, persona.instances);
+              return (
+                <li key={sub.id}>
+                  <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link>
+                  <span>{percent(summary.pct)} of quota</span>
+                  <span>{fmt(summary.used)} executions</span>
+                  <span>{plural(summary.reportingCount, "instance")} reporting</span>
+                  <span>{sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`}</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="overview-empty">No running subscriptions.</p>
+        )}
+      </section>
+      {expired.length > 0 && (
+        <p className="overview-footnote">
+          {expired.length} expired {expired.length === 1 ? "subscription" : "subscriptions"}.{" "}
+          <Link to="/subscriptions" className="text-link quiet-link">All subscriptions <ArrowUpRight size={14} /></Link>
+        </p>
+      )}
+    </>
+  );
+}
+
 export function SubscriptionCard({ subscription: sub, linked = false }: { subscription: Subscription; linked?: boolean }) {
   const persona = usePersona();
   const view = subscriptionView(persona, sub);
   const { summary, period } = view;
   const running = view.status === "Running";
   const fill = running ? quotaColor(summary.pct) : "var(--color--neutral-400, var(--portal-caption))";
-  const contactTopic = view.quotaPrompt ? "quota" : view.renewalPrompt ? "renewal" : null;
   const timePct = Math.min(1, Math.max(0, period.pct));
   const leadDate = running
     ? sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`
@@ -61,7 +127,6 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       <div className="usage-meter-head">
         <strong>{percent(summary.pct)}</strong>
         <span>of quota used · {fmt(summary.used)} of {fmt(sub.quota)} executions</span>
-        {contactTopic && <Link className="text-link usage-contact" to="/contact" search={{ topic: contactTopic, subscription: sub.id }}>Contact {persona.csm}</Link>}
       </div>
       <div className="quota-bar" role="progressbar" aria-label="Quota used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(summary.pct * 100)}>
         <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: fill }} />
@@ -86,62 +151,98 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
 
 const eur = (amount: number) => `€${amount.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-function standingLabel(month: PastMonth) {
-  if (month.standing === "in-progress") return "In progress";
-  if (month.standing === "on-quota") return "On quota";
-  const gap = fmt(Math.abs(month.delta));
-  return month.standing === "over" ? `Over by ${gap}` : `Under by ${gap}`;
+function standingLabel(period: PastPeriod) {
+  if (period.standing === "in-progress") return "In progress";
+  if (period.standing === "on-quota") return "On quota";
+  const gap = fmt(Math.abs(period.delta));
+  return period.standing === "over" ? `Over by ${gap}` : `Under by ${gap}`;
 }
 
 export function PastPeriods({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
-  const months = pastMonths(sub, persona.instances);
-  const columns: DataColumn<PastMonth>[] = [
-    { id: "period", header: "Period", accessor: (m) => m.start, cell: (m) => m.label },
-    { id: "quota", header: "Quota", numeric: true, accessor: (m) => m.quota, cell: (m) => fmt(m.quota) },
-    { id: "executions", header: "Executions", numeric: true, accessor: (m) => m.executions, cell: (m) => fmt(m.executions) },
-    { id: "standing", header: "Against quota", accessor: (m) => standingLabel(m), cell: (m) => standingLabel(m) },
+  const periods = pastPeriods(sub, persona.instances);
+  const columns: DataColumn<PastPeriod>[] = [
+    { id: "period", header: "Period", accessor: (p) => p.start, cell: (p) => p.label, csv: (p) => p.label },
+    { id: "quota", header: "Quota", numeric: true, accessor: (p) => p.quota, cell: (p) => fmt(p.quota) },
+    { id: "executions", header: "Executions", numeric: true, accessor: (p) => p.executions, cell: (p) => fmt(p.executions) },
+    { id: "standing", header: "Against quota", accessor: (p) => standingLabel(p), cell: (p) => standingLabel(p) },
     {
       id: "amount",
       header: "Amount",
       numeric: true,
-      accessor: (m) => m.amountEur,
-      cell: (m) => (m.amountEur == null ? "—" : eur(m.amountEur)),
-      csv: (m) => (m.amountEur == null ? "" : m.amountEur.toFixed(2)),
+      accessor: (p) => p.amountEur,
+      cell: (p) => (p.amountEur == null ? "—" : eur(p.amountEur)),
+      csv: (p) => (p.amountEur == null ? "" : p.amountEur.toFixed(2)),
     },
   ];
   return (
     <section className="workspace-panel">
       <div className="panel-heading">
         <div>
-          <h2>Past months ({months.length})</h2>
-          <span className="supporting">Executions are counted per month. Amount uses the published Business price, €667 for 40,000 executions, because Enterprise is custom. A closed month is billed for its quota, plus any executions over that quota.</span>
+          <h2>Past periods ({periods.length})</h2>
+          <span className="supporting">Executions are counted per contract billing period. Amount uses the published Business price, €667 for 40,000 executions, because Enterprise is custom. A closed period is billed for its quota, plus any executions over that quota.</span>
         </div>
       </div>
       <DataTable
         columns={columns}
-        rows={[...months].reverse()}
-        rowKey={(m) => m.id}
-        searchPlaceholder="Search months…"
-        csvFilename={`${sub.name}-past-months.csv`}
-        empty="No past months."
+        rows={[...periods].reverse()}
+        rowKey={(p) => p.id}
+        searchPlaceholder="Search periods…"
+        csvFilename={`${sub.name}-past-periods.csv`}
+        empty="No past periods."
         initialSort={{ id: "period", dir: "desc" }}
       />
     </section>
   );
 }
 
+function usageChartPoints(sub: Subscription, used: number, ended: boolean) {
+  const start = Date.parse(sub.start);
+  const end = Date.parse(sub.end);
+  const now = ended ? end : Math.min(Date.parse(NOW), end);
+  const data: { time: number; date: string; used: number | null; quota: number }[] = Array.from({ length: 13 }, (_, i) => {
+    const time = start + (now - start) * i / 12;
+    return {
+      time,
+      date: new Date(time).toISOString().slice(0, 10),
+      used: Math.round(used * cumulativeExecutionShare(i / 12)),
+      quota: sub.quota,
+    };
+  });
+  if (now < end) data.push({ time: end, date: new Date(end).toISOString().slice(0, 10), used: null, quota: sub.quota });
+  return { start, end, now, data };
+}
+
 export function UsagePanel({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
   const { summary, status } = subscriptionView(persona, sub);
-  return <section className="workspace-panel chart-panel"><div className="panel-heading"><div><h2>Usage over time</h2><span className="supporting">Cumulative executions this period</span></div></div><UsageChart subscription={sub} used={summary.used} ended={status === "Expired"} /></section>;
+  const ended = status === "Expired";
+  const { data } = usageChartPoints(sub, summary.used, ended);
+  const exportRows = data
+    .filter((point) => point.used != null)
+    .map((point) => [point.date, String(point.used), String(point.quota)]);
+  return (
+    <section className="workspace-panel chart-panel">
+      <div className="panel-heading">
+        <div>
+          <h2>Usage over time</h2>
+          <span className="supporting">Cumulative executions this period</span>
+        </div>
+        <CsvExport
+          filename={`${sub.name}-usage.csv`}
+          headers={["Date", "Executions", "Quota"]}
+          rows={exportRows}
+          label="Download usage chart data"
+        />
+      </div>
+      <UsageChart subscription={sub} used={summary.used} ended={ended} />
+    </section>
+  );
 }
 
 function UsageChart({ subscription: sub, used, ended }: { subscription: Subscription; used: number; ended: boolean }) {
-  const start = Date.parse(sub.start), end = Date.parse(sub.end), now = ended ? end : Math.min(Date.parse(NOW), end);
+  const { start, end, data } = usageChartPoints(sub, used, ended);
   const ticks = Array.from({ length: 5 }, (_, i) => start + (end - start) * i / 4);
-  const data: { time: number; used: number | null; quota: number }[] = Array.from({ length: 13 }, (_, i) => ({ time: start + (now - start) * i / 12, used: Math.round(used * cumulativeExecutionShare(i / 12)), quota: sub.quota }));
-  if (now < end) data.push({ time: end, used: null, quota: sub.quota });
   const ceiling = Math.max(used, sub.quota, 1) * 1.13;
   return <><div className="chart-legend"><span><i />Executions</span><span><i className="legend-quota" />Quota · {short(sub.quota)}</span></div><div className="usage-chart" role="img" aria-label={`Executions: ${fmt(used)}${ended ? ` at the end of the period` : ` as of ${date(NOW)}`}, quota ${fmt(sub.quota)}`}><ResponsiveContainer width="100%" height="100%"><ComposedChart data={data} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}><defs><linearGradient id="usage-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--color--orange-700)" stopOpacity={0.18} /><stop offset="100%" stopColor="var(--color--orange-700)" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid stroke="var(--border)" vertical={false} /><XAxis type="number" dataKey="time" domain={[start, end]} ticks={ticks} tickFormatter={(v: number) => new Date(v).toLocaleDateString("en-GB", { month: "short", day: "numeric", timeZone: "UTC" })} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} minTickGap={24} /><YAxis domain={[0, ceiling]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} /><Tooltip labelFormatter={(v) => date(new Date(Number(v)).toISOString())} formatter={(v, name) => [fmt(Number(v)), name === "used" ? "Executions" : "Quota"]} contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }} /><Line type="linear" dataKey="quota" stroke="var(--portal-caption)" strokeDasharray="5 5" strokeWidth={1.25} dot={false} isAnimationActive={false} /><Area type="monotone" dataKey="used" stroke="var(--color--orange-700)" strokeWidth={2.5} fill="url(#usage-fill)" activeDot={{ r: 4, stroke: "white", strokeWidth: 2 }} isAnimationActive={false} connectNulls={false} /></ComposedChart></ResponsiveContainer></div></>;
 }

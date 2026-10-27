@@ -16,10 +16,12 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 - The subscription shows "N instances reporting."
 - The instance drill-down is a plain list: name, license, executions, reporting status. No actions on that list.
 - Do not invent policies, instance caps, or friendly instance names. If a subscription has no policy in the data, leave that line out.
-- Sidebar: no company info box, no sample-data caption, no role switcher. Bottom-left avatar (signed-in initials) opens a menu with Message CSM (/contact), Give feedback (local draft download only), and Log out (navigates to /; no auth).
-- Subscriptions list uses Running (n) / Expired (n) tabs (Running default); black text with underline on the active tab. Expired cards are muted (grey text, grey quota bar, neutral badge).
-- Counts live in headings ("Instances (40)", "People with access (2)", …). No separate count text or count pills.
-- One shared DataTable for every portal table: search, column-header sort, filters behind one filter-icon popover, CSV of the rows currently shown. Table text is black with no link styling; the whole row navigates; the row menu does not. Text hyperlinks elsewhere are black with underline. No orange filled icon tiles or extra colored chips; buttons stay on the shared Button primitive.
+- Sidebar: no company info box, no sample-data caption, no role switcher. Bottom-left avatar (signed-in initials) opens a menu with Give feedback (local draft download only) and Log out (navigates to /; no auth). Contact n8n sits below the workspace nav and above Prototype; it opens a topic menu, then a local-draft dialog.
+- Subscriptions list uses Running (n) / Expired (n) tabs (Running default); black text with underline on the active tab. Expired cards are muted (grey text, grey quota bar, neutral badge). Users uses the same tab contract for People with access / Pending invites.
+- Counts live in headings and tab labels ("Instances (40)", "People with access (2)", …). No separate count text or count pills.
+- One shared DataTable for every portal table: search, column-header sort, filters behind one filter-icon popover, download menu (copy / CSV) of the rows currently shown. The usage chart uses the same download menu for the points it draws. Table text is black with no link styling; the whole row navigates; the row menu does not. Search hyperlinks elsewhere are black with underline. No orange filled icon tiles or extra colored chips; buttons stay on the shared Button primitive.
+- Overview is a short dashboard (totals + compact running-subscription lines). Full subscription cards, charts, past periods, and licenses stay on Subscriptions.
+- Billing periods follow the contract anniversary day, not calendar months. Labels show the date range. Amounts use the published Business rate.
 - No user-facing prototype disclaimers. Scenario switcher stays without an explanatory paragraph.
 
 ### Model
@@ -34,9 +36,8 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 
 - Someone at the customer (often IT) sets up the subscription, then invites other people into the portal.
 - Single system-admin role. Members have no role and no per-subscription scope.
-- A Users screen: one table of people with access. Columns: name, email, and a row menu (Remove only).
+- A Users screen with tabs: People with access (n) and Pending invites (n). One table visible per tab. Columns: name, email, and a row menu (Remove / Cancel).
 - A primary Invite button at the top opens a dialog asking only for name and email.
-- A pending-invites list with name, email, and Cancel.
 - Keep this on the Users screen, off the subscription view.
 
 ### Principle
@@ -47,10 +48,9 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 
 ### Contact
 
-- Entry points to contact the CSM.
-- When quota is high or over, the Quota used figure gets a dotted underline and a hover card (short sentence + Contact CSM link with topic=quota). When renewal needs attention, the renewal date gets the same pattern with topic=renewal. No orange banners. No tooltip when status is fine. The card stays open while the pointer moves onto the link.
-- Contact stays a real screen too, but the entry points are the point.
-- Sidebar avatar also links to Message CSM, Give feedback, and Log out. Feedback and contact create local drafts only; nothing is sent.
+- Contact n8n is a sidebar action below the workspace nav: topic menu (Quota, Renewal, Usage reporting, Portal access, Other), then a dialog to write a message and download a local draft. Nothing is sent. No address, no delivery.
+- Do not put prominent Contact-{CSM} links on quota meters or subscription cards. Avatar menu keeps Give feedback and Log out only.
+- Quota/renewal prompt data may remain in the model unused.
 
 ### Granularity
 
@@ -101,3 +101,4 @@ The diagram says Purchase; the entity model says Subscription. The tree wins for
 - 2026-10-26: visual pass — quota/renewal hover cards replace orange CSM banners; plain grey icons; grey period bar; black underlined text links and black table rows; counts in headings; shared DataTable with search/sort/filter/CSV; Running/Expired tabs; muted expired cards; prototype disclaimers removed; avatar Log out; Access remains a single system admin.
 - 2026-10-26: quota and time merged into one bar (quota fill with a time marker labelled % of period); hover cards, help popovers and the topbar Help removed; a plain "Contact <CSM>" link shows only when quota or renewal needs attention; floating menus, dialogs and selects are opaque.
 - 2026-10-27: executions are counted per month. A subscription detail lists past months (period, monthly quota, executions, under or over). Amount is calculated from the published Business price, €667 per month for 40,000 executions, because Enterprise is custom. A closed month bills its quota plus executions over that quota. The open month is not billed. The account name is not repeated in the top bar.
+- 2026-10-27: periods follow the contract start day (anniversary billing, not calendar months); amounts stay on the agreed Business rate; overview is a dashboard; contact is a sidebar menu plus dialog; users use tabs; CSV is a download menu.
