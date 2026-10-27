@@ -28,6 +28,8 @@ import { DataTable, type DataColumn } from "./data-table";
 const value = (data: FormData, name: string) => String(data.get(name) ?? "");
 const newId = () => crypto.randomUUID();
 
+const DELETE_CONFIRM = "Delete";
+
 function ActionDialog({
   title,
   description,
@@ -58,7 +60,9 @@ function ActionDialog({
   const { perform } = useManagement();
   const [open, setOpen] = useState(false),
     [error, setError] = useState(""),
-    [draft, setDraft] = useState<FormData | null>(null);
+    [draft, setDraft] = useState<FormData | null>(null),
+    [confirmText, setConfirmText] = useState("");
+  const deleteConfirmed = !danger || confirmText === DELETE_CONFIRM;
   return (
     <Dialog
       open={open}
@@ -66,6 +70,7 @@ function ActionDialog({
         setOpen(v);
         setError("");
         setDraft(null);
+        setConfirmText("");
       }}
     >
       <DialogTrigger asChild>
@@ -92,6 +97,7 @@ function ActionDialog({
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (danger && confirmText !== DELETE_CONFIRM) return;
             const data = draft ?? new FormData(e.currentTarget);
             if (review && !draft) {
               setDraft(data);
@@ -102,12 +108,26 @@ function ActionDialog({
             if (!failure) {
               setOpen(false);
               setDraft(null);
+              setConfirmText("");
               onSuccess?.(data);
             }
           }}
         >
           <div className="management-fields" hidden={Boolean(draft)}>
             {children}
+            {danger && (
+              <label>
+                Type Delete to confirm
+                <input
+                  name="delete-confirm"
+                  autoComplete="off"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder="Delete"
+                  aria-required="true"
+                />
+              </label>
+            )}
           </div>
           {draft && review && (
             <div className="request-review">{review(draft)}</div>
@@ -141,6 +161,7 @@ function ActionDialog({
               type="submit"
               variant={danger ? "destructive" : "default"}
               size="lg"
+              disabled={!deleteConfirmed}
             >
               {review && !draft ? "Review request" : submit}
             </Button>

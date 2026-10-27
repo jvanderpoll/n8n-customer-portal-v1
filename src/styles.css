@@ -368,7 +368,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .field-optional { display: inline; }
 .form-columns { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--spacing--sm); }
 .role-guidance { display: grid; gap: var(--spacing--2xs); }
-.dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--spacing--2xs); margin-top: var(--spacing--lg); padding-top: var(--spacing--sm); border-top: 1px solid var(--border); }
+.dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--spacing--2xs); margin-top: var(--spacing--lg); }
 .demo-disclaimer { margin-top: var(--spacing--sm); }
 .form-error { color: var(--color--red-800); padding: var(--spacing--xs); background: var(--color--red-50); border-radius: var(--radius--3xs); margin-top: var(--spacing--sm); }
 .request-review h3 { font-size: var(--font-size--md); font-weight: var(--font-weight--bold); margin-bottom: var(--spacing--sm); }
