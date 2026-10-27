@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useManagement, usePersona } from "@/components/portal-shell";
 import { DataTable, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
 import { InviteUser, MemberActions } from "@/components/portal-management";
-import { portalHead } from "@/lib/portal-format";
+import { portalHead, timestamp } from "@/lib/portal-format";
 import {
   formatMemberScope,
   isRole,
@@ -129,6 +129,13 @@ function Users() {
       accessor: (m) => formatMemberScope(m.scope, persona),
       cell: (m) => formatMemberScope(m.scope, persona),
     },
+    {
+      id: "invited",
+      header: "Invited",
+      accessor: (m) => (m.invitedAt ? Date.parse(m.invitedAt) : null),
+      cell: (m) => (m.invitedAt ? timestamp(m.invitedAt) : "—"),
+      csv: (m) => (m.invitedAt ? timestamp(m.invitedAt) : ""),
+    },
   ];
 
   return (
@@ -167,6 +174,7 @@ function Users() {
             csvFilename="pending-invites.csv"
             rowActions={(m) => <MemberActions member={m} />}
             empty="No pending invites."
+            initialSort={{ id: "invited", dir: "desc" }}
             filterContent={filterContent}
             filtersActive={filtersActive}
             onClearFilters={clearFilters}

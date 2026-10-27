@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { personas, summarize } from "./portal-data";
+import { NOW, personas, summarize } from "./portal-data";
+import { timestamp } from "./portal-format";
 import {
   activeInstances,
   applyManagement,
@@ -185,6 +186,13 @@ describe("session-only account management", () => {
         expect(() => applyManagement(account(), action, role)).toThrow("Only admins");
     }
   });
+  it("seeds pending invites with distinct invitedAt times", () => {
+    const invites = account().members.filter((m) => m.status === "Invited");
+    expect(invites.length).toBeGreaterThanOrEqual(2);
+    const times = invites.map((m) => m.invitedAt);
+    expect(times.every(Boolean)).toBe(true);
+    expect(new Set(times).size).toBe(times.length);
+  });
   it("invites people with role and scope, rejects duplicates, and cancels invites", () => {
     const s = account();
     const next = applyManagement(
@@ -198,7 +206,9 @@ describe("session-only account management", () => {
       status: "Invited",
       role: "billing",
       scope: ["s1"],
+      invitedAt: NOW,
     });
+    expect(timestamp(NOW)).toMatch(/UTC$/);
     expect(() =>
       applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com", role: "viewer", scope: "all" }, admin),
     ).toThrow("already has");

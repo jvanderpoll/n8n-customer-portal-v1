@@ -1,4 +1,4 @@
-import { type Persona, type Instance, subscriptionStatus } from "./portal-data";
+import { type Persona, type Instance, NOW, subscriptionStatus } from "./portal-data";
 
 export type Role = "admin" | "billing" | "viewer";
 export type MemberScope = "all" | string[];
@@ -10,7 +10,13 @@ export type Member = {
   status: "Active" | "Invited";
   role: Role;
   scope: MemberScope;
+  /** ISO timestamp when the invite was created (session-only; Invited members). */
+  invitedAt?: string;
 };
+
+/** Deterministic invite time relative to the prototype clock. */
+const invitedHoursAgo = (hours: number) =>
+  new Date(Date.parse(NOW) - hours * 3600_000).toISOString();
 
 export type LicenseRequest = {
   id: string;
@@ -106,6 +112,16 @@ export function createAccount(persona: Persona): AccountState {
         status: "Invited",
         role: "viewer",
         scope: persona.subscriptions[0] ? [persona.subscriptions[0].id] : "all",
+        invitedAt: invitedHoursAgo(72),
+      },
+      {
+        id: "pending-finance",
+        name: "Finance partner",
+        email: "finance-partner@example.com",
+        status: "Invited",
+        role: "billing",
+        scope: "all",
+        invitedAt: invitedHoursAgo(6),
       },
     ],
   };
@@ -255,6 +271,7 @@ export function applyManagement(
         status: "Invited",
         role: action.role,
         scope: normalizeScope(action.scope, p),
+        invitedAt: NOW,
       });
       next.notice = "Invitation added to this demo. No email has been sent.";
       break;
