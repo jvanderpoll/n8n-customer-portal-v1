@@ -226,7 +226,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .prototype-menu label { display: block; margin: var(--spacing--xs) 0 var(--spacing--4xs); }
 .prototype-menu select { width: 100%; min-height: 40px; padding: var(--spacing--2xs); border: 1px solid var(--input); border-radius: var(--radius--3xs); background: var(--portal-surface); color: var(--portal-text); }
 .sidebar-user { display: flex; justify-content: flex-start; align-items: center; }
-.sidebar-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: var(--radius--3xs); background: var(--color--neutral-150); color: var(--portal-text); font-size: var(--font-size--sm); font-weight: var(--font-weight--bold); }
+.sidebar-avatar { width: 36px; height: 36px; min-width: 36px; border-radius: var(--radius--3xs); color: var(--portal-text); font-size: var(--font-size--sm); font-weight: var(--font-weight--bold); }
 .sidebar-user-menu { min-width: 200px; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
 .sidebar-user-menu [role="menuitem"],
 .sidebar-user-menu a { color: var(--portal-text); text-decoration: none; }
@@ -235,9 +235,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .sort-header { appearance: none; background: transparent; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; display: inline-flex; align-items: center; gap: 2px; }
 .sort-header.is-active { color: var(--portal-text); font-weight: var(--font-weight--medium); }
 .portal-main { flex: 1; min-width: 0; }
-.portal-topbar { min-height: 56px; display: flex; justify-content: space-between; align-items: center; gap: var(--spacing--sm); padding: var(--spacing--2xs) var(--spacing--xl); border-bottom: 1px solid var(--border); font-size: var(--font-size--sm); }
-.portal-topbar > span { display: flex; align-items: center; gap: var(--spacing--2xs); color: var(--portal-secondary); min-width: 0; }
-.portal-topbar strong { font-weight: var(--font-weight--medium); color: var(--portal-text); }
 .portal-content { max-width: 1440px; margin: 0 auto; padding: var(--spacing--lg) var(--spacing--xl) var(--spacing--2xl); }
 .workspace-title { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing--sm); margin-bottom: var(--spacing--lg); }
 .workspace-title h1 { font-size: var(--font-size--2xl); line-height: var(--line-height--sm); font-weight: var(--font-weight--bold); letter-spacing: var(--letter-spacing--tight); color: var(--portal-text); }
@@ -462,6 +459,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .portal-button.reset-demo { margin-top: var(--spacing--sm); }
 .portal-button.instance-name { margin-left: calc(-1 * var(--spacing--2xs)); padding-left: var(--spacing--2xs); padding-right: var(--spacing--2xs); }
 .portal-button.filter-chip { --portal-button-bg: var(--color--neutral-100); }
+.portal-button.sidebar-avatar { --portal-button-bg: transparent; --portal-button-hover: var(--color--neutral-150); --portal-button-active: var(--color--neutral-150); }
 .portal-dialog-close { position: absolute; top: var(--spacing--xs); right: var(--spacing--xs); }
 .show-more { display: flex; justify-content: center; padding: var(--spacing--2xs); border-top: 1px solid var(--border); }
 .filter-menu > summary { font-size: var(--font-size--md); padding: 0 var(--spacing--sm); border: 0; border-radius: var(--radius--full); color: var(--color--neutral-950); background: var(--portal-surface); box-shadow: inset 0 0 0 1px var(--color--black-alpha-100), 0 1px 2px -1px var(--color--black-alpha-100); }

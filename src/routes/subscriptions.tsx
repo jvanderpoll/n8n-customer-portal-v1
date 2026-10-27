@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
-import { Crumb, InstanceList, LastUpdate, LicenseTable, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
+import { Crumb, InstanceList, LastUpdate, LicenseTable, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
 import { RequestLicenses, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
@@ -53,6 +53,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
     <div className="agreement-list">
       <SubscriptionCard subscription={sub} />
       <UsagePanel subscription={sub} />
+      <PastPeriods subscription={sub} />
       <LicenseTable subscription={sub} />
     </div>
   </>;

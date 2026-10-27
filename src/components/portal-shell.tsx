@@ -130,9 +130,6 @@ export function PortalShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <div className="portal-main">
-        <header className="portal-topbar">
-          <span>Customer account <ChevronRight size={12} /> <strong>{persona.company}</strong></span>
-        </header>
         <main className="portal-content">
           <div key={`${pid}-${revision}`}>
             {account.notice && <div className="management-notice" role="status"><span>{account.notice}</span><Button variant="ghost" size="icon" aria-label="Dismiss notification" onClick={() => setAccount({ ...account, notice: "" })}><X size={16} /></Button></div>}
