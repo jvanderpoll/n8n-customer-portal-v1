@@ -161,7 +161,6 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
       <div className="account-banner">
         <span className="account-banner-label">Account</span>
         <strong className="account-banner-name">{persona.company}</strong>
-        <span className="account-banner-user">{persona.user}</span>
       </div>
       <div className="metric-strip overview-totals" aria-label="Account totals">
         <div className="overview-metric-row overview-counts">
