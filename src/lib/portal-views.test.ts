@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { personas, type Persona } from "./portal-data";
-import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, memberFor, paginateInstances, quotaColor, quotaTextColor, runningFirst, subscriptionShare, subscriptionView } from "./portal-views";
+import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, licensesGroupedByPurchase, memberFor, paginateInstances, quotaColor, quotaTextColor, runningFirst, subscriptionShare, subscriptionView } from "./portal-views";
 
 function persona(id: string): Persona {
   const result = personas.find((p) => p.id === id);
@@ -55,6 +55,28 @@ describe("read-only portal selectors", () => {
     expect(prd.executions).toBe(prd.instances.reduce((sum, i) => sum + (i.executions ?? 0), 0));
     expect(prd).not.toHaveProperty("quota");
     expect(licenses.find((l) => l.id === "LIC-NW-DR-01")).toMatchObject({ instances: [], executions: null });
+  });
+  it("groups licenses by purchase for the cross-purchase list", () => {
+    const one = licensesGroupedByPurchase(persona("full"));
+    expect(one).toHaveLength(1);
+    expect(one[0]!.subscription.id).toBe("s1");
+    expect(one[0]!.licenses.map((l) => l.id)).toEqual([
+      "LIC-NW-PRD-01",
+      "LIC-NW-NPR-01",
+      "LIC-NW-DR-01",
+      "LIC-NW-EU-01",
+      "LIC-NW-BATCH-01",
+    ]);
+    const many = licensesGroupedByPurchase(persona("over"));
+    expect(many.map((g) => g.subscription.id)).toEqual(["s1", "s2"]);
+    expect(many[0]!.licenses.map((l) => l.id)).toEqual(["LIC-HR-PRD-01"]);
+    expect(many[1]!.licenses.map((l) => l.id)).toEqual(["LIC-HR-NPR-01"]);
+    expect(
+      licensesGroupedByPurchase({
+        ...persona("full"),
+        licenses: persona("full").licenses.filter((l) => l.subscriptionId !== "s1"),
+      }),
+    ).toEqual([]);
   });
   it("lists the single running Northwind subscription", () => {
     const { running, expired } = runningFirst(persona("full"));

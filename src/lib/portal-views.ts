@@ -74,6 +74,16 @@ export function licensesFor(persona: Persona, subscriptionId: string) {
   });
 }
 
+/** Purchases that have at least one license, each with that purchase's license rows. Empty purchases are omitted. */
+export function licensesGroupedByPurchase(persona: Persona) {
+  return persona.subscriptions
+    .map((subscription) => ({
+      subscription,
+      licenses: licensesFor(persona, subscription.id),
+    }))
+    .filter((group) => group.licenses.length > 0);
+}
+
 export const QUOTA_HIGH = 0.7;
 export const RENEWAL_ATTENTION_DAYS = 60;
 
