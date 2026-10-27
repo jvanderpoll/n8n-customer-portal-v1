@@ -262,6 +262,16 @@ const SERIES_COLORS = [
   "var(--color--yellow-800)",
 ];
 
+/** End-of-series marker so close instance lines stay distinguishable. */
+function seriesEndDot(color: string, lastIndex: number) {
+  return (props: { cx?: number; cy?: number; index?: number }) => {
+    if (props.index !== lastIndex || props.cx == null || props.cy == null) {
+      return <g />;
+    }
+    return <circle cx={props.cx} cy={props.cy} r={3.5} fill={color} stroke="var(--portal-surface)" strokeWidth={1.5} />;
+  };
+}
+
 function UsageLines({
   label,
   quota,
@@ -281,15 +291,51 @@ function UsageLines({
     ...point.values,
     ...(showQuota ? { quota: point.quota } : {}),
   }));
-  const peak = Math.max(1, ...points.flatMap((point) => series.map((item) => point.values[item.id] ?? 0)), ...(showQuota ? [quota] : []));
+  const lastIndex = Math.max(0, chartRows.length - 1);
+  // Other instances often dwarfs the top named instances (~18× here). Plot it on its
+  // own axis so the seven named strokes are not collapsed onto the baseline.
+  const otherSeries = series.find((item) => item.id === "other-instances");
+  const primarySeries = otherSeries ? series.filter((item) => item.id !== "other-instances") : series;
+  const splitOther = Boolean(otherSeries);
+  const primaryPeak = Math.max(
+    1,
+    ...points.flatMap((point) => primarySeries.map((item) => point.values[item.id] ?? 0)),
+    ...(showQuota ? [quota] : []),
+  );
+  const otherPeak = otherSeries
+    ? Math.max(1, ...points.map((point) => point.values[otherSeries.id] ?? 0))
+    : primaryPeak;
+  const axisTick = { fontSize: 13, fill: "var(--color--neutral-600)" } as const;
   return (
     <>
       <div className="usage-chart" role="img" aria-label={label}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+          <ComposedChart data={chartRows} margin={{ top: 8, right: splitOther ? 8 : 4, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="shortLabel" tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
-            <YAxis width={36} domain={[0, peak * 1.15]} tickFormatter={short} tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} tickCount={4} />
+            <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
+            <YAxis
+              {...(splitOther ? { yAxisId: "main" } : {})}
+              width={36}
+              domain={[0, primaryPeak * 1.15]}
+              tickFormatter={short}
+              tick={axisTick}
+              axisLine={false}
+              tickLine={false}
+              tickCount={4}
+            />
+            {splitOther && (
+              <YAxis
+                yAxisId="other"
+                orientation="right"
+                width={36}
+                domain={[0, otherPeak * 1.15]}
+                tickFormatter={short}
+                tick={axisTick}
+                axisLine={false}
+                tickLine={false}
+                tickCount={4}
+              />
+            )}
             <Tooltip
               labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
               formatter={(value, name) => [
@@ -298,10 +344,36 @@ function UsageLines({
               ]}
               contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
             />
-            {showQuota && <Line type="linear" dataKey="quota" stroke="var(--portal-caption)" strokeDasharray="5 5" strokeWidth={1.25} dot={false} isAnimationActive={false} />}
-            {series.map((item, index) => (
-              <Line key={item.id} type="monotone" dataKey={item.id} stroke={SERIES_COLORS[index % SERIES_COLORS.length]} strokeWidth={2} dot={false} isAnimationActive={false} />
-            ))}
+            {showQuota && (
+              <Line
+                type="linear"
+                dataKey="quota"
+                {...(splitOther ? { yAxisId: "main" } : {})}
+                stroke="var(--portal-caption)"
+                strokeDasharray="5 5"
+                strokeWidth={1.25}
+                dot={false}
+                isAnimationActive={false}
+              />
+            )}
+            {series.map((item, index) => {
+              const color = SERIES_COLORS[index % SERIES_COLORS.length]!;
+              const onOtherAxis = splitOther && item.id === "other-instances";
+              return (
+                <Line
+                  key={item.id}
+                  type="monotone"
+                  dataKey={item.id}
+                  {...(splitOther ? { yAxisId: onOtherAxis ? "other" : "main" } : {})}
+                  stroke={color}
+                  strokeWidth={2}
+                  strokeDasharray={onOtherAxis ? "4 3" : undefined}
+                  dot={seriesEndDot(color, lastIndex)}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
+                  isAnimationActive={false}
+                />
+              );
+            })}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
