@@ -81,7 +81,9 @@ export function quotaColor(pct: number) {
 /** Same hue scale as quota bars, darkened for readable 14px text on white. */
 export function quotaTextColor(pct: number) {
   const { hue, lightness } = quotaHueLightness(pct);
-  return `hsl(${hue} 78% ${Math.max(26, Math.round(lightness * 0.72))}%)`;
+  // Yellows need extra darkening to keep ~4.5:1 contrast on white at 14px.
+  const factor = hue >= 40 && hue <= 65 ? 0.58 : 0.72;
+  return `hsl(${hue} 78% ${Math.max(26, Math.round(lightness * factor))}%)`;
 }
 
 export function subscriptionView(persona: Persona, sub: Subscription) {
