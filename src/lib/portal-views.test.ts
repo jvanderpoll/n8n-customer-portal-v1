@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { personas, type Persona } from "./portal-data";
-import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, memberFor, paginateInstances, quotaColor, runningFirst, subscriptionShare, subscriptionView } from "./portal-views";
+import { contactFor, defaultInstanceFilter, filterInstances, licensesFor, memberFor, paginateInstances, quotaColor, quotaTextColor, runningFirst, subscriptionShare, subscriptionView } from "./portal-views";
 
 function persona(id: string): Persona {
   const result = personas.find((p) => p.id === id);
@@ -70,6 +70,13 @@ describe("quota color", () => {
     expect(hues).toEqual([...hues].sort((a, b) => b - a));
     expect(hues.some((h) => h >= 45 && h <= 60)).toBe(true);
     expect(hues.some((h) => h >= 20 && h < 45)).toBe(true);
+  });
+  it("keeps text colors on the same hue scale, darkened for readability", () => {
+    expect(hue(quotaTextColor(0.8))).toBe(hue(quotaColor(0.8)));
+    expect(hue(quotaTextColor(1))).toBe(0);
+    const bar = quotaColor(0.8).match(/(\d+)%\)$/)?.[1];
+    const text = quotaTextColor(0.8).match(/(\d+)%\)$/)?.[1];
+    expect(Number(text)).toBeLessThan(Number(bar));
   });
 });
 

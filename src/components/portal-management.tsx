@@ -19,14 +19,95 @@ import { ActionMenu, ActionMenuItem } from "./action-menu";
 import { useManagement, usePersona } from "./portal-shell";
 import { type Instance, type License, subscriptionStatus } from "@/lib/portal-data";
 import {
+  formatMemberScope,
+  isRole,
+  ROLE_LABELS,
+  ROLES,
   type ManagementAction,
   type Member,
+  type MemberScope,
   type LicenseRequest,
+  type Role,
 } from "@/lib/portal-management";
 import { DataTable, type DataColumn } from "./data-table";
 export { ActionMenu, ActionMenuItem } from "./action-menu";
 const value = (data: FormData, name: string) => String(data.get(name) ?? "");
 const newId = () => crypto.randomUUID();
+
+function readScope(data: FormData): MemberScope {
+  if (value(data, "scope-kind") !== "selected") return "all";
+  return data.getAll("scope").map(String);
+}
+
+function readRole(data: FormData): Role {
+  const role = value(data, "role");
+  return isRole(role) ? role : "viewer";
+}
+
+function RoleScopeFields({ member }: { member?: Member }) {
+  const persona = usePersona();
+  const initialKind = member && member.scope !== "all" ? "selected" : "all";
+  const [scopeKind, setScopeKind] = useState<"all" | "selected">(initialKind);
+  const selected = Array.isArray(member?.scope) ? member.scope : [];
+  return (
+    <>
+      <label>
+        Role
+        <select name="role" defaultValue={member?.role ?? "viewer"}>
+          {ROLES.map((role) => (
+            <option key={role} value={role}>
+              {ROLE_LABELS[role]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <fieldset className="choice-group">
+        <legend>Scope</legend>
+        <label className="choice">
+          <input
+            type="radio"
+            name="scope-kind"
+            value="all"
+            checked={scopeKind === "all"}
+            onChange={() => setScopeKind("all")}
+          />
+          <span>
+            All subscriptions
+            <small>Access every subscription on this account.</small>
+          </span>
+        </label>
+        <label className="choice">
+          <input
+            type="radio"
+            name="scope-kind"
+            value="selected"
+            checked={scopeKind === "selected"}
+            onChange={() => setScopeKind("selected")}
+          />
+          <span>
+            Selected subscriptions
+            <small>Limit access to one or more subscriptions.</small>
+          </span>
+        </label>
+        {scopeKind === "selected" && (
+          <div className="scope-options">
+            {persona.subscriptions.map((subscription) => (
+              <label key={subscription.id} className="choice">
+                <input
+                  type="checkbox"
+                  name="scope"
+                  value={subscription.id}
+                  defaultChecked={selected.includes(subscription.id)}
+                />
+                <span>{subscription.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </fieldset>
+    </>
+  );
+}
 
 const DELETE_CONFIRM = "Delete";
 
@@ -566,6 +647,8 @@ export function InviteUser() {
         id: newId(),
         name: value(d, "name"),
         email: value(d, "email"),
+        role: readRole(d),
+        scope: readScope(d),
       })}
     >
       <label>
@@ -582,25 +665,56 @@ export function InviteUser() {
           maxLength={254}
         />
       </label>
+      <RoleScopeFields />
     </ActionDialog>
   );
 }
 export function MemberActions({ member: m }: { member: Member }) {
   const { role } = useManagement();
-  if (role !== "admin" || m.id === "self") return null;
+  const persona = usePersona();
+  if (role !== "admin") return null;
   const invited = m.status === "Invited";
+  const isSelf = m.id === "self";
   return (
     <ActionMenu label={`${invited ? "Manage invitation for" : "Manage access for"} ${m.email}`}>
-      <ActionDialog
-        title={invited ? "Cancel invitation?" : `Remove ${m.name || m.email}?`}
-        description={`${m.email} ${invited ? "will no longer have a pending invitation." : "will no longer have access to this customer portal."}`}
-        label={invited ? "Cancel invitation" : "Remove"}
-        variant="menu"
-        icon={<Trash2 size={16} />}
-        submit={invited ? "Cancel invitation" : "Remove"}
-        danger
-        action={() => ({ type: "remove-member", id: m.id })}
-      />
+      {isSelf ? (
+        <>
+          <ActionMenuItem label="Edit access" icon={<Pencil size={16} />} disabled />
+          <ActionMenuItem label="Remove" icon={<Trash2 size={16} />} danger disabled />
+        </>
+      ) : (
+        <>
+          <ActionDialog
+            title="Edit access"
+            description={`Change the role and subscription scope for ${m.email}. Changes apply only in this demo session.`}
+            label="Edit access"
+            variant="menu"
+            icon={<Pencil size={16} />}
+            submit="Save changes"
+            action={(d) => ({
+              type: "edit-member",
+              id: m.id,
+              role: readRole(d),
+              scope: readScope(d),
+            })}
+          >
+            <p className="role-guidance">
+              Current access: {ROLE_LABELS[m.role]} · {formatMemberScope(m.scope, persona)}
+            </p>
+            <RoleScopeFields member={m} />
+          </ActionDialog>
+          <ActionDialog
+            title={invited ? "Cancel invitation?" : `Remove ${m.name || m.email}?`}
+            description={`${m.email} ${invited ? "will no longer have a pending invitation." : "will no longer have access to this customer portal."}`}
+            label={invited ? "Cancel invitation" : "Remove"}
+            variant="menu"
+            icon={<Trash2 size={16} />}
+            submit={invited ? "Cancel invitation" : "Remove"}
+            danger
+            action={() => ({ type: "remove-member", id: m.id })}
+          />
+        </>
+      )}
     </ActionMenu>
   );
 }

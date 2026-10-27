@@ -64,12 +64,24 @@ export const RENEWAL_ATTENTION_DAYS = 60;
 
 // Green through 70%, then a continuous hue shift via yellow and orange to red at 100%.
 const QUOTA_STOPS: [pct: number, hue: number, lightness: number][] = [[QUOTA_HIGH, 135, 36], [0.8, 48, 46], [0.9, 28, 48], [1, 0, 42]];
-export function quotaColor(pct: number) {
+function quotaHueLightness(pct: number) {
   const p = Math.max(QUOTA_HIGH, Math.min(1, pct));
   const i = Math.max(1, QUOTA_STOPS.findIndex(([at]) => at >= p));
   const [a, ha, la] = QUOTA_STOPS[i - 1]!, [b, hb, lb] = QUOTA_STOPS[i]!;
   const t = (p - a) / (b - a);
-  return `hsl(${Math.round(ha + (hb - ha) * t)} 78% ${Math.round(la + (lb - la) * t)}%)`;
+  return {
+    hue: Math.round(ha + (hb - ha) * t),
+    lightness: Math.round(la + (lb - la) * t),
+  };
+}
+export function quotaColor(pct: number) {
+  const { hue, lightness } = quotaHueLightness(pct);
+  return `hsl(${hue} 78% ${lightness}%)`;
+}
+/** Same hue scale as quota bars, darkened for readable 14px text on white. */
+export function quotaTextColor(pct: number) {
+  const { hue, lightness } = quotaHueLightness(pct);
+  return `hsl(${hue} 78% ${Math.max(26, Math.round(lightness * 0.72))}%)`;
 }
 
 export function subscriptionView(persona: Persona, sub: Subscription) {

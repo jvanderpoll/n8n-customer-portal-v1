@@ -4,6 +4,7 @@ import {
   activeInstances,
   applyManagement,
   createAccount,
+  formatMemberScope,
   type ManagementAction,
   type Role,
 } from "./portal-management";
@@ -175,30 +176,56 @@ describe("session-only account management", () => {
     const actions: ManagementAction[] = [
       { type: "remove-instance", id: account().persona.instances[0]!.id },
       { type: "order", id: "req", subscriptionId: "s1", quantity: 1, environment: "Production", note: "" },
-      { type: "invite", id: "x", name: "X", email: "x@example.com" },
+      { type: "invite", id: "x", name: "X", email: "x@example.com", role: "viewer", scope: "all" },
+      { type: "edit-member", id: "billing", role: "viewer", scope: "all" },
       { type: "remove-member", id: "billing" },
     ];
-    for (const action of actions)
-      expect(() => applyManagement(account(), action, "guest" as Role)).toThrow("system admins");
+    for (const role of ["billing", "viewer"] as Role[]) {
+      for (const action of actions)
+        expect(() => applyManagement(account(), action, role)).toThrow("Only admins");
+    }
   });
-  it("invites people with name and email only, rejects duplicates, and cancels invites", () => {
+  it("invites people with role and scope, rejects duplicates, and cancels invites", () => {
     const s = account();
     const next = applyManagement(
       s,
-      { type: "invite", id: "invite", name: "Noor", email: " NEW@example.com " },
+      { type: "invite", id: "invite", name: "Noor", email: " NEW@example.com ", role: "billing", scope: ["s1"] },
       admin,
     );
     expect(next.members.find((m) => m.id === "invite")).toMatchObject({
       name: "Noor",
       email: "new@example.com",
       status: "Invited",
+      role: "billing",
+      scope: ["s1"],
     });
-    expect(next.members.find((m) => m.id === "invite")).not.toHaveProperty("role");
-    expect(next.members.find((m) => m.id === "invite")).not.toHaveProperty("scope");
     expect(() =>
-      applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com" }, admin),
+      applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com", role: "viewer", scope: "all" }, admin),
     ).toThrow("already has");
     expect(applyManagement(next, { type: "remove-member", id: "invite" }, admin).members).toHaveLength(s.members.length);
+  });
+  it("edits another person's role and scope, and refuses to edit yourself", () => {
+    const s = account();
+    const next = applyManagement(
+      s,
+      { type: "edit-member", id: "billing", role: "viewer", scope: ["s2"] },
+      admin,
+    );
+    expect(next.members.find((m) => m.id === "billing")).toMatchObject({
+      role: "viewer",
+      scope: ["s2"],
+    });
+    expect(formatMemberScope(["s2"], next.persona)).toBe("EU expansion");
+    expect(formatMemberScope("all", next.persona)).toBe("All subscriptions");
+    expect(() =>
+      applyManagement(s, { type: "edit-member", id: "self", role: "viewer", scope: "all" }, admin),
+    ).toThrow("own role");
+    expect(() =>
+      applyManagement(s, { type: "edit-member", id: "billing", role: "viewer", scope: [] }, admin),
+    ).toThrow("at least one subscription");
+    expect(() =>
+      applyManagement(s, { type: "edit-member", id: "billing", role: "viewer", scope: ["missing"] }, admin),
+    ).toThrow("Subscription not found");
   });
   it("removes people but protects your own access", () => {
     expect(applyManagement(account(), { type: "remove-member", id: "billing" }, admin).members.some((m) => m.id === "billing")).toBe(false);
@@ -209,7 +236,7 @@ describe("session-only account management", () => {
       applyManagement(account(), { type: "order", id: "req", subscriptionId: "s1", quantity: 0, environment: "Production", note: "" }, admin),
     ).toThrow("1 and 100");
     expect(() =>
-      applyManagement(account(), { type: "invite", id: "invite", name: "A", email: "invalid" }, admin),
+      applyManagement(account(), { type: "invite", id: "invite", name: "A", email: "invalid", role: "viewer", scope: "all" }, admin),
     ).toThrow("valid email");
   });
 });

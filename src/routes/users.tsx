@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useManagement } from "@/components/portal-shell";
+import { useManagement, usePersona } from "@/components/portal-shell";
 import { DataTable, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
 import { InviteUser, MemberActions } from "@/components/portal-management";
 import { portalHead } from "@/lib/portal-format";
-import type { Member } from "@/lib/portal-management";
+import { formatMemberScope, ROLE_LABELS, type Member } from "@/lib/portal-management";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/users")({
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/users")({
 
 function Users() {
   const { account } = useManagement();
+  const persona = usePersona();
   const active = account.members.filter((m) => m.status === "Active");
   const pending = account.members.filter((m) => m.status === "Invited");
   const [tab, setTab] = useState<"people" | "invites">("people");
@@ -32,11 +33,35 @@ function Users() {
       csv: (m) => m.name,
     },
     { id: "email", header: "Email", accessor: (m) => m.email, cell: (m) => m.email },
+    {
+      id: "role",
+      header: "Role",
+      accessor: (m) => ROLE_LABELS[m.role],
+      cell: (m) => ROLE_LABELS[m.role],
+    },
+    {
+      id: "scope",
+      header: "Scope",
+      accessor: (m) => formatMemberScope(m.scope, persona),
+      cell: (m) => formatMemberScope(m.scope, persona),
+    },
   ];
 
   const inviteColumns: DataColumn<Member>[] = [
     { id: "name", header: "Name", accessor: (m) => m.name || "—", cell: (m) => m.name || "—", csv: (m) => m.name },
     { id: "email", header: "Email", accessor: (m) => m.email, cell: (m) => m.email },
+    {
+      id: "role",
+      header: "Role",
+      accessor: (m) => ROLE_LABELS[m.role],
+      cell: (m) => ROLE_LABELS[m.role],
+    },
+    {
+      id: "scope",
+      header: "Scope",
+      accessor: (m) => formatMemberScope(m.scope, persona),
+      cell: (m) => formatMemberScope(m.scope, persona),
+    },
   ];
 
   return (

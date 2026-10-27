@@ -10,7 +10,7 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 - Say quota, not allowance.
 - Running and expired subscriptions share the same fields. Running leads with the renewal date. Expired leads with the end date.
 - Each running subscription shows: quota, executions used, percent of quota used, period start and end, time left, and whether the quota resets at renewal.
-- Two figures side by side: percent of quota used, and percent of the period gone — each with a progress bar of the same size. Color is on the quota bar only (green through 70, then yellow, orange, red). The period bar is plain neutral grey.
+- Quota figures use the same green→yellow→orange→red scale as the quota bar (green through 70, red at 100%+), as plain colored text with no pill or chip. The period marker stays neutral grey.
 - The usage-over-time chart stays.
 - Instance actions, license actions, license requests, users, and contact stay, on their own screens, off the subscription view.
 - The subscription shows "N instances reporting."
@@ -20,7 +20,7 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 - Subscriptions list uses Running (n) / Expired (n) tabs (Running default); black text with underline on the active tab. Expired cards are muted (grey text, grey quota bar, neutral badge). Users uses the same tab contract for People with access / Pending invites.
 - Counts live in headings and tab labels ("Instances (40)", "People with access (2)", …). No separate count text or count pills.
 - One shared DataTable for every portal table: search, column-header sort, filters behind one filter-icon popover, download menu (copy / CSV) of the rows currently shown. The usage chart uses the same download menu for the points it draws. Table text is black with no link styling; the whole row navigates; the row menu does not. Search hyperlinks elsewhere are black with underline. No orange filled icon tiles or extra colored chips; buttons stay on the shared Button primitive.
-- Overview is a short dashboard (totals + compact running-subscription lines). Full subscription cards, charts, past periods, and licenses stay on Subscriptions.
+- Overview is a short dashboard (clickable totals + a Running subscriptions DataTable). Full subscription cards, charts, past periods, and licenses stay on Subscriptions; subscription detail uses Usage / Past periods / Licenses tabs.
 - Billing periods follow the contract anniversary day, not calendar months. Labels show the date range. Amounts use the published Business rate.
 - No user-facing prototype disclaimers. Scenario switcher stays without an explanatory paragraph.
 
@@ -35,9 +35,9 @@ Wednesday shows the happy path only (signed-in user with account access, at leas
 ### Access
 
 - Someone at the customer (often IT) sets up the subscription, then invites other people into the portal.
-- Single system-admin role. Members have no role and no per-subscription scope.
-- A Users screen with tabs: People with access (n) and Pending invites (n). One table visible per tab. Columns: name, email, and a row menu (Remove / Cancel).
-- A primary Invite button at the top opens a dialog asking only for name and email.
+- Roles: Admin, Billing, Viewer. Scope is all subscriptions or a selected subset. Only Admin may mutate via applyManagement.
+- A Users screen with tabs: People with access (n) and Pending invites (n). One table visible per tab. Columns: name, email, role, scope, and a row menu (Edit access / Remove or Cancel).
+- Invite and Edit collect role and scope. The signed-in user’s menu is visible with every item disabled.
 - Keep this on the Users screen, off the subscription view.
 
 ### Principle
@@ -102,3 +102,4 @@ The diagram says Purchase; the entity model says Subscription. The tree wins for
 - 2026-10-26: quota and time merged into one bar (quota fill with a time marker labelled % of period); hover cards, help popovers and the topbar Help removed; a plain "Contact <CSM>" link shows only when quota or renewal needs attention; floating menus, dialogs and selects are opaque.
 - 2026-10-27: executions are counted per month. A subscription detail lists past months (period, monthly quota, executions, under or over). Amount is calculated from the published Business price, €667 per month for 40,000 executions, because Enterprise is custom. A closed month bills its quota plus executions over that quota. The open month is not billed. The account name is not repeated in the top bar.
 - 2026-10-27: periods follow the contract start day (anniversary billing, not calendar months); amounts stay on the agreed Business rate; overview is a dashboard; contact is a sidebar menu plus dialog; users use tabs; CSV is a download menu.
+- 2026-10-27: lists use DataTable; quota figures are colored text; subscription detail has section tabs; users have role and scope, including on invite and edit; the signed-in user's menu items are disabled.

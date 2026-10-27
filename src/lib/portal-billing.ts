@@ -39,6 +39,11 @@ export interface PastPeriod {
   amountEur: number | null;
 }
 
+/** Visible/CSV executions cell: used/quota, no separate Quota column. */
+export function periodExecutionsLabel(period: Pick<PastPeriod, "executions" | "quota">) {
+  return `${period.executions}/${period.quota}`;
+}
+
 /** @deprecated Prefer PastPeriod; kept for call sites mid-rename. */
 export type PastMonth = PastPeriod;
 /** @deprecated Prefer PeriodStanding. */

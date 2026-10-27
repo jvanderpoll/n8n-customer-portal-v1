@@ -4,9 +4,9 @@ import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip,
 import { usePersona } from "./portal-shell";
 import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
-import { cumulativeExecutionShare, pastPeriods, type PastPeriod } from "@/lib/portal-billing";
+import { cumulativeExecutionShare, pastPeriods, periodExecutionsLabel, type PastPeriod } from "@/lib/portal-billing";
 import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
-import { isReporting, licensesFor, quotaColor, runningFirst, subscriptionView } from "@/lib/portal-views";
+import { isReporting, licensesFor, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt } from "@/lib/portal-format";
 
 export { CsvExport } from "./csv-export";
@@ -33,9 +33,20 @@ function Requirements({ subscription }: { subscription: Subscription }) {
   return <div className="contract-note"><strong>Contract requirements</strong><ul>{subscription.requirements.map((r) => <li key={r}>{r}</li>)}</ul></div>;
 }
 
+type OverviewSubRow = {
+  id: string;
+  name: string;
+  pct: number;
+  used: number;
+  reportingCount: number;
+  renewalLabel: string;
+  renewalSort: string;
+};
+
 export function OverviewDashboard() {
   const persona = usePersona();
-  const { running, expired } = runningFirst(persona);
+  const navigate = useNavigate();
+  const { running } = runningFirst(persona);
   const totals = running.reduce(
     (acc, sub) => {
       const summary = summarize(sub, persona.instances);
@@ -46,22 +57,67 @@ export function OverviewDashboard() {
     },
     { used: 0, reporting: 0 },
   );
+  const rows: OverviewSubRow[] = running.map((sub) => {
+    const summary = summarize(sub, persona.instances);
+    return {
+      id: sub.id,
+      name: sub.name,
+      pct: summary.pct,
+      used: summary.used,
+      reportingCount: summary.reportingCount,
+      renewalLabel: sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`,
+      renewalSort: sub.renewal ?? sub.end,
+    };
+  });
+  const columns: DataColumn<OverviewSubRow>[] = [
+    { id: "name", header: "Subscription", accessor: (r) => r.name, cell: (r) => r.name },
+    {
+      id: "quota",
+      header: "Quota",
+      numeric: true,
+      accessor: (r) => r.pct,
+      cell: (r) => <span className="quota-figure" style={{ color: quotaTextColor(r.pct) }}>{percent(r.pct)} of quota</span>,
+      csv: (r) => percent(r.pct),
+    },
+    {
+      id: "executions",
+      header: "Executions",
+      numeric: true,
+      accessor: (r) => r.used,
+      cell: (r) => fmt(r.used),
+    },
+    {
+      id: "instances",
+      header: "Instances reporting",
+      numeric: true,
+      accessor: (r) => r.reportingCount,
+      cell: (r) => plural(r.reportingCount, "instance"),
+      csv: (r) => String(r.reportingCount),
+    },
+    {
+      id: "renewal",
+      header: "Renewal",
+      accessor: (r) => r.renewalSort,
+      cell: (r) => r.renewalLabel,
+      csv: (r) => r.renewalLabel,
+    },
+  ];
 
   return (
     <>
       <div className="metric-strip overview-totals" aria-label="Account totals">
-        <div className="summary-metric">
+        <Link to="/subscriptions" className="summary-metric summary-metric-link">
           <span className="metric-label">Running subscriptions</span>
           <strong>{running.length}</strong>
-        </div>
-        <div className="summary-metric">
+        </Link>
+        <Link to="/subscriptions" className="summary-metric summary-metric-link">
           <span className="metric-label">Executions used</span>
           <strong>{fmt(totals.used)}</strong>
-        </div>
-        <div className="summary-metric">
+        </Link>
+        <Link to="/instances" className="summary-metric summary-metric-link">
           <span className="metric-label">Instances reporting</span>
           <strong>{totals.reporting}</strong>
-        </div>
+        </Link>
       </div>
       <section className="workspace-panel">
         <div className="panel-heading">
@@ -70,31 +126,19 @@ export function OverviewDashboard() {
             <span className="supporting">Quota use and renewal for each active contract.</span>
           </div>
         </div>
-        {running.length ? (
-          <ul className="overview-subscription-list">
-            {running.map((sub) => {
-              const summary = summarize(sub, persona.instances);
-              return (
-                <li key={sub.id}>
-                  <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link>
-                  <span>{percent(summary.pct)} of quota</span>
-                  <span>{fmt(summary.used)} executions</span>
-                  <span>{plural(summary.reportingCount, "instance")} reporting</span>
-                  <span>{sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`}</span>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <p className="overview-empty">No running subscriptions.</p>
-        )}
+        <DataTable
+          columns={columns}
+          rows={rows}
+          rowKey={(r) => r.id}
+          searchPlaceholder="Search subscriptions…"
+          csvFilename="running-subscriptions.csv"
+          empty="No running subscriptions."
+          onRowClick={(r) => void navigate({ to: "/subscriptions", search: { subscription: r.id } })}
+        />
       </section>
-      {expired.length > 0 && (
-        <p className="overview-footnote">
-          {expired.length} expired {expired.length === 1 ? "subscription" : "subscriptions"}.{" "}
-          <Link to="/subscriptions" className="text-link quiet-link">All subscriptions <ArrowUpRight size={14} /></Link>
-        </p>
-      )}
+      <p className="overview-footnote">
+        <Link to="/subscriptions" className="text-link quiet-link">View all subscriptions <ArrowUpRight size={14} /></Link>
+      </p>
     </>
   );
 }
@@ -105,6 +149,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
   const { summary, period } = view;
   const running = view.status === "Running";
   const fill = running ? quotaColor(summary.pct) : "var(--color--neutral-400, var(--portal-caption))";
+  const figureColor = running ? quotaTextColor(summary.pct) : undefined;
   const timePct = Math.min(1, Math.max(0, period.pct));
   const leadDate = running
     ? sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`
@@ -125,7 +170,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
     </div>
     <div className="usage-meter">
       <div className="usage-meter-head">
-        <strong>{percent(summary.pct)}</strong>
+        <strong className="quota-figure" style={figureColor ? { color: figureColor } : undefined}>{percent(summary.pct)}</strong>
         <span>of quota used · {fmt(summary.used)} of {fmt(sub.quota)} executions</span>
       </div>
       <div className="quota-bar" role="progressbar" aria-label="Quota used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(summary.pct * 100)}>
@@ -163,8 +208,21 @@ export function PastPeriods({ subscription: sub }: { subscription: Subscription 
   const periods = pastPeriods(sub, persona.instances);
   const columns: DataColumn<PastPeriod>[] = [
     { id: "period", header: "Period", accessor: (p) => p.start, cell: (p) => p.label, csv: (p) => p.label },
-    { id: "quota", header: "Quota", numeric: true, accessor: (p) => p.quota, cell: (p) => fmt(p.quota) },
-    { id: "executions", header: "Executions", numeric: true, accessor: (p) => p.executions, cell: (p) => fmt(p.executions) },
+    {
+      id: "executions",
+      header: "Executions",
+      numeric: true,
+      accessor: (p) => p.executions,
+      cell: (p) => {
+        const ratio = p.quota > 0 ? p.executions / p.quota : 0;
+        return (
+          <span className="quota-figure" style={{ color: quotaTextColor(ratio) }}>
+            {fmt(p.executions)}/{fmt(p.quota)}
+          </span>
+        );
+      },
+      csv: (p) => periodExecutionsLabel(p),
+    },
     { id: "standing", header: "Against quota", accessor: (p) => standingLabel(p), cell: (p) => standingLabel(p) },
     {
       id: "amount",

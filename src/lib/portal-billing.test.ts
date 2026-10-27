@@ -6,6 +6,7 @@ import {
   addContractMonths,
   executionAmountEur,
   pastPeriods,
+  periodExecutionsLabel,
 } from "./portal-billing";
 
 function persona(id: string): Persona {
@@ -106,5 +107,11 @@ describe("past periods", () => {
     const sub = over.subscriptions[0]!;
     const periods = pastPeriods(sub, over.instances);
     expect(periods.some((p) => p.standing === "over")).toBe(true);
+  });
+  it("formats executions with quota in one column for the table and CSV", () => {
+    const full = persona("full");
+    const period = pastPeriods(full.subscriptions[0]!, full.instances)[0]!;
+    expect(periodExecutionsLabel(period)).toBe(`${period.executions}/${period.quota}`);
+    expect(periodExecutionsLabel({ executions: 381_299, quota: 500_000 })).toBe("381299/500000");
   });
 });

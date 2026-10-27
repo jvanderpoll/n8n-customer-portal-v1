@@ -48,13 +48,29 @@ function Subscriptions() {
 
 function SubscriptionDetail({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
+  const [section, setSection] = useState<"usage" | "periods" | "licenses">("usage");
   return <>
     <WorkspaceTitle title={sub.name} crumbs={<Crumb><Link to="/subscriptions">Subscriptions</Link></Crumb>} trailing={<LastUpdate persona={persona} />} />
+    <div className="subscription-tabs" role="tablist" aria-label="Subscription sections">
+      <button type="button" role="tab" aria-selected={section === "usage"} className={cn("subscription-tab", section === "usage" && "is-active")} onClick={() => setSection("usage")}>
+        Usage
+      </button>
+      <button type="button" role="tab" aria-selected={section === "periods"} className={cn("subscription-tab", section === "periods" && "is-active")} onClick={() => setSection("periods")}>
+        Past periods
+      </button>
+      <button type="button" role="tab" aria-selected={section === "licenses"} className={cn("subscription-tab", section === "licenses" && "is-active")} onClick={() => setSection("licenses")}>
+        Licenses
+      </button>
+    </div>
     <div className="agreement-list">
-      <SubscriptionCard subscription={sub} />
-      <UsagePanel subscription={sub} />
-      <PastPeriods subscription={sub} />
-      <LicenseTable subscription={sub} />
+      {section === "usage" && (
+        <>
+          <SubscriptionCard subscription={sub} />
+          <UsagePanel subscription={sub} />
+        </>
+      )}
+      {section === "periods" && <PastPeriods subscription={sub} />}
+      {section === "licenses" && <LicenseTable subscription={sub} />}
     </div>
   </>;
 }

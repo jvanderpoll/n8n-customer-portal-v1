@@ -1,11 +1,17 @@
 import { type Persona, type Instance, subscriptionStatus } from "./portal-data";
-export type Role = "admin";
+
+export type Role = "admin" | "billing" | "viewer";
+export type MemberScope = "all" | string[];
+
 export type Member = {
   id: string;
   name: string;
   email: string;
   status: "Active" | "Invited";
+  role: Role;
+  scope: MemberScope;
 };
+
 export type LicenseRequest = {
   id: string;
   subscriptionId: string;
@@ -14,12 +20,14 @@ export type LicenseRequest = {
   note: string;
   status: "Pending" | "Cancelled";
 };
+
 export type AccountState = {
   persona: Persona;
   members: Member[];
   orders: LicenseRequest[];
   notice: string;
 };
+
 export type ManagementAction =
   | { type: "create-instance"; id: string; name: string; license: string }
   | { type: "edit-instance"; id: string; name: string; license: string }
@@ -35,8 +43,40 @@ export type ManagementAction =
       note: string;
     }
   | { type: "cancel-order"; id: string }
-  | { type: "invite"; id: string; name: string; email: string }
+  | { type: "invite"; id: string; name: string; email: string; role: Role; scope: MemberScope }
+  | { type: "edit-member"; id: string; role: Role; scope: MemberScope }
   | { type: "remove-member"; id: string };
+
+export const ROLE_LABELS: Record<Role, string> = {
+  admin: "Admin",
+  billing: "Billing",
+  viewer: "Viewer",
+};
+
+export const ROLES: Role[] = ["admin", "billing", "viewer"];
+
+export function isRole(value: string): value is Role {
+  return (ROLES as string[]).includes(value);
+}
+
+export function formatMemberScope(scope: MemberScope, persona: Persona) {
+  if (scope === "all") return "All subscriptions";
+  const names = scope
+    .map((id) => persona.subscriptions.find((s) => s.id === id)?.name ?? id)
+    .filter(Boolean);
+  return names.length ? names.join(", ") : "No subscriptions";
+}
+
+function normalizeScope(scope: MemberScope, persona: Persona): MemberScope {
+  if (scope === "all") return "all";
+  const ids = [...new Set(scope.map((id) => id.trim()).filter(Boolean))];
+  if (!ids.length) throw new Error("Choose at least one subscription, or all subscriptions.");
+  for (const id of ids) {
+    if (!persona.subscriptions.some((s) => s.id === id)) throw new Error("Subscription not found.");
+  }
+  return ids;
+}
+
 export function createAccount(persona: Persona): AccountState {
   return {
     persona: structuredClone(persona),
@@ -48,33 +88,40 @@ export function createAccount(persona: Persona): AccountState {
         name: persona.user.split(" · ")[0]!,
         email: "admin@example.com",
         status: "Active",
+        role: "admin",
+        scope: "all",
       },
       {
         id: "billing",
         name: "Tom Bakker",
         email: "billing@example.com",
         status: "Active",
+        role: "billing",
+        scope: "all",
       },
       {
         id: "pending",
         name: "Operations team",
         email: "operations@example.com",
         status: "Invited",
+        role: "viewer",
+        scope: persona.subscriptions[0] ? [persona.subscriptions[0].id] : "all",
       },
     ],
   };
 }
+
 export function activeInstances(persona: Persona) {
   return persona.instances.filter((i) => !i.archived);
 }
+
 export function applyManagement(
   state: AccountState,
   action: ManagementAction,
   role: Role,
 ): AccountState {
-  // Only the system-admin role may mutate. The UI never sends another role.
-  if ((role as string) !== "admin")
-    throw new Error("Only system admins can change this account.");
+  // Only admins may mutate the account in this prototype.
+  if (role !== "admin") throw new Error("Only admins can change this account.");
   const next = structuredClone(state),
     p = next.persona;
   const fail = (message: string): never => {
@@ -198,6 +245,7 @@ export function applyManagement(
       if (!name || name.length > 80) fail("Enter a name of 1–80 characters.");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         fail("Enter a valid email address.");
+      if (!isRole(action.role)) fail("Choose a role.");
       if (next.members.some((m) => m.email.toLowerCase() === email))
         fail("This person already has access or a pending invitation.");
       next.members.push({
@@ -205,8 +253,21 @@ export function applyManagement(
         name,
         email,
         status: "Invited",
+        role: action.role,
+        scope: normalizeScope(action.scope, p),
       });
       next.notice = "Invitation added to this demo. No email has been sent.";
+      break;
+    }
+    case "edit-member": {
+      const member =
+        next.members.find((m) => m.id === action.id) ?? fail("User not found.");
+      if (member.id === "self")
+        fail("Your own role and scope cannot be changed in this prototype.");
+      if (!isRole(action.role)) fail("Choose a role.");
+      member.role = action.role;
+      member.scope = normalizeScope(action.scope, p);
+      next.notice = "Access updated in this demo.";
       break;
     }
     case "remove-member": {
