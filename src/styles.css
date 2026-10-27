@@ -217,7 +217,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .portal-navigation { display: grid; gap: var(--spacing--4xs); }
 .portal-nav-item { display: flex; align-items: center; gap: var(--spacing--xs); padding: var(--spacing--xs); min-height: 44px; border-radius: var(--radius--3xs); color: var(--portal-secondary); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); text-decoration: none; }
 .portal-nav-item:hover { background: var(--color--neutral-150); color: var(--portal-text); }
-.portal-nav-item.is-active { background: var(--color--orange-100); color: var(--color--orange-800); }
+.portal-nav-item.is-active { background: var(--color--pink-100); color: var(--color--neutral-950); }
+.portal-nav-item.is-active:hover { background: var(--color--pink-150); color: var(--color--neutral-950); }
 .portal-nav-item svg { width: 20px; height: 20px; }
 .sidebar-bottom { margin-top: auto; padding: var(--spacing--sm) var(--spacing--2xs) 0; display: grid; gap: var(--spacing--md); }
 .sidebar-account-block { display: grid; gap: var(--spacing--4xs); padding-top: var(--spacing--xs); border-top: 1px solid var(--border); min-width: 0; }
