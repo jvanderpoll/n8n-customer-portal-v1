@@ -285,8 +285,8 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const activeRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
   const persona = account.persona;
   if (!persona) return null;
-  const [userName, userRole] = persona.user.split(" · ");
-  const initials = userInitials(userName!);
+  const userName = persona.user.split(" · ")[0]!;
+  const initials = userInitials(userName);
   const contact = contactFor(persona);
 
   const loadScenario = (id: string, empty: boolean) => {
@@ -324,21 +324,21 @@ export function PortalShell({ children }: { children: ReactNode }) {
             <MessageCircle size={16} />
             Contact n8n
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" className="sidebar-account" aria-label={`${userName} account menu`}>
-                <span className="sidebar-avatar" aria-hidden="true">{initials}</span>
-                <span className="sidebar-account-copy">
+          <div className="sidebar-account-block">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="ghost" className="sidebar-account" aria-label={`${userName} account menu`}>
+                  <span className="sidebar-avatar" aria-hidden="true">{initials}</span>
                   <span className="sidebar-account-name">{userName}</span>
-                  {userRole && <span className="sidebar-account-role">{userRole}</span>}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" side="top" className="sidebar-user-menu">
-              <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Give feedback</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { void navigate({ to: "/" }); }}>Log out</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="sidebar-user-menu">
+                <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Give feedback</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { void navigate({ to: "/" }); }}>Log out</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <span className="sidebar-account-company">{persona.company}</span>
+          </div>
         </div>
       </aside>
       <div className="portal-main">
