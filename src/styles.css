@@ -329,11 +329,11 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .overview-usage { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .chart-heading-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--spacing--sm); }
 .chart-section { border-top: 1px solid var(--border); margin-top: var(--spacing--sm); padding-top: var(--spacing--sm); }
-.chart-section h3 { margin: 0; padding: 0 var(--spacing--lg); font-size: var(--font-size--md); font-weight: var(--font-weight--bold); color: var(--portal-text); }
-.chart-quota-note { margin: 0 var(--spacing--lg) var(--spacing--xs); font-size: var(--font-size--sm); color: var(--portal-secondary); }
+.chart-section h3 { margin: 0; padding: 0 var(--spacing--lg); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); color: var(--portal-text); }
+.chart-quota-note { margin: 0 var(--spacing--lg) var(--spacing--xs); font-size: var(--font-size--xs); color: var(--color--neutral-600); }
 .pace-line {
   margin: 0 var(--spacing--lg) var(--spacing--lg); padding-top: var(--spacing--sm);
-  border-top: 1px solid var(--border); font-size: var(--font-size--sm); color: var(--portal-secondary); line-height: var(--line-height--md);
+  border-top: 1px solid var(--border); font-size: var(--font-size--xs); color: var(--color--neutral-600); line-height: var(--line-height--md);
 }
 .chart-legend .legend-quota-pct { border-top: 2px solid var(--portal-caption); background: none; width: 16px; height: 0; border-radius: 0; }
 .overview-usage-panel { margin-bottom: var(--spacing--lg); }
@@ -367,7 +367,9 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .panel-heading h2 { font-size: var(--font-size--md); font-weight: var(--font-weight--bold); color: var(--portal-text); display: flex; align-items: center; gap: var(--spacing--2xs); }
 .supporting { display: block; margin-top: var(--spacing--4xs); font-size: var(--font-size--sm); color: var(--portal-secondary); }
 .muted-icon { color: var(--portal-caption); }
-.chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--spacing--xs); padding: 0 var(--spacing--lg) var(--spacing--2xs); margin: 0; font-size: 14px; line-height: 1.2; color: var(--portal-secondary); }
+.chart-panel .supporting { color: var(--color--neutral-600); }
+.chart-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--spacing--xs); padding: 0 var(--spacing--lg) var(--spacing--2xs); margin: 0; font-size: var(--font-size--xs); font-weight: var(--font-weight--regular); line-height: 1.2; color: var(--color--neutral-600); }
+.usage-chart .recharts-cartesian-axis-tick text { fill: var(--color--neutral-600); font-size: var(--font-size--xs); }
 .chart-legend > span { display: inline-flex; align-items: center; gap: 4px; }
 .chart-legend i { width: 6px; height: 6px; background: var(--color--orange-700); border-radius: 50%; flex-shrink: 0; }
 .chart-legend .legend-quota { border-top: 2px dashed var(--portal-caption); background: none; width: 12px; height: 0; border-radius: 0; }

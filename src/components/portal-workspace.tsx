@@ -273,8 +273,8 @@ function UsageLines({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartRows} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}>
             <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="shortLabel" tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, peak * 1.15]} tickFormatter={short} tick={{ fontSize: 14, fill: "var(--portal-secondary)" }} axisLine={false} tickLine={false} tickCount={4} />
+            <XAxis dataKey="shortLabel" tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, peak * 1.15]} tickFormatter={short} tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} tickCount={4} />
             <Tooltip
               labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
               formatter={(value, name) => [
