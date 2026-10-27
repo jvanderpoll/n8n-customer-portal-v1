@@ -271,10 +271,10 @@ function UsageLines({
     <>
       <div className="usage-chart" role="img" aria-label={label}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartRows} margin={{ top: 14, right: 16, left: -4, bottom: 0 }}>
+          <ComposedChart data={chartRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
             <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="shortLabel" tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} />
-            <YAxis domain={[0, peak * 1.15]} tickFormatter={short} tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} tickCount={4} />
+            <XAxis dataKey="shortLabel" tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
+            <YAxis width={36} domain={[0, peak * 1.15]} tickFormatter={short} tick={{ fontSize: 13, fill: "var(--color--neutral-600)" }} axisLine={false} tickLine={false} tickCount={4} />
             <Tooltip
               labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
               formatter={(value, name) => [
@@ -336,31 +336,36 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
         <div className="chart-empty"><strong>No billing months yet</strong><span>Usage appears once a billing period has started.</span></div>
       ) : (
         <>
-          <UsageLines
-            label={`Cumulative billable executions for ${sub.name}, ${fmt(summary.used)} of ${fmt(sub.quota)} quota`}
-            quota={sub.quota}
-            points={subscriptionChart.points}
-            series={subscriptionChart.series}
-            showQuota={showQuota}
-          />
-          {!showQuota && <p className="chart-quota-note">Quota {fmt(sub.quota)} is above this scale.</p>}
+          <div className="chart-columns">
+            <section className="chart-column" aria-label="Total">
+              <h3>Total</h3>
+              <UsageLines
+                label={`Cumulative billable executions for ${sub.name}, ${fmt(summary.used)} of ${fmt(sub.quota)} quota`}
+                quota={sub.quota}
+                points={subscriptionChart.points}
+                series={subscriptionChart.series}
+                showQuota={showQuota}
+              />
+              {!showQuota && <p className="chart-quota-note">Quota {fmt(sub.quota)} is above this scale.</p>}
+            </section>
+            {BREAKDOWN_CHARTS.map((chart) => {
+              const drawn = cumulativeUsageChart(sub, persona.instances, persona.licenses, "term", chart.id);
+              if (!drawn.series.length) return null;
+              return (
+                <section key={chart.id} className="chart-column" aria-label={chart.title}>
+                  <h3>{chart.title}</h3>
+                  <UsageLines
+                    label={`${chart.title} for ${sub.name}`}
+                    quota={sub.quota}
+                    points={drawn.points}
+                    series={drawn.series}
+                    showQuota={false}
+                  />
+                </section>
+              );
+            })}
+          </div>
           {note}
-          {BREAKDOWN_CHARTS.map((chart) => {
-            const drawn = cumulativeUsageChart(sub, persona.instances, persona.licenses, "term", chart.id);
-            if (!drawn.series.length) return null;
-            return (
-              <section key={chart.id} className="chart-section" aria-label={chart.title}>
-                <h3>{chart.title}</h3>
-                <UsageLines
-                  label={`${chart.title} for ${sub.name}`}
-                  quota={sub.quota}
-                  points={drawn.points}
-                  series={drawn.series}
-                  showQuota={false}
-                />
-              </section>
-            );
-          })}
         </>
       )}
     </>
