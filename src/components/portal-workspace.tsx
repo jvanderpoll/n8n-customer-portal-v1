@@ -178,7 +178,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
         <i className="time-marker" style={{ left: `${timePct * 100}%` }} aria-hidden="true" />
       </div>
       <div className="usage-meter-scale">
-        <span className="time-label" style={{ left: `${timePct * 100}%`, transform: `translateX(-${timePct * 100}%)` }}>{running ? `${percent(timePct)} of period` : "Period ended"}</span>
+        <span className="time-label" style={{ left: `${timePct * 100}%`, transform: `translateX(-${timePct * 100}%)` }}>{running ? `${plural(period.daysLeft, "day")} left` : "Period ended"}</span>
       </div>
     </div>
     <dl className="subscription-facts">

@@ -13,6 +13,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { personas, type Persona } from "@/lib/portal-data";
 import { applyManagement, createAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
@@ -97,24 +104,24 @@ function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: bool
 function ContactDialog({
   open,
   onOpenChange,
-  topic,
   company,
   user,
   csm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  topic: ContactTopic | null;
   company: string;
   user: string;
   csm: string;
 }) {
+  const [topic, setTopic] = useState<ContactTopic | "">("");
   const [message, setMessage] = useState("");
   const [downloaded, setDownloaded] = useState(false);
-  const topicLabel = contactTopics.find((item) => item.id === topic)?.label ?? "Other";
+  const topicLabel = contactTopics.find((item) => item.id === topic)?.label ?? "";
+  const reset = () => { setTopic(""); setMessage(""); setDownloaded(false); };
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!message.trim() || !topic) return;
+    if (!message.trim() || !topic || !topicLabel) return;
     const text = ["n8n Customer Portal · Prototype enquiry draft · NOT SENT", "", `Account: ${company}`, `From: ${user}`, `To: ${csm} (customer success manager)`, `Topic: ${topicLabel}`, "", message.trim(), ""].join("\n");
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
     const anchor = document.createElement("a");
@@ -125,13 +132,27 @@ function ContactDialog({
     setDownloaded(true);
   };
   return (
-    <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) { setMessage(""); setDownloaded(false); } }}>
+    <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset(); }}>
       <DialogContent className="management-dialog">
         <DialogTitle>Contact n8n</DialogTitle>
-        <DialogDescription>Write a message about {topicLabel.toLowerCase()} and download a local draft. Nothing is sent.</DialogDescription>
+        <DialogDescription>
+          Your message will be prepared for {csm}, your customer success manager. Download a local draft — nothing is sent.
+        </DialogDescription>
         <form onSubmit={submit}>
           <div className="management-fields">
-            <p className="muted-text">Topic: <span className="font-medium text-foreground">{topicLabel}</span></p>
+            <label>
+              Topic
+              <Select value={topic || undefined} onValueChange={(value) => { setTopic(value as ContactTopic); setDownloaded(false); }}>
+                <SelectTrigger aria-label="Topic">
+                  <SelectValue placeholder="Select a topic" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contactTopics.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
             <label>
               Message
               <Textarea
@@ -146,7 +167,7 @@ function ContactDialog({
           </div>
           <div className="dialog-actions">
             <Button type="button" variant="outline" size="lg" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" size="lg" disabled={!message.trim()}>Download draft</Button>
+            <Button type="submit" size="lg" disabled={!message.trim() || !topic}>Download draft</Button>
           </div>
           {downloaded && <p role="status" className="muted-text">Draft downloaded.</p>}
         </form>
@@ -159,7 +180,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const [pid, setPid] = useState("full");
   const [revision, setRevision] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [contactTopic, setContactTopic] = useState<ContactTopic | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
   const navigate = useNavigate();
   const [account, setAccount] = useState(() => createAccount(personas[0]!));
   const role: Role = "admin";
@@ -178,21 +199,10 @@ export function PortalShell({ children }: { children: ReactNode }) {
         <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
         <div className="sidebar-bottom">
           <div className="sidebar-contact">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" className="sidebar-contact-trigger">
-                  <MessageCircle size={17} />
-                  Contact n8n
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" className="sidebar-contact-menu">
-                {contactTopics.map((topic) => (
-                  <DropdownMenuItem key={topic.id} onSelect={() => setContactTopic(topic.id)}>
-                    {topic.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button type="button" variant="ghost" className="sidebar-contact-trigger" onClick={() => setContactOpen(true)}>
+              <MessageCircle size={17} />
+              Contact n8n
+            </Button>
           </div>
           <details className="prototype-menu">
             <summary>Prototype <ChevronRight size={12} /></summary>
@@ -224,9 +234,8 @@ export function PortalShell({ children }: { children: ReactNode }) {
     </div>
     <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} company={persona.company} user={persona.user} csm={persona.csm} />
     <ContactDialog
-      open={contactTopic != null}
-      onOpenChange={(open) => { if (!open) setContactTopic(null); }}
-      topic={contactTopic}
+      open={contactOpen}
+      onOpenChange={setContactOpen}
       company={persona.company}
       user={persona.user}
       csm={persona.csm}
