@@ -506,6 +506,17 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
   overflow-wrap: anywhere;
 }
 .portal-popover.action-menu { padding: var(--spacing--4xs); }
+.portal-popover [data-radix-select-viewport] { display: flex; flex-direction: column; gap: var(--spacing--4xs); height: auto; padding: var(--spacing--4xs); }
+.portal-popover [role="option"] {
+  display: flex; align-items: center; width: 100%; min-height: 40px; margin: 0;
+  padding: var(--spacing--2xs) var(--spacing--xs); border-radius: var(--radius--3xs);
+  background: transparent; color: var(--portal-text); font-size: var(--font-size--sm); cursor: pointer;
+}
+.portal-popover [role="option"][data-highlighted],
+.portal-popover [role="option"]:hover,
+.portal-popover [role="option"]:focus {
+  background: var(--color--orange-100); color: var(--color--neutral-950); outline: none;
+}
 .management-dialog { padding: var(--spacing--lg); display: grid; gap: var(--spacing--sm); }
 
 /* Button contract measured against https://storybook.n8n.io/?path=/story/core-button--variants

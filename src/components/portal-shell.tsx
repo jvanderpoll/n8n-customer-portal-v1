@@ -48,6 +48,7 @@ const contactTopics = [
   { id: "renewal", label: "Renewal" },
   { id: "reporting", label: "Usage reporting" },
   { id: "access", label: "Portal access" },
+  { id: "feedback", label: "Give feedback" },
   { id: "other", label: "Other" },
 ] as const;
 type ContactTopic = (typeof contactTopics)[number]["id"];
@@ -126,7 +127,7 @@ function ContactDialog({
     const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "n8n-enquiry-draft.txt";
+    anchor.download = topic === "feedback" ? "n8n-feedback-draft.txt" : "n8n-enquiry-draft.txt";
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setDownloaded(true);
