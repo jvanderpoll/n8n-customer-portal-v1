@@ -152,6 +152,7 @@ function Users() {
       {tab === "people" ? (
         <section className="workspace-panel">
           <DataTable
+            key="people"
             columns={peopleColumns}
             rows={filterMembers(active)}
             rowKey={(m) => m.id}
@@ -167,6 +168,7 @@ function Users() {
       ) : (
         <section className="workspace-panel">
           <DataTable
+            key="invites"
             columns={inviteColumns}
             rows={filterMembers(pending)}
             rowKey={(m) => m.id}
