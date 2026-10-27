@@ -685,9 +685,9 @@ export function MemberActions({ member: m }: { member: Member }) {
       ) : (
         <>
           <ActionDialog
-            title="Manage access"
+            title={invited ? "Edit invitation" : "Manage access"}
             description={`Change the role and subscription scope for ${m.email}. Changes apply only in this demo session.`}
-            label="Manage access"
+            label={invited ? "Edit invitation" : "Manage access"}
             variant="menu"
             icon={<Pencil size={16} />}
             submit="Save changes"
