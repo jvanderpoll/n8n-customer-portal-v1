@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowUpRight, Check, ChevronRight, CircleAlert, Info, KeyRound } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, CircleAlert, Info, KeyRound, RefreshCw } from "lucide-react";
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { usePersona } from "./portal-shell";
+import { useManagement, usePersona } from "./portal-shell";
 import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,30 @@ export function Crumb({ children }: { children: React.ReactNode }) {
 }
 
 export function LastUpdate({ persona }: { persona: Persona }) {
-  return <span className="update-label">Last update {ago(persona.usageUpdated)}</span>;
+  const { refreshUsage } = useManagement();
+  const [busy, setBusy] = useState(false);
+  const onRefresh = () => {
+    if (busy) return;
+    setBusy(true);
+    refreshUsage();
+    window.setTimeout(() => setBusy(false), 280);
+  };
+  return (
+    <span className="update-label">
+      Last update {ago(persona.usageUpdated)}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="update-refresh"
+        aria-label="Refresh usage data"
+        disabled={busy}
+        onClick={onRefresh}
+      >
+        <RefreshCw size={14} aria-hidden="true" className={busy ? "is-spinning" : undefined} />
+      </Button>
+    </span>
+  );
 }
 
 /** Shows contract restrictions only when they apply; hides the whole block when the contract has none. */
