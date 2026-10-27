@@ -15,7 +15,6 @@ import {
   quotaPaceSentence,
   type ChartRange,
   type PastPeriod,
-  type UsageBreakdown,
 } from "@/lib/portal-billing";
 import { summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { instanceHosting, isReporting, licensesFor, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
@@ -237,12 +236,6 @@ const CHART_RANGES: { id: ChartRange; label: string }[] = [
   { id: "3m", label: "Last 3 months" },
 ];
 
-const USAGE_BREAKDOWNS: { id: UsageBreakdown; label: string }[] = [
-  { id: "subscription", label: "Subscription" },
-  { id: "license", label: "License" },
-  { id: "instance", label: "Instance" },
-];
-
 const SERIES_COLORS = [
   "var(--color--orange-700)",
   "var(--color--purple-700)",
@@ -257,10 +250,9 @@ const SERIES_COLORS = [
 function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false }: { subscription: Subscription; showPurchaseLink?: boolean }) {
   const persona = usePersona();
   const [range, setRange] = useState<ChartRange>("term");
-  const [breakdown, setBreakdown] = useState<UsageBreakdown>("subscription");
   const summary = summarize(sub, persona.instances);
-  const { points, series } = cumulativeUsageChart(sub, persona.instances, persona.licenses, range, breakdown);
-  const showQuota = breakdown === "subscription" && quotaOnChartScale(points.at(-1)?.cumulative ?? 0, sub.quota);
+  const { points, series } = cumulativeUsageChart(sub, persona.instances, persona.licenses, range, "subscription");
+  const showQuota = quotaOnChartScale(points.at(-1)?.cumulative ?? 0, sub.quota);
   const chartRows = points.map((point) => ({
     label: point.label,
     shortLabel: point.shortLabel,
@@ -281,49 +273,33 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false }
         <div>
           <h2>Billable executions</h2>
           <span className="supporting">
-            {breakdown === "subscription"
-              ? `Cumulative billable executions by billing month for ${sub.name}. `
-              : "Each line keeps its share of reported executions in every billing month. "}
             {fmt(summary.used)} of {fmt(sub.quota)} quota · <strong className="quota-figure" style={{ color: quotaTextColor(summary.pct) }}>{percent1(summary.pct)}</strong>
           </span>
         </div>
-        <div className="chart-heading-actions">
-          {showPurchaseLink && (
-            <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>
-          )}
-          <div className="range-toggle" role="group" aria-label="Usage breakdown">
-            {USAGE_BREAKDOWNS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={cn("range-toggle-btn", breakdown === option.id && "is-active")}
-                aria-pressed={breakdown === option.id}
-                onClick={() => setBreakdown(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <div className="range-toggle" role="group" aria-label="Chart range">
-            {CHART_RANGES.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={cn("range-toggle-btn", range === option.id && "is-active")}
-                aria-pressed={range === option.id}
-                onClick={() => setRange(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <CsvExport
-            filename={`${sub.name}-billable-executions.csv`}
-            headers={["Billing month", "Cumulative billable executions", "Quota", ...series.map((item) => item.name)]}
-            rows={exportRows}
-            label="Download usage chart data"
-          />
+        {showPurchaseLink && (
+          <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>
+        )}
+      </div>
+      <div className="chart-toolbar">
+        <div className="range-toggle" role="group" aria-label="Chart range">
+          {CHART_RANGES.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              className={cn("range-toggle-btn", range === option.id && "is-active")}
+              aria-pressed={range === option.id}
+              onClick={() => setRange(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
+        <CsvExport
+          filename={`${sub.name}-billable-executions.csv`}
+          headers={["Billing month", "Cumulative billable executions", "Quota", ...series.map((item) => item.name)]}
+          rows={exportRows}
+          label="Download usage chart data"
+        />
       </div>
       {points.length === 0 ? (
         <div className="chart-empty"><strong>No billing months yet</strong><span>Usage appears once a billing period has started.</span></div>
