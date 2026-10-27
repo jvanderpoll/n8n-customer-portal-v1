@@ -612,6 +612,9 @@ export function LicenseTable({
   const persona = usePersona();
   const navigate = useNavigate();
   const licenses = rowsProp ?? licensesFor(persona, sub.id);
+  const subscriptionName = (l: LicenseRow) =>
+    persona.subscriptions.find((s) => s.id === l.subscriptionId)?.name ?? sub.name;
+
   const columns: DataColumn<LicenseRow>[] = [
     {
       id: "label",
@@ -624,6 +627,22 @@ export function LicenseTable({
         </>
       ),
       csv: (l) => l.label,
+    },
+    {
+      id: "subscription",
+      header: "Subscription",
+      accessor: (l) => subscriptionName(l),
+      cell: (l) => (
+        <Link
+          className="text-link"
+          to="/subscriptions"
+          search={{ subscription: l.subscriptionId }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {subscriptionName(l)}
+        </Link>
+      ),
+      csv: (l) => subscriptionName(l),
     },
     { id: "id", header: "Reference", accessor: (l) => l.id, cell: (l) => <span className="mono-text">{l.id}</span> },
     { id: "environment", header: "Environment", accessor: (l) => l.environment, cell: (l) => l.environment },
