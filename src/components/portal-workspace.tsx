@@ -19,7 +19,7 @@ import {
   type UsageBreakdown,
 } from "@/lib/portal-billing";
 import { summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
-import { instanceHosting, isReporting, licensesFor, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
+import { instanceHosting, isReporting, licensesFor, licensesGroupedByPurchase, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt } from "@/lib/portal-format";
 
 export { CsvExport } from "./csv-export";
@@ -194,7 +194,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
           </Link>
           <Link
             to="/subscriptions"
-            search={primary ? { subscription: primary.id, section: "licenses" } : undefined}
+            search={{ section: "licenses" }}
             className="summary-metric summary-metric-link"
           >
             <span className="metric-label">Licenses</span>
@@ -370,7 +370,7 @@ function UsageLines({
                   stroke={color}
                   strokeWidth={isOther ? 2.25 : 2}
                   strokeDasharray={isOther ? "5 4" : undefined}
-                  dot={seriesEndDot(color, lastIndex)}
+                  dot={compressOther ? seriesEndDot(color, lastIndex) : false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
                   isAnimationActive={false}
                 />
@@ -594,7 +594,16 @@ export function UsagePanel({ subscription: sub }: { subscription: Subscription }
 
 type LicenseRow = ReturnType<typeof licensesFor>[number];
 
-export function LicenseTable({ subscription: sub, actions }: { subscription: Subscription; actions?: React.ReactNode }) {
+export function LicenseTable({
+  subscription: sub,
+  actions,
+  /** Cross-purchase list: heading is the purchase name (linked), not "Licenses (n)". */
+  purchaseLink = false,
+}: {
+  subscription: Subscription;
+  actions?: React.ReactNode;
+  purchaseLink?: boolean;
+}) {
   const persona = usePersona();
   const navigate = useNavigate();
   const licenses = licensesFor(persona, sub.id);
@@ -633,8 +642,18 @@ export function LicenseTable({ subscription: sub, actions }: { subscription: Sub
     <section className="workspace-panel">
       <div className="panel-heading">
         <div>
-          <h2>Licenses ({licenses.length})</h2>
-          <span className="supporting">Usage sums from each license’s instances. The quota applies to the subscription.</span>
+          <h2>
+            {purchaseLink ? (
+              <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link>
+            ) : (
+              <>Licenses ({licenses.length})</>
+            )}
+          </h2>
+          <span className="supporting">
+            {purchaseLink
+              ? `${licenses.length} ${licenses.length === 1 ? "license" : "licenses"}. Usage sums from each license’s instances.`
+              : "Usage sums from each license’s instances. The quota applies to the subscription."}
+          </span>
         </div>
         {actions}
       </div>
@@ -648,6 +667,22 @@ export function LicenseTable({ subscription: sub, actions }: { subscription: Sub
         onRowClick={(l) => void navigate({ to: "/subscriptions", search: { subscription: sub.id, license: l.id } })}
       />
     </section>
+  );
+}
+
+/** Licenses across all purchases, grouped by purchase. Omits purchases with no licenses. */
+export function AllLicensesList() {
+  const persona = usePersona();
+  const groups = licensesGroupedByPurchase(persona);
+  if (!groups.length) {
+    return <p className="panel-empty">No licenses.</p>;
+  }
+  return (
+    <div className="agreement-list">
+      {groups.map(({ subscription }) => (
+        <LicenseTable key={subscription.id} subscription={subscription} purchaseLink />
+      ))}
+    </div>
   );
 }
 
