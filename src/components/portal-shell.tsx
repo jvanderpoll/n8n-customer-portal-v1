@@ -131,7 +131,7 @@ function ContactDialog({
     event.preventDefault();
     if (!message.trim() || !topic) return;
     onOpenChange(false);
-    toast("Message sent");
+    toast.success("Message sent");
   };
   return (
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset(); }}>

@@ -294,6 +294,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 }
 .prototype-reset:hover { text-decoration: underline; }
 [data-sonner-toaster] [data-sonner-toast] { font-family: var(--font-family); font-size: var(--font-size--md); background: var(--portal-surface); color: var(--portal-text); border: 1px solid var(--border); }
+[data-sonner-toaster] [data-sonner-toast][data-type="success"] [data-icon] { color: var(--color--green-700); }
 .portal-button.sidebar-contact-trigger { width: 100%; }
 .sidebar-user-menu { min-width: 200px; background: var(--portal-surface); border: 1px solid var(--border); box-shadow: 0 8px 24px #0002; }
 .sidebar-user-menu [role="menuitem"],
