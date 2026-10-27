@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as InstancesRouteImport } from './routes/instances'
+import { Route as LicensesRouteImport } from './routes/licenses'
 import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as UsersRouteImport } from './routes/users'
 
@@ -30,6 +31,11 @@ const InstancesRoute = InstancesRouteImport.update({
   path: '/instances',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LicensesRoute = LicensesRouteImport.update({
+  id: '/licenses',
+  path: '/licenses',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SubscriptionsRoute = SubscriptionsRouteImport.update({
   id: '/subscriptions',
   path: '/subscriptions',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/instances': typeof InstancesRoute
+  '/licenses': typeof LicensesRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/users': typeof UsersRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/instances': typeof InstancesRoute
+  '/licenses': typeof LicensesRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/users': typeof UsersRoute
 }
@@ -60,21 +68,32 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/instances': typeof InstancesRoute
+  '/licenses': typeof LicensesRoute
   '/subscriptions': typeof SubscriptionsRoute
   '/users': typeof UsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/contact' | '/instances' | '/subscriptions' | '/users'
+  fullPaths:
+    '/' | '/contact' | '/instances' | '/licenses' | '/subscriptions' | '/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/contact' | '/instances' | '/subscriptions' | '/users'
-  id: '__root__' | '/' | '/contact' | '/instances' | '/subscriptions' | '/users'
+  to:
+    '/' | '/contact' | '/instances' | '/licenses' | '/subscriptions' | '/users'
+  id:
+    | '__root__'
+    | '/'
+    | '/contact'
+    | '/instances'
+    | '/licenses'
+    | '/subscriptions'
+    | '/users'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ContactRoute: typeof ContactRoute
   InstancesRoute: typeof InstancesRoute
+  LicensesRoute: typeof LicensesRoute
   SubscriptionsRoute: typeof SubscriptionsRoute
   UsersRoute: typeof UsersRoute
 }
@@ -102,6 +121,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InstancesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/licenses': {
+      id: '/licenses'
+      path: '/licenses'
+      fullPath: '/licenses'
+      preLoaderRoute: typeof LicensesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/subscriptions': {
       id: '/subscriptions'
       path: '/subscriptions'
@@ -123,6 +149,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ContactRoute: ContactRoute,
   InstancesRoute: InstancesRoute,
+  LicensesRoute: LicensesRoute,
   SubscriptionsRoute: SubscriptionsRoute,
   UsersRoute: UsersRoute,
 }

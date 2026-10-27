@@ -192,11 +192,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
             <span className="metric-label">Subscriptions</span>
             <strong>{running.length}</strong>
           </Link>
-          <Link
-            to="/subscriptions"
-            search={{ section: "licenses" }}
-            className="summary-metric summary-metric-link"
-          >
+          <Link to="/licenses" className="summary-metric summary-metric-link">
             <span className="metric-label">Licenses</span>
             <strong>{licenseCount}</strong>
           </Link>
@@ -599,14 +595,26 @@ export function LicenseTable({
   actions,
   /** Cross-purchase list: heading is the purchase name (linked), not "Licenses (n)". */
   purchaseLink = false,
+  rows: rowsProp,
+  filterContent,
+  filtersActive = false,
+  onClearFilters,
 }: {
   subscription: Subscription;
   actions?: React.ReactNode;
   purchaseLink?: boolean;
+  /** Optional pre-filtered rows; defaults to all licenses on the subscription. */
+  rows?: LicenseRow[];
+  filterContent?: React.ReactNode;
+  filtersActive?: boolean;
+  onClearFilters?: () => void;
 }) {
   const persona = usePersona();
   const navigate = useNavigate();
-  const licenses = licensesFor(persona, sub.id);
+  const licenses = rowsProp ?? licensesFor(persona, sub.id);
+  const subscriptionName = (l: LicenseRow) =>
+    persona.subscriptions.find((s) => s.id === l.subscriptionId)?.name ?? sub.name;
+
   const columns: DataColumn<LicenseRow>[] = [
     {
       id: "label",
@@ -619,6 +627,22 @@ export function LicenseTable({
         </>
       ),
       csv: (l) => l.label,
+    },
+    {
+      id: "subscription",
+      header: "Subscription",
+      accessor: (l) => subscriptionName(l),
+      cell: (l) => (
+        <Link
+          className="text-link"
+          to="/subscriptions"
+          search={{ subscription: l.subscriptionId }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          {subscriptionName(l)}
+        </Link>
+      ),
+      csv: (l) => subscriptionName(l),
     },
     { id: "id", header: "Reference", accessor: (l) => l.id, cell: (l) => <span className="mono-text">{l.id}</span> },
     { id: "environment", header: "Environment", accessor: (l) => l.environment, cell: (l) => l.environment },
@@ -663,8 +687,11 @@ export function LicenseTable({
         rowKey={(l) => l.id}
         searchPlaceholder="Search licenses…"
         csvFilename={`${sub.name}-licenses.csv`}
-        empty="No licenses on this subscription."
+        empty={filtersActive ? "No licenses match your filters." : "No licenses on this subscription."}
         onRowClick={(l) => void navigate({ to: "/subscriptions", search: { subscription: sub.id, license: l.id } })}
+        filterContent={filterContent}
+        filtersActive={filtersActive}
+        onClearFilters={onClearFilters}
       />
     </section>
   );
@@ -673,14 +700,71 @@ export function LicenseTable({
 /** Licenses across all purchases, grouped by purchase. Omits purchases with no licenses. */
 export function AllLicensesList() {
   const persona = usePersona();
-  const groups = licensesGroupedByPurchase(persona);
-  if (!groups.length) {
+  const [purchaseId, setPurchaseId] = useState("all");
+  const [environment, setEnvironment] = useState("all");
+  const allGroups = licensesGroupedByPurchase(persona);
+  const filtersActive = purchaseId !== "all" || environment !== "all";
+  const clearFilters = () => {
+    setPurchaseId("all");
+    setEnvironment("all");
+  };
+  const environments = [...new Set(persona.licenses.map((l) => l.environment))].sort();
+  const groups = allGroups
+    .filter((group) => purchaseId === "all" || group.subscription.id === purchaseId)
+    .map((group) => ({
+      subscription: group.subscription,
+      licenses: group.licenses.filter((l) => environment === "all" || l.environment === environment),
+    }))
+    .filter((group) => group.licenses.length > 0);
+
+  if (!allGroups.length) {
     return <p className="panel-empty">No licenses.</p>;
   }
+
+  const filterContent = (
+    <>
+      <label>
+        Purchase
+        <select value={purchaseId} onChange={(e) => setPurchaseId(e.target.value)}>
+          <option value="all">All</option>
+          {allGroups.map(({ subscription: s }) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Environment
+        <select value={environment} onChange={(e) => setEnvironment(e.target.value)}>
+          <option value="all">All</option>
+          {environments.map((env) => (
+            <option key={env} value={env}>{env}</option>
+          ))}
+        </select>
+      </label>
+    </>
+  );
+
+  if (!groups.length) {
+    return (
+      <p className="panel-empty">
+        No licenses match your filters.{" "}
+        <Button type="button" variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
+      </p>
+    );
+  }
+
   return (
     <div className="agreement-list">
-      {groups.map(({ subscription }) => (
-        <LicenseTable key={subscription.id} subscription={subscription} purchaseLink />
+      {groups.map(({ subscription, licenses }) => (
+        <LicenseTable
+          key={subscription.id}
+          subscription={subscription}
+          purchaseLink
+          rows={licenses}
+          filterContent={filterContent}
+          filtersActive={filtersActive}
+          onClearFilters={clearFilters}
+        />
       ))}
     </div>
   );
