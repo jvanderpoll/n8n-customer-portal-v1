@@ -123,9 +123,12 @@ export function runningFirst(persona: Persona) {
   return { running, expired };
 }
 
+const GENERAL_SUPPORT_EMAIL = "support@n8n.io";
+
 /** Assigned CSM, or a general-support fallback when the account has none. */
-export function contactFor(persona: Persona): { kind: "assigned"; name: string } | { kind: "general" } {
-  return persona.csm ? { kind: "assigned", name: persona.csm } : { kind: "general" };
+export function contactFor(persona: Persona): { kind: "assigned"; name: string; email: string } | { kind: "general"; email: string } {
+  if (persona.csm && persona.csmEmail) return { kind: "assigned", name: persona.csm, email: persona.csmEmail };
+  return { kind: "general", email: GENERAL_SUPPORT_EMAIL };
 }
 
 export function memberFor(persona: Persona) {

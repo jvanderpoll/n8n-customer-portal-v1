@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { personas, type Persona } from "@/lib/portal-data";
+import { contactFor } from "@/lib/portal-views";
 import { applyManagement, createAccount, createEmptyAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
@@ -111,11 +112,11 @@ function FeedbackDialog({ open, onOpenChange, company, user, csm }: { open: bool
 function ContactDialog({
   open,
   onOpenChange,
-  csm,
+  contact,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  csm: string | null;
+  contact: ReturnType<typeof contactFor>;
 }) {
   const [topic, setTopic] = useState<ContactTopic | "">("");
   const [message, setMessage] = useState("");
@@ -131,9 +132,15 @@ function ContactDialog({
       <DialogContent className="management-dialog">
         <DialogTitle>Contact n8n</DialogTitle>
         <DialogDescription>
-          {csm
-            ? `Your message will be sent to ${csm}, your customer success manager.`
-            : "No customer success manager is assigned to this account. Your message will be sent to n8n support."}
+          {contact.kind === "assigned" ? (
+            <>
+              Your message will be sent to <a className="text-link" href={`mailto:${contact.email}`}>{contact.name}</a>, your customer success manager.
+            </>
+          ) : (
+            <>
+              No customer success manager is assigned to this account. Your message will be sent to <a className="text-link" href={`mailto:${contact.email}`}>n8n support</a>.
+            </>
+          )}
         </DialogDescription>
         <form onSubmit={submit}>
           <div className="management-fields">
@@ -266,8 +273,9 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const activeRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
   const persona = account.persona;
   if (!persona) return null;
-  const userName = persona.user.split(" · ")[0]!;
-  const initials = userInitials(userName);
+  const [userName, userRole] = persona.user.split(" · ");
+  const initials = userInitials(userName!);
+  const contact = contactFor(persona);
 
   const loadScenario = (id: string, empty: boolean) => {
     const next = selectedPersona(id);
@@ -300,24 +308,25 @@ export function PortalShell({ children }: { children: ReactNode }) {
         <span className="nav-caption">WORKSPACE</span>
         <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-contact">
-            <Button type="button" variant="ghost" className="sidebar-contact-trigger" onClick={() => setContactOpen(true)}>
-              <MessageCircle size={17} />
-              Contact n8n
-            </Button>
-            <span className="sidebar-csm">{persona.csm ?? "n8n support"}</span>
-          </div>
-          <div className="sidebar-user">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="icon" className="sidebar-avatar" aria-label={`${userName} account menu`}>{initials}</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="top" className="sidebar-user-menu">
-                <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Give feedback</DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => { void navigate({ to: "/" }); }}>Log out</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <Button type="button" variant="default" size="large" className="sidebar-contact-trigger" onClick={() => setContactOpen(true)}>
+            <MessageCircle size={16} />
+            Contact n8n
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" className="sidebar-account" aria-label={`${userName} account menu`}>
+                <span className="sidebar-avatar" aria-hidden="true">{initials}</span>
+                <span className="sidebar-account-copy">
+                  <span className="sidebar-account-name">{userName}</span>
+                  {userRole && <span className="sidebar-account-role">{userRole}</span>}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" className="sidebar-user-menu">
+              <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Give feedback</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigate({ to: "/" }); }}>Log out</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
       <div className="portal-main">
@@ -340,7 +349,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
     <ContactDialog
       open={contactOpen}
       onOpenChange={setContactOpen}
-      csm={persona.csm}
+      contact={contact}
     />
     <Toaster position="bottom-right" />
   </PersonaContext.Provider></ManagementContext.Provider>;

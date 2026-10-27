@@ -65,6 +65,8 @@ export interface Persona {
   user: string;
   /** Assigned customer success manager. Null falls back to general support in Contact n8n. */
   csm: string | null;
+  /** Mailto address for the assigned CSM. Null when no CSM is assigned. */
+  csmEmail: string | null;
   usageUpdated: string;
   subscriptions: Subscription[];
   instances: Instance[];
@@ -184,6 +186,7 @@ export const personas: Persona[] = [
     company: "Fieldstone Software B.V.",
     user: "Sanne de Vries · System admin",
     csm: "Lukas Weber",
+    csmEmail: "lukas.weber@n8n.io",
     usageUpdated: hoursAgo(2),
     subscriptions: [
       {
@@ -228,6 +231,7 @@ export const personas: Persona[] = [
     company: "Driftline Technologies AS",
     user: "Erik Halvorsen · System admin",
     csm: "Marta Rossi",
+    csmEmail: "marta.rossi@n8n.io",
     usageUpdated: hoursAgo(3),
     subscriptions: [
       // Self-hosted production, capped at 15 licensed instances (12 in use — demonstrates "N of M available").
