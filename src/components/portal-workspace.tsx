@@ -169,7 +169,11 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
             <span className="metric-label">Subscriptions</span>
             <strong>{running.length}</strong>
           </Link>
-          <Link to="/subscriptions" className="summary-metric summary-metric-link">
+          <Link
+            to="/subscriptions"
+            search={primary ? { subscription: primary.id, section: "licenses" } : undefined}
+            className="summary-metric summary-metric-link"
+          >
             <span className="metric-label">Licenses</span>
             <strong>{licenseCount}</strong>
           </Link>

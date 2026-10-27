@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
 import { Crumb, InstanceList, LastUpdate, LicenseTable, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
@@ -9,10 +9,17 @@ import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
 import { cn } from "@/lib/utils";
 
+const subscriptionSection = z.enum(["usage", "periods", "licenses"]);
+type SubscriptionSection = z.infer<typeof subscriptionSection>;
+
 export const Route = createFileRoute("/subscriptions")({
   // Static hosts cannot render every query-string variant ahead of time.
   ssr: import.meta.env.BASE_URL === "/",
-  validateSearch: z.object({ subscription: z.string().optional().catch(undefined), license: z.string().optional().catch(undefined) }),
+  validateSearch: z.object({
+    subscription: z.string().optional().catch(undefined),
+    license: z.string().optional().catch(undefined),
+    section: subscriptionSection.optional().catch(undefined),
+  }),
   head: () => portalHead("Subscriptions", "Your subscriptions, their quota, period and licenses."),
   component: Subscriptions,
 });
@@ -48,7 +55,19 @@ function Subscriptions() {
 
 function SubscriptionDetail({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
-  const [section, setSection] = useState<"usage" | "periods" | "licenses">("usage");
+  const navigate = useNavigate({ from: Route.fullPath });
+  const search = Route.useSearch();
+  const section: SubscriptionSection =
+    search.section === "periods" || search.section === "licenses" ? search.section : "usage";
+  const setSection = (next: SubscriptionSection) => {
+    void navigate({
+      search: {
+        subscription: sub.id,
+        section: next === "usage" ? undefined : next,
+      },
+      replace: true,
+    });
+  };
   return <>
     <WorkspaceTitle title={sub.name} crumbs={<Crumb><Link to="/subscriptions">Subscriptions</Link></Crumb>} trailing={<LastUpdate persona={persona} />} />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription sections">
