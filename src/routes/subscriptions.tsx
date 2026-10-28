@@ -74,7 +74,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
     });
   };
   return <>
-    <WorkspaceTitle title={sub.name} trailing={<LastUpdate persona={persona} />} />
+    <WorkspaceTitle title={`Subscription: ${sub.name}`} trailing={<LastUpdate persona={persona} />} />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription sections">
       <button type="button" role="tab" aria-selected={section === "usage"} className={cn("subscription-tab", section === "usage" && "is-active")} onClick={() => setSection("usage")}>
         Usage
