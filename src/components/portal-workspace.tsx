@@ -242,7 +242,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
           <div className="summary-metric">
             <span className="metric-label">Renewal date</span>
             <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
-            {renewalIn && <span className="metric-subtext">{renewalIn}</span>}
+            {renewalIn && <span className="metric-subtext">{renewalIn === "today" ? "Renews today" : `${renewalIn} left`}</span>}
           </div>
           <Link to="/instances" className="summary-metric summary-metric-link">
             <span className="metric-label">Instances</span>
