@@ -186,7 +186,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         <strong className="account-banner-name">{persona.company}</strong>
       </div>
       <div className="metric-strip overview-totals" aria-label="Account totals">
-        <div className="overview-metric-row overview-counts">
+        <div className="overview-metric-row">
           <Link to="/subscriptions" className="summary-metric summary-metric-link">
             <span className="metric-label">Subscriptions</span>
             <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
@@ -201,23 +201,23 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
             <span className="metric-label">Instances</span>
             <strong>{instanceCount}</strong>
           </Link>
+          {!isEmpty && (
+            <>
+              <div className="summary-metric">
+                <span className="metric-label">Executions this term</span>
+                <strong>{fmt(executionsThisTerm)}</strong>
+              </div>
+              <div className="summary-metric">
+                <span className="metric-label">Annual quota</span>
+                <strong>{fmt(annualQuota)}</strong>
+              </div>
+              <div className="summary-metric">
+                <span className="metric-label">Percent of quota</span>
+                <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
+              </div>
+            </>
+          )}
         </div>
-        {!isEmpty && (
-          <div className="overview-metric-row overview-usage">
-            <div className="summary-metric">
-              <span className="metric-label">Executions this term</span>
-              <strong>{fmt(executionsThisTerm)}</strong>
-            </div>
-            <div className="summary-metric">
-              <span className="metric-label">Annual quota</span>
-              <strong>{fmt(annualQuota)}</strong>
-            </div>
-            <div className="summary-metric">
-              <span className="metric-label">Percent of quota</span>
-              <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
-            </div>
-          </div>
-        )}
       </div>
       {isEmpty ? (
         <section className="workspace-panel empty-state-panel">
