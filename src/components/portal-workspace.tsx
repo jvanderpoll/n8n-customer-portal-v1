@@ -191,21 +191,16 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
           <Link to="/subscriptions" className="summary-metric summary-metric-link">
             <span className="metric-label">Subscriptions</span>
             <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
-          </Link>
-          <div className="summary-metric">
-            <span className="metric-label">License ID</span>
-            <strong className="metric-license-ids">
-              {primaryLicenseId ?? "—"}
-            </strong>
-          </div>
-          <Link to="/instances" className="summary-metric summary-metric-link">
-            <span className="metric-label">Instances</span>
-            <strong>{instanceCount}</strong>
+            {primaryLicenseId && <span className="metric-subtext">{primaryLicenseId}</span>}
           </Link>
           <div className="summary-metric">
             <span className="metric-label">Renewal date</span>
             <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
           </div>
+          <Link to="/instances" className="summary-metric summary-metric-link">
+            <span className="metric-label">Instances</span>
+            <strong>{instanceCount}</strong>
+          </Link>
         </div>
         {!isEmpty && (
           <div className="overview-metric-row overview-usage">

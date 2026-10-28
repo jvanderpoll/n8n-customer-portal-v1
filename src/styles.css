@@ -380,7 +380,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .metric-strip.overview-totals { display: flex; flex-direction: column; padding: 0; }
 .overview-metric-row { display: grid; padding: var(--spacing--lg) 0; }
 .overview-metric-row + .overview-metric-row { border-top: 1px solid var(--border); }
-.overview-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.overview-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .overview-usage { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .chart-heading-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--spacing--sm); }
 .chart-stack { display: grid; gap: var(--spacing--xl); padding: 0 var(--spacing--sm) var(--spacing--sm); }
@@ -420,7 +420,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .summary-metric-link:focus-visible { outline: 2px solid var(--color--black-alpha-200); }
 .metric-label { font-size: var(--font-size--sm); color: var(--portal-secondary); font-weight: var(--font-weight--medium); }
 .summary-metric > strong { font-size: var(--font-size--2xl); font-weight: var(--font-weight--bold); line-height: var(--line-height--sm); letter-spacing: var(--letter-spacing--tight); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--portal-text); }
-.summary-metric > strong.metric-license-ids { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-family--monospace); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); letter-spacing: normal; line-height: 1.35; white-space: normal; }
+.metric-subtext { font-family: var(--font-family--monospace); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); color: var(--portal-secondary); line-height: 1.35; }
 .quota-figure { font-variant-numeric: tabular-nums; font-weight: var(--font-weight--medium); background: none; }
 .metric-note { font-size: var(--font-size--sm); color: var(--portal-caption); }
 .metric-danger strong { color: var(--color--red-700); }
