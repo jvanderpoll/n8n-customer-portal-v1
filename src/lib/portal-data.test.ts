@@ -30,14 +30,14 @@ describe("subscription summary", () => {
     expect(sub.quota).toBe(NORTHWIND_ANNUAL_QUOTA);
     expect(summarize(sub, per.instances).used).toBe(NORTHWIND_TERM_EXECUTIONS);
     expect(Math.round((NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA) * 1000) / 10).toBe(3.7);
-    expect(per.instances).toHaveLength(52);
+    expect(per.instances).toHaveLength(13);
     expect(per.licenses).toHaveLength(5);
     expect(per.instances.every((i) => i.version === undefined)).toBe(true);
     expect(placeholderMonthlyExecutionsNorthwind().reduce((a, b) => a + b, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
   });
   it("counts reporting instances", () => {
     const per = p("full");
-    expect(summarize(per.subscriptions[0]!, per.instances).reportingCount).toBe(52);
+    expect(summarize(per.subscriptions[0]!, per.instances).reportingCount).toBe(13);
   });
   it("period progress treats the end date as inclusive and uses billingAsOf for Northwind", () => {
     const sub = p("full").subscriptions[0]!;

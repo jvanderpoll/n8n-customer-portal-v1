@@ -420,6 +420,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .summary-metric-link:focus-visible { outline: 2px solid var(--color--black-alpha-200); }
 .metric-label { font-size: var(--font-size--sm); color: var(--portal-secondary); font-weight: var(--font-weight--medium); }
 .summary-metric > strong { font-size: var(--font-size--2xl); font-weight: var(--font-weight--bold); line-height: var(--line-height--sm); letter-spacing: var(--letter-spacing--tight); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--portal-text); }
+.summary-metric > strong.metric-license-ids { display: flex; flex-direction: column; gap: 2px; font-family: var(--font-family--monospace); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); letter-spacing: normal; line-height: 1.35; white-space: normal; }
 .quota-figure { font-variant-numeric: tabular-nums; font-weight: var(--font-weight--medium); background: none; }
 .metric-note { font-size: var(--font-size--sm); color: var(--portal-caption); }
 .metric-danger strong { color: var(--color--red-700); }

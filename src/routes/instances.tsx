@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
 import { Crumb, DataTable, LastUpdate, ReportingStatus, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
-import { BulkRemoveInstances, CreateInstance, InstanceActions, RemovedInstances } from "@/components/portal-management";
+import { BulkRemoveInstances, InstanceActions, RemovedInstances } from "@/components/portal-management";
 import { activeInstances } from "@/lib/portal-management";
 import { date, fmt, portalHead, timestamp } from "@/lib/portal-format";
 import { summarize, type Instance } from "@/lib/portal-data";
@@ -120,7 +120,7 @@ function Instances() {
   ];
 
   return <>
-    <WorkspaceTitle title={`Instances (${count})`} trailing={<div className="page-actions"><LastUpdate persona={persona} /><CreateInstance subscriptionId={subscription === "all" ? undefined : subscription} /></div>} />
+    <WorkspaceTitle title={`Instances (${count})`} trailing={<LastUpdate persona={persona} />} />
     <section className="workspace-panel">
       <DataTable
         columns={columns}

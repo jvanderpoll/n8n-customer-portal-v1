@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
 import { Crumb, InstanceList, LastUpdate, LicenseTable, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
-import { RequestLicenses, RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
+import { RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
 import { cn } from "@/lib/utils";
@@ -33,15 +33,10 @@ function Subscriptions() {
     const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
     return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
   }
-  // Cross-purchase list lives at /licenses; keep this param as a redirect bridge.
-  // With a subscription id, the purchase-detail Licenses tab below still applies.
-  if (search.section === "licenses") {
-    return <Navigate to="/licenses" />;
-  }
   const { running, expired } = runningFirst(persona);
   const list = tab === "running" ? running : expired;
   return <>
-    <WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><LastUpdate persona={persona} />{running.length ? <RequestLicenses /> : <RequestSubscription />}</div>} />
+    <WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><LastUpdate persona={persona} />{running.length === 0 && <RequestSubscription />}</div>} />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription status">
       <button type="button" role="tab" aria-selected={tab === "running"} className={cn("subscription-tab", tab === "running" && "is-active")} onClick={() => setTab("running")}>
         Running ({running.length})
@@ -94,7 +89,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
         </>
       )}
       {section === "periods" && <PastPeriods subscription={sub} />}
-      {section === "licenses" && <LicenseTable subscription={sub} actions={<RequestLicenses subscriptionId={sub.id} />} />}
+      {section === "licenses" && <LicenseTable subscription={sub} />}
     </div>
   </>;
 }

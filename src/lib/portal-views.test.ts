@@ -17,28 +17,28 @@ describe("read-only portal selectors", () => {
   });
   it("filters instances by subscription and license", () => {
     const p = persona("full");
-    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(52);
-    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-NPR-01" })).toHaveLength(12);
+    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(13);
+    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-NPR-01" })).toHaveLength(3);
   });
   it("search matches license references without case sensitivity", () => {
-    expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-eu-01" })).toHaveLength(10);
+    expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-eu-01" })).toHaveLength(2);
   });
   it("splits reporting and non-reporting instances", () => {
     const p = persona("full");
     const changed = { ...p, instances: p.instances.map((i, n) => n === 0 ? { ...i, status: "pending" as const } : i) };
     expect(filterInstances(changed, { ...defaultInstanceFilter, status: "attention" })).toHaveLength(1);
-    expect(filterInstances(changed, { ...defaultInstanceFilter, status: "reporting" })).toHaveLength(51);
+    expect(filterInstances(changed, { ...defaultInstanceFilter, status: "reporting" })).toHaveLength(12);
   });
-  it("pagination presents all fifty-two instances without duplication", () => {
+  it("pagination presents all thirteen instances without duplication", () => {
     const rows = filterInstances(persona("full"), defaultInstanceFilter);
-    const first = paginateInstances(rows, 1);
-    const second = paginateInstances(rows, 2);
-    const last = paginateInstances(rows, 99);
-    expect(first.rows).toHaveLength(20);
-    expect(second.rows).toHaveLength(20);
+    const first = paginateInstances(rows, 1, 5);
+    const second = paginateInstances(rows, 2, 5);
+    const last = paginateInstances(rows, 99, 5);
+    expect(first.rows).toHaveLength(5);
+    expect(second.rows).toHaveLength(5);
     expect(last.page).toBe(3);
-    expect(last.rows).toHaveLength(12);
-    expect(new Set([...first.rows, ...second.rows, ...last.rows].map((i) => i.id)).size).toBe(52);
+    expect(last.rows).toHaveLength(3);
+    expect(new Set([...first.rows, ...second.rows, ...last.rows].map((i) => i.id)).size).toBe(13);
     expect(paginateInstances([], 99)).toEqual({ rows: [], page: 1, pages: 1 });
   });
   it("licenses roll up their instances' executions and carry no quota", () => {
@@ -85,7 +85,7 @@ describe("read-only portal selectors", () => {
   });
   it("the account's own CSM is the contact", () => {
     expect(contactFor(persona("full"))).toEqual({ kind: "assigned", name: "Lukas Weber", email: "lukas.weber@n8n.io" });
-    expect(memberFor(persona("full"))).toEqual({ id: "full-admin", name: "Sanne de Vries", role: "System admin", company: "Fieldstone Software B.V." });
+    expect(memberFor(persona("full"))).toEqual({ id: "full-admin", name: "Alexandra Bennett", role: "System admin", company: "Fieldstone Software B.V." });
   });
   it("falls back to general support when no CSM is assigned", () => {
     expect(contactFor({ ...persona("full"), csm: null, csmEmail: null })).toEqual({ kind: "general", email: "support@n8n.io" });

@@ -442,6 +442,7 @@ export function BulkCancelOrders({
   );
 }
 
+/** Instances page no longer renders this. Kept so the action can return later. */
 export function CreateInstance({
   subscriptionId,
 }: {

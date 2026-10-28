@@ -55,7 +55,7 @@ describe("session-only account management", () => {
       env: "Non-production",
       subscriptionId: "s1",
     });
-    expect(before.persona.instances).toHaveLength(52);
+    expect(before.persona.instances).toHaveLength(13);
     expect(
       summarize(next.persona.subscriptions[0]!, next.persona.instances).used,
     ).toBe(
@@ -129,7 +129,7 @@ describe("session-only account management", () => {
     const s = account(),
       id = s.persona.instances[0]!.id;
     const next = applyManagement(s, { type: "remove-instance", id }, admin);
-    expect(activeInstances(next.persona)).toHaveLength(51);
+    expect(activeInstances(next.persona)).toHaveLength(12);
     expect(
       summarize(next.persona.subscriptions[0]!, next.persona.instances).used,
     ).toBe(summarize(s.persona.subscriptions[0]!, s.persona.instances).used);
@@ -138,7 +138,7 @@ describe("session-only account management", () => {
         applyManagement(next, { type: "restore-instance", id }, admin)
           .persona,
       ),
-    ).toHaveLength(52);
+    ).toHaveLength(13);
   });
   it("renames and removes only unused licenses, protecting history", () => {
     const s = account();

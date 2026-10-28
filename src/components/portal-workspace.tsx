@@ -124,7 +124,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
   const primary = running[0];
   const primarySummary = primary ? summarize(primary, persona.instances) : null;
   const primaryView = primary ? subscriptionView(persona, primary) : null;
-  const licenseCount = persona.licenses.filter((l) => l.status === "Active").length;
+  const primaryLicenseId = persona.licenses.find((l) => l.status === "Active")?.id;
   const instanceCount = persona.instances.filter((i) => !i.archived).length;
   const executionsThisTerm = running.reduce((sum, sub) => sum + summarize(sub, persona.instances).used, 0);
   const annualQuota = running.reduce((sum, sub) => sum + sub.quota, 0);
@@ -190,12 +190,14 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         <div className="overview-metric-row overview-counts">
           <Link to="/subscriptions" className="summary-metric summary-metric-link">
             <span className="metric-label">Subscriptions</span>
-            <strong>{running.length}</strong>
+            <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
           </Link>
-          <Link to="/licenses" className="summary-metric summary-metric-link">
-            <span className="metric-label">Licenses</span>
-            <strong>{licenseCount}</strong>
-          </Link>
+          <div className="summary-metric">
+            <span className="metric-label">License ID</span>
+            <strong className="metric-license-ids">
+              {primaryLicenseId ?? "—"}
+            </strong>
+          </div>
           <Link to="/instances" className="summary-metric summary-metric-link">
             <span className="metric-label">Instances</span>
             <strong>{instanceCount}</strong>

@@ -184,7 +184,7 @@ export const personas: Persona[] = [
     label: "Enterprise account",
     hint: "One running subscription. Low quota use mid-term; renewal in January.",
     company: "Fieldstone Software B.V.",
-    user: "Sanne de Vries · System admin",
+    user: "Alexandra Bennett · System admin",
     csm: "Lukas Weber",
     csmEmail: "lukas.weber@n8n.io",
     usageUpdated: hoursAgo(2),
@@ -213,13 +213,13 @@ export const personas: Persona[] = [
       license("LIC-NW-EU-01", "s1", "Production", "EU production"),
       license("LIC-NW-BATCH-01", "s1", "Production", "Batch workloads"),
     ],
-    // 52 instances; executions sum to 87,603. No invented n8n versions.
+    // 13 instances; executions still sum to 87,603. No invented n8n versions.
     instances: genInstances(
       [
-        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", count: 22, target: 41_200 },
-        { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", count: 12, target: 8_400 },
-        { id: "s1", license: "LIC-NW-EU-01", env: "Production", count: 10, target: 22_100 },
-        { id: "s1", license: "LIC-NW-BATCH-01", env: "Production", count: 8, target: 15_903 },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", count: 6, target: 41_200 },
+        { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", count: 3, target: 8_400 },
+        { id: "s1", license: "LIC-NW-EU-01", env: "Production", count: 2, target: 22_100 },
+        { id: "s1", license: "LIC-NW-BATCH-01", env: "Production", count: 2, target: 15_903 },
       ],
       { includeVersion: false },
     ),
