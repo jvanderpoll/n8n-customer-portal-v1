@@ -2,14 +2,14 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
-import { Crumb, InstanceList, LastUpdate, LicenseTable, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
+import { Crumb, InstanceList, LastUpdate, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
 import { RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
 import { cn } from "@/lib/utils";
 
-const subscriptionSection = z.enum(["usage", "periods", "licenses"]);
+const subscriptionSection = z.enum(["usage", "periods"]);
 type SubscriptionSection = z.infer<typeof subscriptionSection>;
 
 export const Route = createFileRoute("/subscriptions")({
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/subscriptions")({
     license: z.string().optional().catch(undefined),
     section: subscriptionSection.optional().catch(undefined),
   }),
-  head: () => portalHead("Enterprise", "Quota, period and licenses for your subscription."),
+  head: () => portalHead("Enterprise", "Quota and period for your subscription."),
   component: Subscriptions,
 });
 
@@ -63,8 +63,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
   const persona = usePersona();
   const navigate = useNavigate({ from: Route.fullPath });
   const search = Route.useSearch();
-  const section: SubscriptionSection =
-    search.section === "periods" || search.section === "licenses" ? search.section : "usage";
+  const section: SubscriptionSection = search.section === "periods" ? "periods" : "usage";
   const setSection = (next: SubscriptionSection) => {
     void navigate({
       search: {
@@ -83,9 +82,6 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
       <button type="button" role="tab" aria-selected={section === "periods"} className={cn("subscription-tab", section === "periods" && "is-active")} onClick={() => setSection("periods")}>
         Past periods
       </button>
-      <button type="button" role="tab" aria-selected={section === "licenses"} className={cn("subscription-tab", section === "licenses" && "is-active")} onClick={() => setSection("licenses")}>
-        Licenses
-      </button>
     </div>
     <div className="agreement-list">
       {section === "usage" && (
@@ -95,7 +91,6 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
         </>
       )}
       {section === "periods" && <PastPeriods subscription={sub} />}
-      {section === "licenses" && <LicenseTable subscription={sub} />}
     </div>
   </>;
 }
