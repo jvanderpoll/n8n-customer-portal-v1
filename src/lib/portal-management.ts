@@ -54,7 +54,7 @@ export type ManagementAction =
       note: string;
     }
   | { type: "cancel-order"; id: string }
-  | { type: "invite"; id: string; name: string; email: string; role: Role; scope: MemberScope }
+  | { type: "invite"; id: string; email: string; role: Role; scope: MemberScope }
   | { type: "edit-member"; id: string; role: Role; scope: MemberScope }
   | { type: "remove-member"; id: string };
 
@@ -284,9 +284,7 @@ export function applyManagement(
       break;
     }
     case "invite": {
-      const email = action.email.trim().toLowerCase(),
-        name = action.name.trim();
-      if (!name || name.length > 80) fail("Enter a name of 1–80 characters.");
+      const email = action.email.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         fail("Enter a valid email address.");
       if (!isRole(action.role)) fail("Choose a role.");
@@ -294,7 +292,7 @@ export function applyManagement(
         fail("This person already has access or a pending invitation.");
       next.members.push({
         id: action.id,
-        name,
+        name: "",
         email,
         status: "Invited",
         role: action.role,

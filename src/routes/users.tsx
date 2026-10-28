@@ -115,7 +115,6 @@ function Users() {
   ];
 
   const inviteColumns: DataColumn<Member>[] = [
-    { id: "name", header: "Name", accessor: (m) => m.name || "—", cell: (m) => m.name || "—", csv: (m) => m.name },
     { id: "email", header: "Email", accessor: (m) => m.email, cell: (m) => m.email },
     {
       id: "role",

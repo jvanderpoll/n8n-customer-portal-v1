@@ -952,16 +952,11 @@ export function InviteUser() {
       action={(d) => ({
         type: "invite",
         id: newId(),
-        name: value(d, "name"),
         email: value(d, "email"),
         role: readRole(d),
         scope: readScope(d),
       })}
     >
-      <label>
-        Name
-        <input name="name" required maxLength={80} placeholder="Full name" />
-      </label>
       <label>
         Email address
         <input

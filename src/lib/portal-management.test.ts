@@ -232,7 +232,7 @@ describe("session-only account management", () => {
     const actions: ManagementAction[] = [
       { type: "remove-instance", id: account().persona.instances[0]!.id },
       { type: "order", id: "req", subscriptionId: "s1", quantity: 1, environment: "Production", note: "" },
-      { type: "invite", id: "x", name: "X", email: "x@example.com", role: "viewer", scope: "all" },
+      { type: "invite", id: "x", email: "x@example.com", role: "viewer", scope: "all" },
       { type: "edit-member", id: "billing", role: "viewer", scope: "all" },
       { type: "remove-member", id: "billing" },
     ];
@@ -252,11 +252,11 @@ describe("session-only account management", () => {
     const s = account();
     const next = applyManagement(
       s,
-      { type: "invite", id: "invite", name: "Noor", email: " NEW@example.com ", role: "billing", scope: ["s1"] },
+      { type: "invite", id: "invite", email: " NEW@example.com ", role: "billing", scope: ["s1"] },
       admin,
     );
     expect(next.members.find((m) => m.id === "invite")).toMatchObject({
-      name: "Noor",
+      name: "",
       email: "new@example.com",
       status: "Invited",
       role: "billing",
@@ -266,7 +266,7 @@ describe("session-only account management", () => {
     expect(next.notice).toBe("");
     expect(timestamp(NOW)).toMatch(/UTC$/);
     expect(() =>
-      applyManagement(next, { type: "invite", id: "duplicate", name: "Noor", email: "NEW@example.com", role: "viewer", scope: "all" }, admin),
+      applyManagement(next, { type: "invite", id: "duplicate", email: "NEW@example.com", role: "viewer", scope: "all" }, admin),
     ).toThrow("already has");
     expect(applyManagement(next, { type: "remove-member", id: "invite" }, admin).members).toHaveLength(s.members.length);
   });
@@ -336,7 +336,7 @@ describe("session-only account management", () => {
       applyManagement(account(), { type: "order", id: "req", subscriptionId: "s1", quantity: 0, environment: "Production", note: "" }, admin),
     ).toThrow("1 and 100");
     expect(() =>
-      applyManagement(account(), { type: "invite", id: "invite", name: "A", email: "invalid", role: "viewer", scope: "all" }, admin),
+      applyManagement(account(), { type: "invite", id: "invite", email: "invalid", role: "viewer", scope: "all" }, admin),
     ).toThrow("valid email");
   });
 });
