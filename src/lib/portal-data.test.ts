@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { monthsAndDaysUntil } from "./portal-format";
 import {
   NORTHWIND_ANNUAL_QUOTA,
   NORTHWIND_TERM_EXECUTIONS,
@@ -43,6 +44,7 @@ describe("subscription summary", () => {
     const sub = p("full").subscriptions[0]!;
     expect(subscriptionStatus(sub)).toBe("Running");
     expect(periodProgress(sub).daysLeft).toBe(90);
+    expect(monthsAndDaysUntil(sub.renewal!, sub.billingAsOf)).toBe("2 months and 29 days");
     expect(periodProgress(sub, "2027-01-26T00:00:00Z")).toEqual({ pct: 1, daysLeft: 0 });
   });
 });

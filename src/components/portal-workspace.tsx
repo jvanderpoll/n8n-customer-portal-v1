@@ -18,9 +18,9 @@ import {
   type PastPeriod,
   type UsageBreakdown,
 } from "@/lib/portal-billing";
-import { summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
+import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { instanceHosting, isReporting, licensesFor, licensesGroupedByPurchase, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
-import { ago, date, fmt } from "@/lib/portal-format";
+import { ago, date, fmt, monthsAndDaysUntil } from "@/lib/portal-format";
 
 export { CsvExport } from "./csv-export";
 export { DataTable, type DataColumn } from "./data-table";
@@ -129,10 +129,9 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
   const executionsThisTerm = running.reduce((sum, sub) => sum + summarize(sub, persona.instances).used, 0);
   const annualQuota = running.reduce((sum, sub) => sum + sub.quota, 0);
   const quotaPct = annualQuota > 0 ? executionsThisTerm / annualQuota : 0;
-  const nextRenewal = running
-    .map((s) => s.renewal)
-    .filter((r): r is string => Boolean(r))
-    .sort()[0];
+  const renewalSource = running.filter((s) => s.renewal).sort((a, b) => a.renewal!.localeCompare(b.renewal!))[0];
+  const nextRenewal = renewalSource?.renewal;
+  const renewalIn = nextRenewal ? monthsAndDaysUntil(nextRenewal, renewalSource.billingAsOf ?? NOW) : null;
   const rows: OverviewSubRow[] = running.map((sub) => {
     const summary = summarize(sub, persona.instances);
     return {
@@ -191,11 +190,12 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
           <Link to="/subscriptions" className="summary-metric summary-metric-link">
             <span className="metric-label">Subscriptions</span>
             <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
-            {primaryLicenseId && <span className="metric-subtext">{primaryLicenseId}</span>}
+            {primaryLicenseId && <span className="metric-subtext metric-subtext-id">{primaryLicenseId}</span>}
           </Link>
           <div className="summary-metric">
             <span className="metric-label">Renewal date</span>
             <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
+            {renewalIn && <span className="metric-subtext">{renewalIn}</span>}
           </div>
           <Link to="/instances" className="summary-metric summary-metric-link">
             <span className="metric-label">Instances</span>
