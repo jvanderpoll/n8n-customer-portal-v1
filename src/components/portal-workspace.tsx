@@ -129,7 +129,7 @@ function Requirements({ subscription, instanceCount }: { subscription: Subscript
   );
 }
 
-/** Headline features for the subscription's plan tier, shown in a tooltip next to the plan name. Hidden when the tier isn't sourced. */
+/** Headline features for the subscription's plan tier, shown in a tooltip next to the subscription name. Hidden when the tier isn't sourced. */
 function PlanIncludedHint({ plan }: { plan: string }) {
   const tier = planTier(plan);
   const features = tier ? PLAN_FEATURES[tier] : undefined;
@@ -554,11 +554,10 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       <div className="agreement-heading">
         <KeyRound className="agreement-symbol" size={18} aria-hidden="true" />
         <div>
-          <h2>{linked ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : sub.name}</h2>
-          <span className="supporting plan-name-row">
-            <span>{sub.plan}</span>
+          <h2>
+            {linked ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : sub.name}
             <PlanIncludedHint plan={sub.plan} />
-          </span>
+          </h2>
         </div>
       </div>
       <div className="lead-date">

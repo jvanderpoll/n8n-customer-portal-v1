@@ -674,7 +674,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .account-banner-name { font-size: var(--font-size--lg); font-weight: var(--font-weight--bold); color: var(--portal-text); }
 .empty-state-panel { display: grid; justify-items: start; gap: var(--spacing--sm); padding: var(--spacing--xl) var(--spacing--lg); }
 .empty-state-panel h2 { font-size: var(--font-size--md); font-weight: var(--font-weight--bold); }
-.plan-name-row { display: inline-flex; align-items: center; gap: var(--spacing--4xs); }
 .plan-included-trigger { width: 24px; height: 24px; min-height: 24px; color: var(--portal-secondary); }
 .plan-included-trigger > svg { width: 14px; height: 14px; }
 .plan-included-tooltip {
