@@ -316,8 +316,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   return <ManagementContext.Provider value={{ account, role, perform, refreshUsage }}><PersonaContext.Provider value={persona}>
     <div className="portal-layout">
       <aside className="portal-sidebar">
-        <Link to="/" className="portal-brand" aria-label="n8n Admin Console"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="n8n" width="120" height="24" /><span>Admin Console</span></Link>
-        <span className="nav-caption">WORKSPACE</span>
+        <Link to="/" className="portal-brand" aria-label="n8n"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="" width="120" height="24" /></Link>
         <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
         <div className="sidebar-bottom">
           <Button type="button" variant="default" size="large" className="sidebar-contact-trigger" onClick={() => setContactOpen(true)}>
