@@ -965,6 +965,12 @@ export function InviteUser() {
           placeholder="name@example.com"
           required
           maxLength={254}
+          autoComplete="off"
+          data-1p-ignore=""
+          data-lpignore="true"
+          data-bwignore=""
+          data-protonpass-ignore=""
+          data-form-type="other"
         />
       </label>
       <RoleScopeFields />
