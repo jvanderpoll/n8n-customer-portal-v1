@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowUpRight, Check, ChevronRight, CircleAlert, Info, KeyRound, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, CircleAlert, Copy, Info, KeyRound, RefreshCw } from "lucide-react";
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useManagement, usePersona } from "./portal-shell";
 import { CsvExport } from "./csv-export";
@@ -37,6 +37,51 @@ export function WorkspaceTitle({ title, trailing, crumbs }: { title: string; tra
 
 export function Crumb({ children }: { children: React.ReactNode }) {
   return <>{children}<ChevronRight size={14} aria-hidden="true" /></>;
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const area = document.createElement("textarea");
+  area.value = value;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.left = "-9999px";
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand("copy");
+  document.body.removeChild(area);
+}
+
+function CopyLicenseId({ licenseId }: { licenseId: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    try {
+      await copyText(licenseId);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return (
+    <span className="metric-license-line">
+      <span className="metric-subtext metric-subtext-id">{licenseId}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="copy-license-id"
+        aria-label={copied ? "License ID copied" : "Copy license ID"}
+        onClick={() => void onCopy()}
+      >
+        {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+      </Button>
+      <span className="sr-only" role="status">{copied ? "License ID copied" : ""}</span>
+    </span>
+  );
 }
 
 export function LastUpdate({ persona }: { persona: Persona }) {
@@ -187,11 +232,13 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
       </div>
       <div className="metric-strip overview-totals" aria-label="Account totals">
         <div className="overview-metric-row">
-          <Link to="/subscriptions" className="summary-metric summary-metric-link">
-            <span className="metric-label">Subscriptions</span>
-            <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
-            {primaryLicenseId && <span className="metric-subtext metric-subtext-id">{primaryLicenseId}</span>}
-          </Link>
+          <div className="summary-metric">
+            <Link to="/subscriptions" className="summary-metric-link">
+              <span className="metric-label">Subscriptions</span>
+              <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
+            </Link>
+            {primaryLicenseId && <CopyLicenseId licenseId={primaryLicenseId} />}
+          </div>
           <div className="summary-metric">
             <span className="metric-label">Renewal date</span>
             <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
