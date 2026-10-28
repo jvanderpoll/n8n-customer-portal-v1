@@ -16,6 +16,23 @@ import {
 } from "./portal-management";
 const account = (id = "full") =>
   createAccount(personas.find((p) => p.id === id)!);
+/** Unused license for reducer cases. The demo account itself has one license. */
+const withSpareLicense = (state = account()) => ({
+  ...state,
+  persona: {
+    ...state.persona,
+    licenses: [
+      ...state.persona.licenses,
+      {
+        id: "LIC-NW-DR-01",
+        subscriptionId: "s1",
+        environment: "Non-production" as const,
+        label: "Disaster recovery",
+        status: "Active" as const,
+      },
+    ],
+  },
+});
 const admin: Role = "admin";
 describe("session-only account management", () => {
   it("empty portal keeps only the signed-in member and has no subscriptions or instances", () => {
@@ -37,7 +54,7 @@ describe("session-only account management", () => {
     expect(activeInstances(empty.persona)).toHaveLength(0);
   });
   it("creates an unreported instance on its license, without inventing executions", () => {
-    const before = account();
+    const before = withSpareLicense();
     const next = applyManagement(
       before,
       {
@@ -64,7 +81,7 @@ describe("session-only account management", () => {
     );
   });
   it("rejects duplicate names and unknown licenses", () => {
-    const s = account(),
+    const s = withSpareLicense(),
       name = s.persona.instances[0]!.name;
     expect(() =>
       applyManagement(
@@ -92,7 +109,7 @@ describe("session-only account management", () => {
     ).toThrow("not found");
   });
   it("moves an instance within a subscription without changing subscription usage", () => {
-    const s = account(),
+    const s = withSpareLicense(),
       i = s.persona.instances[0]!;
     const next = applyManagement(
       s,
@@ -141,7 +158,7 @@ describe("session-only account management", () => {
     ).toHaveLength(13);
   });
   it("renames and removes only unused licenses, protecting history", () => {
-    const s = account();
+    const s = withSpareLicense();
     const renamed = applyManagement(
       s,
       {
@@ -161,7 +178,7 @@ describe("session-only account management", () => {
         { type: "delete-license", id: "LIC-NW-DR-01" },
         admin,
       ).persona.licenses,
-    ).toHaveLength(4);
+    ).toHaveLength(1);
     expect(() =>
       applyManagement(
         s,

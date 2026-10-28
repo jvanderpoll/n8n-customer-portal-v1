@@ -32,7 +32,8 @@ describe("subscription summary", () => {
     expect(summarize(sub, per.instances).used).toBe(NORTHWIND_TERM_EXECUTIONS);
     expect(Math.round((NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA) * 1000) / 10).toBe(3.7);
     expect(per.instances).toHaveLength(13);
-    expect(per.licenses).toHaveLength(5);
+    expect(per.licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01"]);
+    expect(per.instances.every((i) => i.license === "LIC-NW-PRD-01")).toBe(true);
     expect(per.instances.every((i) => i.version === undefined)).toBe(true);
     expect(placeholderMonthlyExecutionsNorthwind().reduce((a, b) => a + b, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
   });

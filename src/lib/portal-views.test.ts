@@ -18,10 +18,10 @@ describe("read-only portal selectors", () => {
   it("filters instances by subscription and license", () => {
     const p = persona("full");
     expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1" })).toHaveLength(13);
-    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-NPR-01" })).toHaveLength(3);
+    expect(filterInstances(p, { ...defaultInstanceFilter, subscription: "s1", license: "LIC-NW-PRD-01" })).toHaveLength(13);
   });
   it("search matches license references without case sensitivity", () => {
-    expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-eu-01" })).toHaveLength(2);
+    expect(filterInstances(persona("full"), { ...defaultInstanceFilter, query: "lic-nw-prd-01" })).toHaveLength(13);
   });
   it("splits reporting and non-reporting instances", () => {
     const p = persona("full");
@@ -44,29 +44,17 @@ describe("read-only portal selectors", () => {
   it("licenses roll up their instances' executions and carry no quota", () => {
     const p = persona("full");
     const licenses = licensesFor(p, "s1");
-    expect(licenses.map((l) => l.id)).toEqual([
-      "LIC-NW-PRD-01",
-      "LIC-NW-NPR-01",
-      "LIC-NW-DR-01",
-      "LIC-NW-EU-01",
-      "LIC-NW-BATCH-01",
-    ]);
+    expect(licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01"]);
     const prd = licenses[0]!;
     expect(prd.executions).toBe(prd.instances.reduce((sum, i) => sum + (i.executions ?? 0), 0));
+    expect(prd.instances).toHaveLength(13);
     expect(prd).not.toHaveProperty("quota");
-    expect(licenses.find((l) => l.id === "LIC-NW-DR-01")).toMatchObject({ instances: [], executions: null });
   });
   it("groups licenses by purchase for the cross-purchase list", () => {
     const one = licensesGroupedByPurchase(persona("full"));
     expect(one).toHaveLength(1);
     expect(one[0]!.subscription.id).toBe("s1");
-    expect(one[0]!.licenses.map((l) => l.id)).toEqual([
-      "LIC-NW-PRD-01",
-      "LIC-NW-NPR-01",
-      "LIC-NW-DR-01",
-      "LIC-NW-EU-01",
-      "LIC-NW-BATCH-01",
-    ]);
+    expect(one[0]!.licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01"]);
     const many = licensesGroupedByPurchase(persona("over"));
     expect(many.map((g) => g.subscription.id)).toEqual(["s1", "s2"]);
     expect(many[0]!.licenses.map((l) => l.id)).toEqual(["LIC-HR-PRD-01"]);

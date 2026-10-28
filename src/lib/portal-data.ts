@@ -208,20 +208,16 @@ export const personas: Persona[] = [
     ],
     licenses: [
       license("LIC-NW-PRD-01", "s1", "Production", "Production"),
-      license("LIC-NW-NPR-01", "s1", "Non-production", "Development & staging"),
-      license("LIC-NW-DR-01", "s1", "Non-production", "Disaster recovery"),
-      license("LIC-NW-EU-01", "s1", "Production", "EU production"),
-      license("LIC-NW-BATCH-01", "s1", "Production", "Batch workloads"),
     ],
-    // 13 instances summing to 87,603. A few production instances carry most of
-    // the term; the rest are departmental, batch, or staging and sit far lower.
+    // 13 instances on the single license, summing to 87,603. A few production
+    // instances carry most of the term; the rest sit far lower.
     // No invented n8n versions.
     instances: genInstances(
       [
         { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [37_700, 2_363, 12_200, 200, 21_400, 900] },
-        { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", executions: [140, 80, 50] },
-        { id: "s1", license: "LIC-NW-EU-01", env: "Production", executions: [4_800, 160] },
-        { id: "s1", license: "LIC-NW-BATCH-01", env: "Production", executions: [7_500, 110] },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Non-production", executions: [140, 80, 50] },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [4_800, 160] },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [7_500, 110] },
       ],
       { includeVersion: false },
     ),
