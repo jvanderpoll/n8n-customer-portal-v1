@@ -60,14 +60,8 @@ function Instances() {
     {
       id: "license",
       header: "License",
-      accessor: (i) => persona.licenses.find((l) => l.id === i.license)?.label ?? i.license,
-      cell: (i) => <span className="license-name">{persona.licenses.find((l) => l.id === i.license)?.label ?? i.license}</span>,
-    },
-    {
-      id: "keyType",
-      header: "Key type",
-      accessor: (i) => persona.licenses.find((l) => l.id === i.license)?.environment ?? i.env,
-      cell: (i) => persona.licenses.find((l) => l.id === i.license)?.environment ?? i.env,
+      accessor: (i) => i.license,
+      cell: (i) => <span className="mono-text">{i.license}</span>,
     },
     {
       id: "executions",
@@ -155,7 +149,7 @@ function Instances() {
               License
               <select value={license} onChange={(e) => set({ license: e.target.value === "all" ? undefined : e.target.value, page: undefined })}>
                 <option value="all">All</option>
-                {licenses.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                {licenses.map((l) => <option key={l.id} value={l.id}>{l.id}</option>)}
               </select>
             </label>
             <label>

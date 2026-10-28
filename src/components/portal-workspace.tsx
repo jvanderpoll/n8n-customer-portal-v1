@@ -834,8 +834,8 @@ export function InstanceList({ instances, empty = "No instances activated on thi
     {
       id: "license",
       header: "License",
-      accessor: (i) => persona.licenses.find((l) => l.id === i.license)?.label ?? i.license,
-      cell: (i) => <span className="license-name">{persona.licenses.find((l) => l.id === i.license)?.label ?? i.license}</span>,
+      accessor: (i) => i.license,
+      cell: (i) => <span className="mono-text">{i.license}</span>,
     },
     {
       id: "executions",

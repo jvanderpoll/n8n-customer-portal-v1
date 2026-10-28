@@ -510,7 +510,6 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .data-table .numeric { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .instance-name { display: inline-flex; align-items: center; gap: var(--spacing--2xs); color: var(--portal-text); font-size: var(--font-size--sm); font-weight: var(--font-weight--medium); text-align: left; }
 .instance-name > svg { color: var(--portal-caption); flex-shrink: 0; }
-.license-name { font-size: var(--font-size--sm); color: var(--portal-secondary); white-space: nowrap; }
 .row-share { display: flex; align-items: center; gap: var(--spacing--2xs); min-width: 100px; }
 .row-share > span { height: 5px; flex: 1; border-radius: 3px; background: var(--color--neutral-150); max-width: 90px; }
 .row-share i { display: block; height: 100%; background: var(--color--orange-700); min-width: 2px; border-radius: 3px; }
