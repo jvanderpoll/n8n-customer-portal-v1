@@ -119,7 +119,7 @@ describe("past periods", () => {
     const full = persona("full");
     const sub = full.subscriptions[0]!;
     const byLicense = cumulativeUsageChart(sub, full.instances, full.licenses, "term", "license");
-    expect(byLicense.series.map((item) => item.name)).toEqual(["Production", "EU production", "Batch workloads", "Development & staging"]);
+    expect(byLicense.series.map((item) => item.name)).toEqual(["Production", "Batch workloads", "EU production", "Development & staging"]);
     expect(byLicense.series.reduce((sum, item) => sum + item.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
     const lastLicense = byLicense.points.at(-1)!;
     expect(Object.values(lastLicense.values).reduce((sum, value) => sum + value, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
@@ -127,6 +127,10 @@ describe("past periods", () => {
     const byInstance = cumulativeUsageChart(sub, full.instances, full.licenses, "3m", "instance");
     expect(byInstance.series).toHaveLength(8);
     expect(byInstance.series.at(-1)?.name).toBe("Other instances");
+    const named = byInstance.series.filter((item) => item.id !== "other-instances");
+    const busiest = Math.max(...named.map((item) => item.executions));
+    const quietest = Math.min(...named.map((item) => item.executions));
+    expect(busiest / quietest).toBeGreaterThan(20);
     expect(byInstance.points).toHaveLength(3);
     expect(byInstance.points.at(-1)?.cumulative).toBe(NORTHWIND_TERM_EXECUTIONS);
     expect(byInstance.points[0]?.cumulative).toBe(37640);

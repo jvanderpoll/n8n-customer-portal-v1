@@ -363,10 +363,9 @@ function UsageLines({
     ...(showQuota ? { quota: point.quota } : {}),
   }));
   const lastIndex = Math.max(0, chartRows.length - 1);
-  // Other instances is ~18× the named peaks. A shared linear scale collapses the
-  // seven named strokes onto the baseline; a dual axis re-overlays them because
-  // the split is proportional. Use a log scale only when Other is present so the
-  // magnitude gap stays visible. Tooltip values remain the raw cumulatives.
+  // Named instances span a wide range, and the quiet remainder is folded into
+  // Other. A shared linear scale pins the smaller strokes to the baseline.
+  // A log scale keeps that gap visible. Tooltip values remain the raw cumulatives.
   const compressOther = series.some((item) => item.id === "other-instances");
   const allValues = points.flatMap((point) => series.map((item) => point.values[item.id] ?? 0));
   const peak = Math.max(1, ...allValues, ...(showQuota ? [quota] : []));

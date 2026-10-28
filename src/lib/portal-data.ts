@@ -132,14 +132,14 @@ function splitExact(count: number, target: number, seedBase: number): number[] {
 }
 
 function genInstances(
-  subs: { id: string; license: string; env: Instance["env"]; count: number; target: number }[],
+  subs: { id: string; license: string; env: Instance["env"]; count?: number; target?: number; executions?: number[] }[],
   options: { includeVersion?: boolean } = {},
 ): Instance[] {
   const includeVersion = options.includeVersion ?? true;
   const out: Instance[] = [];
   let k = 1;
   for (const s of subs) {
-    const parts = splitExact(s.count, s.target, k);
+    const parts = s.executions ?? splitExact(s.count ?? 0, s.target ?? 0, k);
     parts.forEach((executions, i) => {
       const team = teams[(k + i) % teams.length];
       out.push({
@@ -213,13 +213,15 @@ export const personas: Persona[] = [
       license("LIC-NW-EU-01", "s1", "Production", "EU production"),
       license("LIC-NW-BATCH-01", "s1", "Production", "Batch workloads"),
     ],
-    // 13 instances; executions still sum to 87,603. No invented n8n versions.
+    // 13 instances summing to 87,603. A few production instances carry most of
+    // the term; the rest are departmental, batch, or staging and sit far lower.
+    // No invented n8n versions.
     instances: genInstances(
       [
-        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", count: 6, target: 41_200 },
-        { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", count: 3, target: 8_400 },
-        { id: "s1", license: "LIC-NW-EU-01", env: "Production", count: 2, target: 22_100 },
-        { id: "s1", license: "LIC-NW-BATCH-01", env: "Production", count: 2, target: 15_903 },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [37_700, 2_363, 12_200, 200, 21_400, 900] },
+        { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", executions: [140, 80, 50] },
+        { id: "s1", license: "LIC-NW-EU-01", env: "Production", executions: [4_800, 160] },
+        { id: "s1", license: "LIC-NW-BATCH-01", env: "Production", executions: [7_500, 110] },
       ],
       { includeVersion: false },
     ),
