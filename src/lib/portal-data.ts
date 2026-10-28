@@ -162,27 +162,26 @@ function genInstances(
 const license = (id: string, subscriptionId: string, environment: Instance["env"], label: string, status: License["status"] = "Active"): License => ({ id, subscriptionId, environment, label, status });
 
 /**
- * Placeholder monthly billable executions for Northwind's running term.
- * Back-loaded (early months small, later larger). Sum = 87,603.
- * A Hex table export will replace these values when available.
+ * Placeholder monthly billable executions for the running term.
+ * Quiet start, then a ramp through the recent billing months. Sum = 296,619.
  *
- * Term story (documented): 26 Jan 2026 – 25 Jan 2027, renews 26 Jan 2027.
- * Prototype NOW is 22 Oct 2026; billingAsOf is 28 Oct 2026 so anniversary
- * month 10 (26 Oct – 25 Nov) has started — "month 10 of 12" in late Oct.
+ * Term: 10 Apr 2026 – 9 Apr 2027, renews 10 Apr 2027.
+ * billingAsOf is 27 Oct 2026, so anniversary month 7 (10 Oct – 9 Nov) is open:
+ * about 55% of the term elapsed and about 6% of quota used.
  */
 export function placeholderMonthlyExecutionsNorthwind(): number[] {
-  return [120, 280, 450, 890, 2_100, 6_800, 11_200, 15_800, 22_100, 27_863];
+  return [2_419, 4_800, 11_200, 42_000, 58_000, 84_000, 94_200];
 }
 
-export const NORTHWIND_TERM_EXECUTIONS = 87_603;
-export const NORTHWIND_ANNUAL_QUOTA = 2_400_000;
+export const NORTHWIND_TERM_EXECUTIONS = 296_619;
+export const NORTHWIND_ANNUAL_QUOTA = 4_800_000;
 export const NORTHWIND_ANNUAL_AMOUNT_EUR = 111_000;
 
 export const personas: Persona[] = [
   {
     id: "full",
     label: "Enterprise account",
-    hint: "One running subscription. Low quota use mid-term; renewal in January.",
+    hint: "One running subscription. Low quota use in month 7; renewal in April.",
     company: "Fieldstone Software B.V.",
     user: "Alexandra Bennett · System admin",
     csm: "Lukas Weber",
@@ -194,30 +193,30 @@ export const personas: Persona[] = [
         name: "Enterprise",
         plan: "Self-hosted Enterprise",
         // Anonymized client-summary shape (not a real customer account).
-        // Term: 26 Jan 2026 – 25 Jan 2027, renews 26 Jan 2027.
-        // billingAsOf 28 Oct 2026 → month 10 of 12 has started (anniversary day 26).
+        // Term: 10 Apr 2026 – 9 Apr 2027, renews 10 Apr 2027.
+        // billingAsOf 27 Oct 2026 → month 7 of 12 is open (anniversary day 10).
         quota: NORTHWIND_ANNUAL_QUOTA,
-        start: "2026-01-26",
-        end: "2027-01-25",
-        renewal: "2027-01-26",
+        start: "2026-04-10",
+        end: "2027-04-09",
+        renewal: "2027-04-10",
         quotaResetsAtRenewal: true,
         annualAmountEur: NORTHWIND_ANNUAL_AMOUNT_EUR,
         monthlyExecutions: placeholderMonthlyExecutionsNorthwind(),
-        billingAsOf: "2026-10-28T06:00:00Z",
+        billingAsOf: "2026-10-27T00:00:00Z",
       },
     ],
     licenses: [
       license("LIC-NW-PRD-01", "s1", "Production", "Production"),
     ],
-    // 13 instances on the single license, summing to 87,603. A few production
-    // instances carry most of the term; the rest sit far lower.
+    // 13 instances on the single license, summing to 296,619. One production
+    // instance carries most of the term; the rest are much quieter.
     // No invented n8n versions.
     instances: genInstances(
       [
-        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [37_700, 2_363, 12_200, 200, 21_400, 900] },
-        { id: "s1", license: "LIC-NW-PRD-01", env: "Non-production", executions: [140, 80, 50] },
-        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [4_800, 160] },
-        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [7_500, 110] },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [214_000, 2_100, 18_400, 1_200, 42_000, 1_400] },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Non-production", executions: [1_100, 980, 900] },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [8_200, 850] },
+        { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [4_600, 889] },
       ],
       { includeVersion: false },
     ),

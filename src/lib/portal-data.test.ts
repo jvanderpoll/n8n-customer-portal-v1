@@ -30,7 +30,7 @@ describe("subscription summary", () => {
     const sub = per.subscriptions[0]!;
     expect(sub.quota).toBe(NORTHWIND_ANNUAL_QUOTA);
     expect(summarize(sub, per.instances).used).toBe(NORTHWIND_TERM_EXECUTIONS);
-    expect(Math.round((NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA) * 1000) / 10).toBe(3.7);
+    expect(Math.round((NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA) * 1000) / 10).toBe(6.2);
     expect(per.instances).toHaveLength(13);
     expect(per.licenses.map((l) => l.id)).toEqual(["LIC-NW-PRD-01"]);
     expect(per.instances.every((i) => i.license === "LIC-NW-PRD-01")).toBe(true);
@@ -44,8 +44,9 @@ describe("subscription summary", () => {
   it("period progress treats the end date as inclusive and uses billingAsOf for Northwind", () => {
     const sub = p("full").subscriptions[0]!;
     expect(subscriptionStatus(sub)).toBe("Running");
-    expect(periodProgress(sub).daysLeft).toBe(90);
-    expect(monthsAndDaysUntil(sub.renewal!, sub.billingAsOf)).toBe("2 months and 29 days");
-    expect(periodProgress(sub, "2027-01-26T00:00:00Z")).toEqual({ pct: 1, daysLeft: 0 });
+    expect(periodProgress(sub).daysLeft).toBe(165);
+    expect(Math.round(periodProgress(sub).pct * 1000) / 10).toBe(54.8);
+    expect(monthsAndDaysUntil(sub.renewal!, sub.billingAsOf)).toBe("5 months and 14 days");
+    expect(periodProgress(sub, "2027-04-10T00:00:00Z")).toEqual({ pct: 1, daysLeft: 0 });
   });
 });

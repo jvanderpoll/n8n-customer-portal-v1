@@ -53,20 +53,19 @@ describe("past periods", () => {
     const series = placeholderMonthlyExecutionsNorthwind();
     expect(series.reduce((a, b) => a + b, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
     const periods = pastPeriods(sub, full.instances);
-    expect(periods).toHaveLength(10);
+    expect(periods).toHaveLength(7);
     expect(periods.map((p) => p.id)).toEqual([
-      "2026-01-26", "2026-02-26", "2026-03-26", "2026-04-26", "2026-05-26",
-      "2026-06-26", "2026-07-26", "2026-08-26", "2026-09-26", "2026-10-26",
+      "2026-04-10", "2026-05-10", "2026-06-10", "2026-07-10", "2026-08-10", "2026-09-10", "2026-10-10",
     ]);
     expect(periods.map((p) => p.executions)).toEqual(series);
     expect(periods.reduce((sum, p) => sum + p.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
     // Equal share of the full 12-month contract; only 10 months have started.
     expect(periods.every((p) => p.quota === NORTHWIND_ANNUAL_QUOTA / 12)).toBe(true);
-    expect(periods.reduce((sum, p) => sum + p.quota, 0)).toBe((NORTHWIND_ANNUAL_QUOTA / 12) * 10);
+    expect(periods.reduce((sum, p) => sum + p.quota, 0)).toBe((NORTHWIND_ANNUAL_QUOTA / 12) * 7);
     expect(sub.annualAmountEur).toBe(NORTHWIND_ANNUAL_AMOUNT_EUR);
     expect(periods.every((p) => p.amountEur === null)).toBe(true);
     expect(periods.at(-1)).toMatchObject({
-      id: "2026-10-26",
+      id: "2026-10-10",
       standing: "in-progress",
       amountEur: null,
       delta: 0,
@@ -98,7 +97,7 @@ describe("past periods", () => {
     const sub = full.subscriptions[0]!;
     const term = monthlyChartPoints(sub, full.instances, "term");
     const last3 = monthlyChartPoints(sub, full.instances, "3m");
-    expect(term).toHaveLength(10);
+    expect(term).toHaveLength(7);
     expect(last3).toHaveLength(3);
     expect(term.reduce((sum, p) => sum + p.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
     expect(term.at(-1)?.cumulativeQuotaPct).toBeCloseTo(NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA);
@@ -108,11 +107,11 @@ describe("past periods", () => {
     const sub = full.subscriptions[0]!;
     const { points, series } = cumulativeUsageChart(sub, full.instances, full.licenses, "term", "subscription");
     expect(series).toEqual([{ id: "subscription", name: "Enterprise", executions: NORTHWIND_TERM_EXECUTIONS }]);
-    expect(points).toHaveLength(10);
+    expect(points).toHaveLength(7);
     expect(points.at(-1)?.cumulative).toBe(NORTHWIND_TERM_EXECUTIONS);
     expect(points.at(-1)?.quota).toBe(NORTHWIND_ANNUAL_QUOTA);
     expect(points.at(-1)?.values.subscription).toBe(NORTHWIND_TERM_EXECUTIONS);
-    expect(points.map((point) => point.cumulative)).toEqual([120, 400, 850, 1740, 3840, 10640, 21840, 37640, 59740, 87603]);
+    expect(points.map((point) => point.cumulative)).toEqual([2419, 7219, 18419, 60419, 118419, 202419, 296619]);
     expect(quotaOnChartScale(NORTHWIND_TERM_EXECUTIONS, NORTHWIND_ANNUAL_QUOTA)).toBe(false);
   });
   it("splits the same cumulative total across licenses and instances", () => {
@@ -133,7 +132,7 @@ describe("past periods", () => {
     expect(busiest / quietest).toBeGreaterThan(20);
     expect(byInstance.points).toHaveLength(3);
     expect(byInstance.points.at(-1)?.cumulative).toBe(NORTHWIND_TERM_EXECUTIONS);
-    expect(byInstance.points[0]?.cumulative).toBe(37640);
+    expect(byInstance.points[0]?.cumulative).toBe(118419);
     const over = persona("over");
     const production = over.subscriptions[0]!;
     const overChart = cumulativeUsageChart(production, over.instances, over.licenses, "term", "subscription");
@@ -144,8 +143,8 @@ describe("past periods", () => {
   it("projects quota pace past renewal when usage is far under term elapsed", () => {
     const full = persona("full");
     const sub = full.subscriptions[0]!;
-    const sentence = quotaPaceSentence(sub, NORTHWIND_TERM_EXECUTIONS, 0.755);
-    expect(sentence).toContain("3.7% of quota used");
+    const sentence = quotaPaceSentence(sub, NORTHWIND_TERM_EXECUTIONS, 0.548);
+    expect(sentence).toContain("6.2% of quota used");
     expect(sentence).toContain("not this term");
   });
 });
