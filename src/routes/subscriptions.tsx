@@ -20,19 +20,25 @@ export const Route = createFileRoute("/subscriptions")({
     license: z.string().optional().catch(undefined),
     section: subscriptionSection.optional().catch(undefined),
   }),
-  head: () => portalHead("Subscriptions", "Your subscriptions, their quota, period and licenses."),
+  head: () => portalHead("Enterprise", "Quota, period and licenses for your subscription."),
   component: Subscriptions,
 });
 
 function Subscriptions() {
   const persona = usePersona();
   const search = Route.useSearch();
+  const { running } = runningFirst(persona);
+  // One subscription per account: open it directly. An explicit id still selects a fixture subscription.
+  const sub = persona.subscriptions.find((s) => s.id === search.subscription) ?? running[0] ?? persona.subscriptions[0];
+  if (!sub) return <SubscriptionList />;
+  const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
+  return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
+}
+
+/** Purchase list kept for a later return. Shown only when the account has no subscription. */
+function SubscriptionList() {
+  const persona = usePersona();
   const [tab, setTab] = useState<"running" | "expired">("running");
-  const sub = persona.subscriptions.find((s) => s.id === search.subscription);
-  if (sub) {
-    const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
-    return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
-  }
   const { running, expired } = runningFirst(persona);
   const list = tab === "running" ? running : expired;
   return <>
@@ -69,7 +75,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
     });
   };
   return <>
-    <WorkspaceTitle title={sub.name} crumbs={<Crumb><Link to="/subscriptions">Subscriptions</Link></Crumb>} trailing={<LastUpdate persona={persona} />} />
+    <WorkspaceTitle title={sub.name} trailing={<LastUpdate persona={persona} />} />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription sections">
       <button type="button" role="tab" aria-selected={section === "usage"} className={cn("subscription-tab", section === "usage" && "is-active")} onClick={() => setSection("usage")}>
         Usage
@@ -98,7 +104,7 @@ function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscri
   const persona = usePersona();
   const license = licensesFor(persona, sub.id).find((l) => l.id === licenseId)!;
   return <>
-    <WorkspaceTitle title={license.label} crumbs={<><Crumb><Link to="/subscriptions">Subscriptions</Link></Crumb><Crumb><Link to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></Crumb></>} trailing={<LicenseActions license={license} />} />
+    <WorkspaceTitle title={license.label} crumbs={<Crumb><Link to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></Crumb>} trailing={<LicenseActions license={license} />} />
     <div className="agreement-list">
     <section className="workspace-panel">
       <dl className="subscription-facts detail-facts">

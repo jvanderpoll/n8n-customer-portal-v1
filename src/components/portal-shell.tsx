@@ -47,7 +47,7 @@ export function useManagement() { const value = useContext(ManagementContext); i
 
 const navigation = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
-  { to: "/subscriptions", label: "Subscriptions", icon: Layers3 },
+  { to: "/subscriptions", label: "Enterprise", icon: Layers3 },
   { to: "/instances", label: "Instances", icon: Server },
   { to: "/users", label: "Users", icon: Users },
 ] as const;
