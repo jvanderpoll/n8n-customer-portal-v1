@@ -594,7 +594,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
     </dl>
     <Requirements subscription={sub} instanceCount={summary.instanceCount} />
     <div className="agreement-actions">
-      <span>{plural(summary.reportingCount, "instance")} reporting</span>
+      <Link to="/instances" search={{ subscription: sub.id }} className="quiet-link">{plural(summary.reportingCount, "instance")} reporting</Link>
       {view.quotaPrompt && <Link to="/instances" search={{ subscription: sub.id }} className="quiet-link">View top instances <ArrowUpRight size={14} /></Link>}
       {linked && <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>}
     </div>
