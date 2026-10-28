@@ -283,23 +283,26 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
               />
             </section>
           )}
-          <section className="workspace-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>Running subscriptions</h2>
-                <span className="supporting">Quota use and renewal for each active contract.</span>
+          {/* Kept for when an account can hold more than one subscription. */}
+          {false && (
+            <section className="workspace-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Running subscriptions</h2>
+                  <span className="supporting">Quota use and renewal for each active contract.</span>
+                </div>
               </div>
-            </div>
-            <DataTable
-              columns={columns}
-              rows={rows}
-              rowKey={(r) => r.id}
-              searchPlaceholder="Search subscriptions…"
-              csvFilename="running-subscriptions.csv"
-              empty="No subscriptions."
-              onRowClick={(r) => void navigate({ to: "/subscriptions", search: { subscription: r.id } })}
-            />
-          </section>
+              <DataTable
+                columns={columns}
+                rows={rows}
+                rowKey={(r) => r.id}
+                searchPlaceholder="Search subscriptions…"
+                csvFilename="running-subscriptions.csv"
+                empty="No subscriptions."
+                onRowClick={(r) => void navigate({ to: "/subscriptions", search: { subscription: r.id } })}
+              />
+            </section>
+          )}
           <p className="overview-footnote">
             <Link to="/subscriptions" className="text-link quiet-link">View subscription <ArrowUpRight size={14} /></Link>
           </p>
