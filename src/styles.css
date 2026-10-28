@@ -449,6 +449,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .chart-legend i { width: 6px; height: 6px; background: var(--color--orange-700); border-radius: 50%; flex-shrink: 0; }
 .chart-legend .legend-quota { border-top: 2px dashed var(--portal-caption); background: none; width: 12px; height: 0; border-radius: 0; }
 .chart-legend i.series-swatch { border-radius: 50%; }
+.chart-legend i.legend-bar { width: 10px; height: 10px; border-radius: 2px; background: var(--color--purple-500); }
+.chart-legend i.legend-quota-line { width: 14px; height: 0; border-radius: 0; border-top: 2px solid var(--color--orange-700); background: none; }
 .usage-chart { height: 220px; width: calc(100% - 32px); margin: 0 var(--spacing--sm); }
 .chart-empty { height: 260px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: var(--spacing--xs); color: var(--portal-secondary); font-size: var(--font-size--sm); }
 .chart-empty strong { color: var(--portal-text); font-weight: var(--font-weight--medium); }

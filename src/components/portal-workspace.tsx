@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Check, ChevronRight, CircleAlert, Copy, Info, KeyRound, RefreshCw } from "lucide-react";
-import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useManagement, usePersona } from "./portal-shell";
 import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
@@ -9,11 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   cumulativeUsageChart,
+  monthlyChartPoints,
   PLAN_FEATURES,
   pastPeriods,
   periodExecutionsLabel,
   planTier,
-  quotaOnChartScale,
   quotaPaceSentence,
   type PastPeriod,
   type UsageBreakdown,
@@ -428,16 +428,60 @@ function UsageLines({
   );
 }
 
+function MonthlyExecutionsChart({ subscription: sub, instances }: { subscription: Subscription; instances: Instance[] }) {
+  const points = monthlyChartPoints(sub, instances, "term");
+  const peak = Math.max(1, ...points.map((point) => point.executions));
+  const peakPct = Math.max(0.02, ...points.map((point) => point.cumulativeQuotaPct));
+  const axisTick = { fontSize: 13, fill: "var(--color--neutral-600)" } as const;
+  const patternId = `open-month-${sub.id}`;
+  return (
+    <>
+      <div className="usage-chart" role="img" aria-label={`Monthly executions for ${sub.name}, and the share of quota used to date`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={points} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+            <defs>
+              <pattern id={patternId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <rect width="6" height="6" fill="var(--color--purple-200)" />
+                <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color--purple-700)" strokeWidth="2" />
+              </pattern>
+            </defs>
+            <CartesianGrid stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
+            <YAxis yAxisId="executions" width={40} domain={[0, peak * 1.2]} tickFormatter={short} tick={axisTick} axisLine={false} tickLine={false} tickCount={4} />
+            <YAxis yAxisId="quota" orientation="right" width={44} domain={[0, peakPct * 1.35]} tickFormatter={(value) => percent1(Number(value))} tick={axisTick} axisLine={false} tickLine={false} tickCount={4} />
+            <Tooltip
+              labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
+              formatter={(value, name) => name === "cumulativeQuotaPct"
+                ? [percent1(Number(value)), "% of quota used to date"]
+                : [fmt(Number(value)), "Executions"]}
+              contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+            />
+            <Bar yAxisId="executions" dataKey="executions" radius={[2, 2, 0, 0]} maxBarSize={40} isAnimationActive={false}>
+              {points.map((point) => <Cell key={point.id} fill={point.open ? `url(#${patternId})` : "var(--color--purple-500)"} />)}
+            </Bar>
+            <Line yAxisId="quota" type="monotone" dataKey="cumulativeQuotaPct" stroke="var(--color--orange-700)" strokeWidth={2} dot={{ r: 3, fill: "var(--color--orange-700)", strokeWidth: 0 }} activeDot={{ r: 4, strokeWidth: 0 }} isAnimationActive={false} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="chart-legend">
+        <span><i className="legend-bar" />Executions</span>
+        <span><i className="legend-quota-line" />% of quota used to date</span>
+      </div>
+    </>
+  );
+}
+
 function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, note }: { subscription: Subscription; showPurchaseLink?: boolean; note?: React.ReactNode }) {
   const persona = usePersona();
   const summary = summarize(sub, persona.instances);
+  const monthly = monthlyChartPoints(sub, persona.instances, "term");
   const subscriptionChart = cumulativeUsageChart(sub, persona.instances, persona.licenses, "term", "subscription");
-  const showQuota = quotaOnChartScale(subscriptionChart.points.at(-1)?.cumulative ?? 0, sub.quota);
-  const exportRows = subscriptionChart.points.map((point) => [
+  const exportRows = monthly.map((point, index) => [
     point.label,
-    String(point.cumulative),
-    String(point.quota),
-    ...subscriptionChart.series.map((item) => String(point.values[item.id] ?? 0)),
+    String(point.executions),
+    String(subscriptionChart.points[index]?.cumulative ?? ""),
+    percent1(point.cumulativeQuotaPct),
+    ...subscriptionChart.series.map((item) => String(subscriptionChart.points[index]?.values[item.id] ?? 0)),
   ]);
   return (
     <>
@@ -454,7 +498,7 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
           )}
           <CsvExport
             filename={`${sub.name}-billable-executions.csv`}
-            headers={["Billing month", "Cumulative billable executions", "Quota", ...subscriptionChart.series.map((item) => item.name)]}
+            headers={["Billing month", "Executions", "Cumulative billable executions", "% of quota used to date", ...subscriptionChart.series.map((item) => item.name)]}
             rows={exportRows}
             label="Download usage chart data"
           />
@@ -465,16 +509,9 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
       ) : (
         <>
           <div className="chart-stack">
-            <section className="chart-column chart-column--total" aria-label="Total">
-              <h3>Total</h3>
-              <UsageLines
-                label={`Cumulative billable executions for ${sub.name}, ${fmt(summary.used)} of ${fmt(sub.quota)} quota`}
-                quota={sub.quota}
-                points={subscriptionChart.points}
-                series={subscriptionChart.series}
-                showQuota={showQuota}
-              />
-              {!showQuota && <p className="chart-quota-note">Quota {fmt(sub.quota)} is above this scale.</p>}
+            <section className="chart-column chart-column--total" aria-label="Monthly executions">
+              <h3>Monthly executions</h3>
+              <MonthlyExecutionsChart subscription={sub} instances={persona.instances} />
             </section>
             <div className="chart-columns">
               {BREAKDOWN_CHARTS.map((chart) => {

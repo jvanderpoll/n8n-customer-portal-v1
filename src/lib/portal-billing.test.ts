@@ -101,6 +101,8 @@ describe("past periods", () => {
     expect(last3).toHaveLength(3);
     expect(term.reduce((sum, p) => sum + p.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
     expect(term.at(-1)?.cumulativeQuotaPct).toBeCloseTo(NORTHWIND_TERM_EXECUTIONS / NORTHWIND_ANNUAL_QUOTA);
+    expect(term.at(-1)?.open).toBe(true);
+    expect(term.slice(0, -1).every((point) => point.open === false)).toBe(true);
   });
   it("plots cumulative billable executions by billing month against quota", () => {
     const full = persona("full");

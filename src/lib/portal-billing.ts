@@ -190,6 +190,8 @@ export interface MonthlyChartPoint {
   shortLabel: string;
   executions: number;
   cumulativeQuotaPct: number;
+  /** True while this billing month has not closed. */
+  open: boolean;
 }
 
 /** Monthly points for overview/subscription charts from past-period rows. */
@@ -205,6 +207,7 @@ export function monthlyChartPoints(sub: Subscription, instances: Instance[], ran
       shortLabel: new Date(p.start).toLocaleDateString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" }),
       executions: p.executions,
       cumulativeQuotaPct: sub.quota > 0 ? cumulative / sub.quota : 0,
+      open: p.standing === "in-progress",
     };
   });
 }
