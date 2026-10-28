@@ -509,7 +509,6 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
   const { summary, period } = view;
   const running = view.status === "Running";
   const fill = running ? quotaColor(summary.pct) : "var(--color--neutral-400, var(--portal-caption))";
-  const figureColor = running ? quotaTextColor(summary.pct) : undefined;
   const timePct = Math.min(1, Math.max(0, period.pct));
   const leadDate = running
     ? sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`
@@ -531,17 +530,24 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
         <strong>{leadDate}</strong>
       </div>
     </div>
-    <div className="usage-meter">
-      <div className="usage-meter-head">
-        <strong className="quota-figure" style={figureColor ? { color: figureColor } : undefined}>{percent1(summary.pct)}</strong>
-        <span>of quota used · {fmt(summary.used)} of {fmt(sub.quota)} executions</span>
+    <div className="usage-meters">
+      <div className="usage-meter">
+        <div className="usage-meter-head">
+          <span>Annual executions used</span>
+          <span className="meter-value">{fmt(summary.used)} / {fmt(sub.quota)} · {percent1(summary.pct)}</span>
+        </div>
+        <div className="quota-bar" role="progressbar" aria-label="Annual executions used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, summary.pct * 100))}>
+          <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: fill }} />
+        </div>
       </div>
-      <div className="quota-bar" role="progressbar" aria-label="Quota used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(summary.pct * 100)}>
-        <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: fill }} />
-        <i className="time-marker" style={{ left: `${timePct * 100}%` }} aria-hidden="true" />
-      </div>
-      <div className="usage-meter-scale">
-        <span className="time-label" style={{ left: `${timePct * 100}%`, transform: `translateX(-${timePct * 100}%)` }}>{running ? `${plural(period.daysLeft, "day")} left` : "Period ended"}</span>
+      <div className="usage-meter">
+        <div className="usage-meter-head">
+          <span>Time into contract</span>
+          <span className="meter-value">{percent1(timePct)}</span>
+        </div>
+        <div className="quota-bar period-bar" role="progressbar" aria-label="Time into contract" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(timePct * 100)}>
+          <span style={{ width: `${timePct * 100}%` }} />
+        </div>
       </div>
     </div>
     <dl className="subscription-facts">

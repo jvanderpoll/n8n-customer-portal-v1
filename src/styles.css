@@ -695,14 +695,13 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .subscription-card h2 a { color: var(--portal-text); text-decoration: underline; }
 .lead-date { display: flex; align-items: center; gap: var(--spacing--xs); font-size: var(--font-size--md); flex-wrap: wrap; justify-content: end; }
 .lead-date strong { font-weight: var(--font-weight--bold); color: var(--portal-text); }
-.usage-meter { display: grid; gap: var(--spacing--2xs); padding: var(--spacing--2xs) var(--spacing--lg) var(--spacing--lg); }
-.usage-meter-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--spacing--xs); font-size: var(--font-size--sm); color: var(--portal-secondary); }
-.usage-meter-head > strong { font-size: var(--font-size--3xl, 2rem); font-weight: var(--font-weight--bold); line-height: var(--line-height--sm); letter-spacing: var(--letter-spacing--tight); font-variant-numeric: tabular-nums; color: var(--portal-text); background: none; }
-.quota-bar { position: relative; height: 10px; border-radius: var(--radius--full); background: var(--color--neutral-200, var(--color--neutral-150)); }
+.usage-meters { display: grid; gap: var(--spacing--lg); padding: var(--spacing--sm) var(--spacing--lg) var(--spacing--lg); }
+.usage-meter { display: grid; gap: var(--spacing--2xs); }
+.usage-meter-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing--sm); font-size: var(--font-size--sm); color: var(--portal-secondary); }
+.usage-meter-head .meter-value { color: var(--portal-text); font-weight: var(--font-weight--medium); font-variant-numeric: tabular-nums; text-align: right; }
+.quota-bar { position: relative; height: 6px; border-radius: var(--radius--full); background: var(--color--neutral-200, var(--color--neutral-150)); overflow: hidden; }
 .quota-bar > span { display: block; height: 100%; border-radius: inherit; }
-.time-marker { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: var(--portal-text); border-radius: 1px; }
-.usage-meter-scale { position: relative; font-size: var(--font-size--sm); min-height: 20px; }
-.usage-meter-scale .time-label { position: absolute; top: 0; white-space: nowrap; color: var(--portal-text); font-weight: var(--font-weight--medium); }
+.period-bar > span { background: var(--color--purple-700); }
 .subscription-tabs { display: flex; gap: var(--spacing--lg); margin-bottom: var(--spacing--lg); border-bottom: 1px solid var(--border); }
 .subscription-tab { appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: var(--spacing--2xs) 0; font: inherit; font-size: var(--font-size--md); font-weight: var(--font-weight--medium); color: var(--portal-text); cursor: pointer; }
 .subscription-tab.is-active { border-bottom-color: var(--portal-text); }
@@ -711,15 +710,13 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .subscription-facts dt { font-size: var(--font-size--sm); color: var(--portal-secondary); margin-bottom: var(--spacing--4xs); }
 .subscription-facts dd { font-size: var(--font-size--md); font-weight: var(--font-weight--medium); color: var(--portal-text); }
 .subscription-card.is-expired { color: var(--portal-secondary); }
-.subscription-card.is-expired .usage-meter-head > strong,
-.subscription-card.is-expired .time-label,
+.subscription-card.is-expired .meter-value,
 .subscription-card.is-expired .lead-date strong,
 .subscription-card.is-expired h2,
 .subscription-card.is-expired h2 a,
 .subscription-card.is-expired .subscription-facts dd,
 .subscription-card.is-expired .agreement-actions { color: var(--portal-secondary); }
 .subscription-card.is-expired .agreement-symbol { color: var(--portal-secondary); }
-.subscription-card.is-expired .time-marker { background: var(--portal-secondary); }
 .subscription-card.is-expired .quota-bar > span { background: var(--color--neutral-400, var(--portal-caption)) !important; }
 .contract-note ul { margin-top: var(--spacing--4xs); list-style: disc; padding-left: var(--spacing--lg); }
 .section-heading { font-size: var(--font-size--lg); font-weight: var(--font-weight--bold); color: var(--portal-text); margin: var(--spacing--xl) 0 var(--spacing--sm); }
@@ -742,4 +739,4 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .choice small { font-size: var(--font-size--sm); color: var(--portal-secondary); }
 .scope-options { display: grid; gap: var(--spacing--2xs); padding-left: var(--spacing--xl); }
 @media (max-width: 1000px) { .subscription-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .subscription-facts.detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 700px) { .usage-meter { padding-left: var(--spacing--sm); padding-right: var(--spacing--sm); } .subscription-facts, .subscription-facts.detail-facts { grid-template-columns: 1fr; padding-left: var(--spacing--sm); padding-right: var(--spacing--sm); } .lead-date { justify-content: start; } .subscription-card .panel-heading { flex-wrap: wrap; } .subscription-tabs { gap: var(--spacing--sm); } }
+@media (max-width: 700px) { .usage-meters { padding-left: var(--spacing--sm); padding-right: var(--spacing--sm); } .subscription-facts, .subscription-facts.detail-facts { grid-template-columns: 1fr; padding-left: var(--spacing--sm); padding-right: var(--spacing--sm); } .lead-date { justify-content: start; } .subscription-card .panel-heading { flex-wrap: wrap; } .subscription-tabs { gap: var(--spacing--sm); } }
