@@ -696,6 +696,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .lead-date strong { font-weight: var(--font-weight--bold); color: var(--portal-text); }
 .usage-meters { display: grid; gap: var(--spacing--2xs); padding: var(--spacing--sm) var(--spacing--lg) var(--spacing--lg); }
 .usage-meter { display: grid; gap: var(--spacing--2xs); }
+.usage-meters .usage-meter:first-child { padding-bottom: var(--spacing--2xs); }
 .usage-meter-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing--sm); font-size: var(--font-size--sm); color: var(--portal-secondary); }
 .usage-meter-head .meter-value { color: var(--portal-text); font-weight: var(--font-weight--medium); font-variant-numeric: tabular-nums; text-align: right; }
 .quota-bar { position: relative; height: 6px; border-radius: var(--radius--full); background: var(--color--neutral-200, var(--color--neutral-150)); overflow: hidden; }
