@@ -332,6 +332,15 @@ export function cumulativeUsageChart(
       values,
     };
   });
+  // Monthly rounding can leave a line a few executions off its reported total.
+  // The last point is the term total shown in the instances table.
+  const lastPoint = points.at(-1);
+  if (lastPoint) {
+    series.forEach((item) => {
+      lastPoint.values[item.id] = item.executions;
+    });
+    lastPoint.cumulative = series.reduce((sum, item) => sum + (lastPoint.values[item.id] ?? 0), 0);
+  }
   const sliced = range === "3m" ? points.slice(-3) : range === "12m" ? points.slice(-12) : points;
   return { points: sliced, series };
 }

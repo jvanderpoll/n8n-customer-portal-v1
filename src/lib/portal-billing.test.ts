@@ -134,6 +134,9 @@ describe("past periods", () => {
     expect(busiest / quietest).toBeGreaterThan(20);
     expect(byInstance.points).toHaveLength(3);
     expect(byInstance.points.at(-1)?.cumulative).toBe(NORTHWIND_TERM_EXECUTIONS);
+    for (const item of byInstance.series) {
+      expect(byInstance.points.at(-1)?.values[item.id]).toBe(item.executions);
+    }
     expect(byInstance.points[0]?.cumulative).toBe(118419);
     const over = persona("over");
     const production = over.subscriptions[0]!;

@@ -363,14 +363,10 @@ function UsageLines({
     ...(showQuota ? { quota: point.quota } : {}),
   }));
   const lastIndex = Math.max(0, chartRows.length - 1);
-  // Named instances span a wide range, and the quiet remainder is folded into
-  // Other. A shared linear scale pins the smaller strokes to the baseline.
-  // A log scale keeps that gap visible. Tooltip values remain the raw cumulatives.
-  const compressOther = series.some((item) => item.id === "other-instances");
   const allValues = points.flatMap((point) => series.map((item) => point.values[item.id] ?? 0));
   const peak = Math.max(1, ...allValues, ...(showQuota ? [quota] : []));
-  const floor = compressOther ? Math.max(1, Math.min(...allValues.filter((value) => value > 0))) : 0;
   const axisTick = { fontSize: 13, fill: "var(--color--neutral-600)" } as const;
+  const markEnds = series.length > 1;
   return (
     <>
       <div className="usage-chart" role="img" aria-label={label}>
@@ -379,15 +375,13 @@ function UsageLines({
             <CartesianGrid stroke="var(--border)" vertical={false} />
             <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
             <YAxis
-              width={36}
-              {...(compressOther
-                ? { scale: "log" as const, domain: [floor, peak * 1.15], allowDataOverflow: true }
-                : { domain: [0, peak * 1.15] })}
+              width={44}
+              domain={[0, peak * 1.1]}
               tickFormatter={short}
               tick={axisTick}
               axisLine={false}
               tickLine={false}
-              tickCount={4}
+              tickCount={5}
             />
             <Tooltip
               labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
@@ -409,7 +403,7 @@ function UsageLines({
                   stroke={color}
                   strokeWidth={isOther ? 2.25 : 2}
                   strokeDasharray={isOther ? "5 4" : undefined}
-                  dot={compressOther ? seriesEndDot(color, lastIndex) : false}
+                  dot={markEnds ? seriesEndDot(color, lastIndex) : false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
                   isAnimationActive={false}
                 />
