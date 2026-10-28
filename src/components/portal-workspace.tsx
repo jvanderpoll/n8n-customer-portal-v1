@@ -303,9 +303,6 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
               />
             </section>
           )}
-          <p className="overview-footnote">
-            <Link to="/subscriptions" className="text-link quiet-link">View subscription <ArrowUpRight size={14} /></Link>
-          </p>
         </>
       )}
     </>
