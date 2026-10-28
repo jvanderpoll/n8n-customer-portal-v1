@@ -234,7 +234,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         <div className="overview-metric-row">
           <div className="summary-metric">
             <Link to="/subscriptions" className="summary-metric-link">
-              <span className="metric-label">Subscriptions</span>
+              <span className="metric-label">Subscription</span>
               <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
             </Link>
             {primaryLicenseId && <CopyLicenseId licenseId={primaryLicenseId} />}
