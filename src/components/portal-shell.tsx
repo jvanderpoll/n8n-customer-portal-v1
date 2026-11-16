@@ -37,7 +37,7 @@ export function usePersona() {
   return persona;
 }
 
-const PrototypeModeContext = createContext<PrototypeMode>("old");
+const PrototypeModeContext = createContext<PrototypeMode>("new");
 export function usePrototypeMode() {
   return useContext(PrototypeModeContext);
 }
@@ -53,7 +53,7 @@ export function useManagement() { const value = useContext(ManagementContext); i
 
 const navigation = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
-  { to: "/subscriptions", label: "Subscription", icon: Layers3 },
+  { to: "/subscriptions", label: "Subscriptions", icon: Layers3 },
   { to: "/instances", label: "Instances", icon: Server },
   { to: "/users", label: "Users", icon: Users },
 ] as const;
@@ -301,17 +301,19 @@ function PrototypeSettings({
           </button>
         </div>
       )}
-      <button
-        type="button"
-        className={cn("prototype-settings-trigger", mode === "new" && "is-new-mode")}
-        aria-label={`Prototype settings (${mode === "new" ? "New" : "Old"} mode)`}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Settings size={20} aria-hidden="true" />
+      <div className="prototype-settings-control">
         <span className="prototype-mode-badge" aria-hidden="true">{mode === "new" ? "New" : "Old"}</span>
-      </button>
+        <button
+          type="button"
+          className={cn("prototype-settings-trigger", mode === "new" && "is-new-mode")}
+          aria-label={`Prototype settings (${mode === "new" ? "New" : "Old"} mode)`}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Settings size={20} aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -319,12 +321,12 @@ function PrototypeSettings({
 export function PortalShell({ children }: { children: ReactNode }) {
   const [pid, setPid] = useState("full");
   const [emptyPortal, setEmptyPortal] = useState(false);
-  const [mode, setMode] = useState<PrototypeMode>("old");
+  const [mode, setMode] = useState<PrototypeMode>("new");
   const [revision, setRevision] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const navigate = useNavigate();
-  const [account, setAccount] = useState(() => createAccount(personasFor("old")[0]!));
+  const [account, setAccount] = useState(() => createAccount(personasFor("new")[0]!));
   const role: Role = "admin";
   const perform = (action: ManagementAction) => { try { setAccount(applyManagement(account, action, role)); return null; } catch (error) { return error instanceof Error ? error.message : "Unable to complete this action."; } };
   const refreshUsage = () => {

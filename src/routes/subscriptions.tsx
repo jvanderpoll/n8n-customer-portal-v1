@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { usePersona, usePrototypeMode } from "@/components/portal-shell";
-import { Crumb, InstanceList, LastUpdate, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
+import { Crumb, InstanceList, LastUpdate, PastPeriods, SubscriptionCard, SubscriptionLicenseKeys, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
 import { licenseReferenceLabel } from "@/lib/portal-copy";
 import { RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
@@ -27,14 +27,10 @@ export const Route = createFileRoute("/subscriptions")({
 
 function Subscriptions() {
   const persona = usePersona();
-  const mode = usePrototypeMode();
   const search = Route.useSearch();
-  const { running } = runningFirst(persona);
-  // Old / single-subscription: open the subscription directly.
-  // New multi-subscription: show the list unless a subscription id is selected.
-  const multiNew = mode === "new" && persona.subscriptions.length > 1;
-  if (multiNew && !search.subscription) return <SubscriptionList />;
-  const sub = persona.subscriptions.find((s) => s.id === search.subscription) ?? running[0] ?? persona.subscriptions[0];
+  const sub = search.subscription
+    ? persona.subscriptions.find((s) => s.id === search.subscription)
+    : undefined;
   if (!sub) return <SubscriptionList />;
   const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
   return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
@@ -79,7 +75,11 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
     });
   };
   return <>
-    <WorkspaceTitle title={`Subscription: ${sub.name}`} trailing={<LastUpdate persona={persona} />} />
+    <WorkspaceTitle
+      title={`Subscription: ${sub.name}`}
+      crumbs={<Crumb><Link to="/subscriptions" search={{ subscription: undefined, license: undefined, section: undefined }}>Back to Subscriptions</Link></Crumb>}
+      trailing={<LastUpdate persona={persona} />}
+    />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription sections">
       <button type="button" role="tab" aria-selected={section === "usage"} className={cn("subscription-tab", section === "usage" && "is-active")} onClick={() => setSection("usage")}>
         Usage
@@ -92,6 +92,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
       {section === "usage" && (
         <>
           <SubscriptionCard subscription={sub} />
+          <SubscriptionLicenseKeys subscription={sub} />
           <UsagePanel subscription={sub} />
         </>
       )}
@@ -110,8 +111,22 @@ function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscri
     <div className="agreement-list">
     <section className="workspace-panel">
       <dl className="subscription-facts detail-facts">
-        <div><dt>{licenseReferenceLabel(mode)}</dt><dd className="mono-text">{license.id}</dd></div>
-        {showIssuedTo && <div><dt>Issued to</dt><dd>{license.issuedTo ?? "—"}</dd></div>}
+        <div>
+          <dt>{licenseReferenceLabel(mode)}</dt>
+          <dd className="mono-text">
+            {license.id}
+            {mode === "new" && !showIssuedTo && <span className="metric-subtext"> Subscription {sub.name}</span>}
+          </dd>
+        </div>
+        {showIssuedTo && (
+          <div>
+            <dt>Issued to</dt>
+            <dd>
+              {license.issuedTo ?? "—"}
+              {mode === "new" && <span className="metric-subtext"> Subscription {sub.name}</span>}
+            </dd>
+          </div>
+        )}
         <div><dt>Subscription</dt><dd><Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
         <div><dt>Environment</dt><dd>{license.environment}</dd></div>
         <div><dt>Status</dt><dd>{license.status}</dd></div>

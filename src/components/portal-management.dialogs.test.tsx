@@ -17,7 +17,7 @@ vi.mock("@/components/portal-shell", () => ({
     refreshUsage: () => {},
   }),
   usePersona: () => account.persona,
-  usePrototypeMode: () => "old" as const,
+  usePrototypeMode: () => "new" as const,
 }));
 
 afterEach(() => {

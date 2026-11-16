@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { usePersona } from "@/components/portal-shell";
+import { usePersona, usePrototypeMode } from "@/components/portal-shell";
 import { Crumb, DataTable, LastUpdate, ReportingStatus, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
 import { BulkRemoveInstances, InstanceActions, RemovedInstances } from "@/components/portal-management";
 import { activeInstances } from "@/lib/portal-management";
@@ -28,6 +28,7 @@ export const Route = createFileRoute("/instances")({
 
 function Instances() {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const detail = persona.instances.find((i) => i.id === search.instance);
@@ -61,7 +62,15 @@ function Instances() {
       id: "license",
       header: "License",
       accessor: (i) => i.license,
-      cell: (i) => <span className="mono-text">{i.license}</span>,
+      cell: (i) => {
+        const name = persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name;
+        return (
+          <span className="metric-license-line">
+            <span className="mono-text">{i.license}</span>
+            {mode === "new" && name && <span className="metric-subtext">Subscription {name}</span>}
+          </span>
+        );
+      },
     },
     {
       id: "executions",
@@ -178,6 +187,7 @@ function Instances() {
 
 function InstanceDetail({ instance: i }: { instance: Instance }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const sub = persona.subscriptions.find((s) => s.id === i.subscriptionId);
   const license = persona.licenses.find((l) => l.id === i.license);
   const summary = sub ? summarize(sub, persona.instances) : null;
@@ -189,7 +199,7 @@ function InstanceDetail({ instance: i }: { instance: Instance }) {
         <div><dt>Share of the subscription</dt><dd>{summary ? subscriptionShare(i.executions, summary.used) : "—"}</dd></div>
         <div><dt>Last report</dt><dd>{i.lastReport ? timestamp(i.lastReport) : "No report received"}</dd></div>
         <div><dt>Reporting status</dt><dd><ReportingStatus instance={i} /></dd></div>
-        <div><dt>License</dt><dd>{sub && license ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id, license: license.id }}>{license.label}</Link> : i.license}<small className="cell-caption mono-text">{i.license}</small></dd></div>
+        <div><dt>License</dt><dd>{sub && license ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id, license: license.id }}>{license.label}</Link> : i.license}<small className="cell-caption mono-text">{i.license}</small>{mode === "new" && sub && <span className="metric-subtext"> Subscription {sub.name}</span>}</dd></div>
         <div><dt>Key type</dt><dd>{license?.environment ?? i.env}</dd></div>
         <div><dt>Hosting</dt><dd>{sub ? instanceHosting(i, persona) : "—"}</dd></div>
         <div><dt>Subscription</dt><dd>{sub ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : "—"}{sub && <small className="cell-caption">{date(sub.start)} — {date(sub.end)}</small>}</dd></div>

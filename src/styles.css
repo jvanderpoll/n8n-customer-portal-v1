@@ -230,8 +230,14 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
   align-items: flex-end;
   gap: 10px;
 }
+.prototype-settings-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .prototype-settings-trigger {
   position: relative;
+  flex-shrink: 0;
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -249,20 +255,19 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .prototype-settings-trigger.is-new-mode:hover { background: #12402c; }
 .prototype-settings-trigger:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .prototype-mode-badge {
-  position: absolute;
-  right: -4px;
-  bottom: -4px;
+  position: static;
+  flex: 0 0 auto;
   min-width: 28px;
-  padding: 1px 5px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: #fff;
   color: #111;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: 0.02em;
 }
-.prototype-settings-trigger.is-new-mode .prototype-mode-badge {
+.prototype-settings-control:has(.is-new-mode) .prototype-mode-badge {
   background: #b7f0cc;
   color: #0d3b24;
 }
@@ -330,14 +335,26 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
   font-size: 12px;
   line-height: 1.35;
 }
+.overview-license-panel { margin-bottom: var(--spacing--lg); }
 .overview-license-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--spacing--lg) var(--spacing--lg);
   display: grid;
   gap: 4px;
-  margin-top: 4px;
+}
+.overview-license-keys .metric-license-line {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.overview-license-keys .metric-subtext-id,
+.overview-license-keys .metric-license-line .metric-subtext {
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .subscription-quota-list {
   list-style: none;
-  margin: 0;
+  margin: 0 0 var(--spacing--lg);
   padding: 0;
   display: grid;
   gap: var(--spacing--md);
@@ -352,6 +369,35 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .subscription-quota-list li.is-over-quota {
   border-color: hsl(24 70% 42%);
   background: hsl(24 80% 97%);
+}
+.overview-count-line {
+  margin: 0 0 var(--spacing--lg);
+  color: var(--portal-secondary);
+  font-size: var(--font-size--md);
+  line-height: 1.4;
+}
+.subscription-quota-row {
+  display: grid;
+  gap: 6px;
+  color: inherit;
+  text-decoration: none;
+  outline-offset: 3px;
+}
+.subscription-quota-row:focus-visible { outline: 2px solid var(--color--black-alpha-200); }
+.subscription-license-keys {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--spacing--lg) var(--spacing--lg);
+  display: grid;
+  gap: var(--spacing--md);
+}
+.license-key-instances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
 }
 .subscription-quota-head {
   display: flex;
@@ -781,6 +827,8 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .workspace-title-block { margin-bottom: var(--spacing--lg); }
 .workspace-title-block .workspace-title { margin-bottom: 0; }
 .breadcrumbs { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing--4xs); font-size: var(--font-size--sm); color: var(--portal-secondary); margin-bottom: var(--spacing--2xs); }
+.crumb-back { display: inline-flex; align-items: center; gap: var(--spacing--4xs); }
+.back-link-row { margin-bottom: var(--spacing--2xs); }
 .breadcrumbs a { color: var(--portal-text); font-weight: var(--font-weight--medium); text-decoration: underline; }
 .breadcrumbs a:hover, .subscription-card h2 a:hover { text-decoration: underline; }
 .table-link { color: var(--portal-text); font-weight: var(--font-weight--medium); text-decoration: none; }
