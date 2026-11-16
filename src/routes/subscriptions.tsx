@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { usePersona } from "@/components/portal-shell";
+import { usePersona, usePrototypeMode } from "@/components/portal-shell";
 import { Crumb, InstanceList, LastUpdate, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
+import { licenseReferenceLabel } from "@/lib/portal-copy";
 import { RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
@@ -26,9 +27,13 @@ export const Route = createFileRoute("/subscriptions")({
 
 function Subscriptions() {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const search = Route.useSearch();
   const { running } = runningFirst(persona);
-  // One subscription per account: open it directly. An explicit id still selects a fixture subscription.
+  // Old / single-subscription: open the subscription directly.
+  // New multi-subscription: show the list unless a subscription id is selected.
+  const multiNew = mode === "new" && persona.subscriptions.length > 1;
+  if (multiNew && !search.subscription) return <SubscriptionList />;
   const sub = persona.subscriptions.find((s) => s.id === search.subscription) ?? running[0] ?? persona.subscriptions[0];
   if (!sub) return <SubscriptionList />;
   const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
@@ -97,13 +102,16 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
 
 function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscription; licenseId: string }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const license = licensesFor(persona, sub.id).find((l) => l.id === licenseId)!;
+  const showIssuedTo = mode === "new" && persona.licenses.filter((l) => l.status === "Active").length > 1;
   return <>
     <WorkspaceTitle title={license.label} crumbs={<Crumb><Link to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></Crumb>} trailing={<LicenseActions license={license} />} />
     <div className="agreement-list">
     <section className="workspace-panel">
       <dl className="subscription-facts detail-facts">
-        <div><dt>License reference</dt><dd className="mono-text">{license.id}</dd></div>
+        <div><dt>{licenseReferenceLabel(mode)}</dt><dd className="mono-text">{license.id}</dd></div>
+        {showIssuedTo && <div><dt>Issued to</dt><dd>{license.issuedTo ?? "—"}</dd></div>}
         <div><dt>Subscription</dt><dd><Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
         <div><dt>Environment</dt><dd>{license.environment}</dd></div>
         <div><dt>Status</dt><dd>{license.status}</dd></div>

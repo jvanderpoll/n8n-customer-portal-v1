@@ -1,0 +1,11 @@
+{
+  "remote.autoForwardPorts": true,
+  "remote.autoForwardPortsSource": "hybrid",
+  "remote.portsAttributes": {
+    "8080": {
+      "label": "Customer Portal",
+      "onAutoForward": "openPreview",
+      "requireLocalPort": true
+    }
+  }
+}

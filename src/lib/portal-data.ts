@@ -1,5 +1,7 @@
 export type ReportStatus = "reported" | "zero" | "pending" | "error";
 
+export type PrototypeMode = "old" | "new";
+
 export interface Instance {
   id: string;
   name: string;
@@ -55,6 +57,8 @@ export interface License {
   environment: Instance["env"];
   status: "Active" | "Expired";
   label: string;
+  /** Who the license key was issued to. Shown in New prototype mode when multiple keys exist. */
+  issuedTo?: string;
 }
 
 export interface Persona {
@@ -159,7 +163,14 @@ function genInstances(
   return out;
 }
 
-const license = (id: string, subscriptionId: string, environment: Instance["env"], label: string, status: License["status"] = "Active"): License => ({ id, subscriptionId, environment, label, status });
+const license = (
+  id: string,
+  subscriptionId: string,
+  environment: Instance["env"],
+  label: string,
+  status: License["status"] = "Active",
+  issuedTo?: string,
+): License => ({ id, subscriptionId, environment, label, status, ...(issuedTo ? { issuedTo } : {}) });
 
 /**
  * Placeholder monthly billable executions for the running term.
@@ -173,10 +184,18 @@ export function placeholderMonthlyExecutionsNorthwind(): number[] {
   return [2_419, 4_800, 11_200, 42_000, 58_000, 84_000, 94_200];
 }
 
+/** EU expansion term (New mode): started later; already over a smaller quota. Sum = 512,400. */
+export function placeholderMonthlyExecutionsEuExpansion(): number[] {
+  return [18_200, 42_000, 96_000, 140_000, 216_200];
+}
+
 export const NORTHWIND_TERM_EXECUTIONS = 296_619;
 export const NORTHWIND_ANNUAL_QUOTA = 4_800_000;
 export const NORTHWIND_ANNUAL_AMOUNT_EUR = 111_000;
+export const EU_EXPANSION_TERM_EXECUTIONS = 512_400;
+export const EU_EXPANSION_ANNUAL_QUOTA = 400_000;
 
+/** Old prototype: single-subscription demo (ships today). */
 export const personas: Persona[] = [
   {
     id: "full",
@@ -257,3 +276,114 @@ export const personas: Persona[] = [
     ],
   },
 ];
+
+/**
+ * New prototype: Timothee’s multi-subscription case — different term starts,
+ * one over-quota and one under-quota, multiple license keys with issued-to.
+ */
+export const personasNew: Persona[] = [
+  {
+    id: "full",
+    label: "Enterprise account",
+    hint: "Two subscriptions with different term starts; one under quota, one over.",
+    company: "Fieldstone Software B.V.",
+    user: "Alexandra Bennett · System admin",
+    csm: "Lukas Weber",
+    csmEmail: "lukas.weber@n8n.io",
+    usageUpdated: hoursAgo(2),
+    subscriptions: [
+      {
+        id: "s1",
+        name: "Enterprise",
+        plan: "Self-hosted Enterprise",
+        quota: NORTHWIND_ANNUAL_QUOTA,
+        start: "2026-04-10",
+        end: "2027-04-09",
+        renewal: "2027-04-10",
+        quotaResetsAtRenewal: true,
+        annualAmountEur: NORTHWIND_ANNUAL_AMOUNT_EUR,
+        monthlyExecutions: placeholderMonthlyExecutionsNorthwind(),
+        billingAsOf: "2026-10-27T00:00:00Z",
+      },
+      {
+        id: "s2",
+        name: "Enterprise – EU expansion",
+        plan: "Self-hosted Enterprise",
+        // Later term start than Enterprise — Timothee’s “dates can differ” case.
+        quota: EU_EXPANSION_ANNUAL_QUOTA,
+        start: "2026-07-01",
+        end: "2027-06-30",
+        renewal: "2027-07-01",
+        quotaResetsAtRenewal: true,
+        monthlyExecutions: placeholderMonthlyExecutionsEuExpansion(),
+        billingAsOf: "2026-10-27T00:00:00Z",
+      },
+    ],
+    licenses: [
+      license("LIC-NW-PRD-01", "s1", "Production", "Production", "Active", "Alexandra Bennett"),
+      license("LIC-NW-NPR-01", "s1", "Non-production", "Staging", "Active", "ops-platform@fieldstone.nl"),
+      license("LIC-NW-EU-01", "s2", "Production", "EU production", "Active", "eu-ops@fieldstone.nl"),
+      license("LIC-NW-EU-STG-01", "s2", "Non-production", "EU staging", "Active", "Timothee Dehouck"),
+    ],
+    instances: [
+      ...genInstances(
+        [
+          { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [214_000, 2_100, 18_400, 1_200, 42_000, 1_400] },
+          { id: "s1", license: "LIC-NW-PRD-01", env: "Non-production", executions: [1_100, 980, 900] },
+          { id: "s1", license: "LIC-NW-NPR-01", env: "Non-production", executions: [8_200, 850] },
+          { id: "s1", license: "LIC-NW-PRD-01", env: "Production", executions: [4_600, 889] },
+        ],
+        { includeVersion: false },
+      ),
+      ...genInstances(
+        [
+          { id: "s2", license: "LIC-NW-EU-01", env: "Production", executions: [280_000, 92_000, 48_000] },
+          { id: "s2", license: "LIC-NW-EU-STG-01", env: "Non-production", executions: [62_400, 30_000] },
+        ],
+        { includeVersion: false },
+      ).map((instance, index) => ({ ...instance, id: `eu${index + 1}` })),
+    ],
+  },
+  {
+    id: "over",
+    label: "Over quota",
+    hint: "Two purchases with different term starts; production over quota, non-production under.",
+    company: "Driftline Technologies AS",
+    user: "Erik Halvorsen · System admin",
+    csm: "Marta Rossi",
+    csmEmail: "marta.rossi@n8n.io",
+    usageUpdated: hoursAgo(3),
+    subscriptions: [
+      { id: "s1", name: "Enterprise – Production", plan: "Self-hosted Enterprise", quota: 3_000_000, start: "2026-01-01", end: "2026-12-31", renewal: "2027-01-01", quotaResetsAtRenewal: true, instanceLimit: 15 },
+      // Different start than production — not the same anniversary.
+      { id: "s2", name: "Enterprise – Non-production", plan: "n8n Cloud Enterprise", quota: 500_000, start: "2026-04-15", end: "2027-04-14", renewal: "2027-04-15", quotaResetsAtRenewal: true },
+    ],
+    licenses: [
+      license("LIC-HR-PRD-01", "s1", "Production", "Production", "Active", "Erik Halvorsen"),
+      license("LIC-HR-NPR-01", "s2", "Non-production", "Staging", "Active", "platform@driftline.no"),
+      license("LIC-HR-NPR-02", "s2", "Non-production", "Sandbox", "Active", "qa@driftline.no"),
+    ],
+    instances: [
+      ...genInstances([
+        { id: "s1", license: "LIC-HR-PRD-01", env: "Production", count: 12, target: 3_418_900 },
+        { id: "s2", license: "LIC-HR-NPR-01", env: "Non-production", count: 4, target: 160_000 },
+        { id: "s2", license: "LIC-HR-NPR-02", env: "Non-production", count: 2, target: 51_560 },
+      ]),
+      {
+        id: "i19",
+        name: "stg-sandbox-20",
+        env: "Non-production",
+        license: "LIC-HR-NPR-02",
+        subscriptionId: "s2",
+        status: "zero",
+        executions: 0,
+        lastReport: hoursAgo(5),
+        version: "2.13.0",
+      },
+    ],
+  },
+];
+
+export function personasFor(mode: PrototypeMode): Persona[] {
+  return mode === "new" ? personasNew : personas;
+}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowUpRight, Check, ChevronRight, CircleAlert, Copy, Info, KeyRound, RefreshCw } from "lucide-react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useManagement, usePersona } from "./portal-shell";
+import { useManagement, usePersona, usePrototypeMode } from "./portal-shell";
 import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,15 @@ import {
   type PastPeriod,
   type UsageBreakdown,
 } from "@/lib/portal-billing";
+import {
+  licenseKeyCopyLabel,
+  licenseReferenceLabel,
+  overviewRenewalColumnHeader,
+  planEndMetricLabel,
+  planEndSubtext,
+  quotaResetsLabel,
+  subscriptionLeadDate,
+} from "@/lib/portal-copy";
 import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { instanceHosting, isReporting, licensesFor, licensesGroupedByPurchase, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt, monthsAndDaysUntil } from "@/lib/portal-format";
@@ -55,8 +64,10 @@ async function copyText(value: string) {
   document.body.removeChild(area);
 }
 
-function CopyLicenseId({ licenseId }: { licenseId: string }) {
+function CopyLicenseId({ licenseId, issuedTo }: { licenseId: string; issuedTo?: string }) {
+  const mode = usePrototypeMode();
   const [copied, setCopied] = useState(false);
+  const copyLabel = licenseKeyCopyLabel(copied, mode);
   const onCopy = async () => {
     try {
       await copyText(licenseId);
@@ -74,12 +85,13 @@ function CopyLicenseId({ licenseId }: { licenseId: string }) {
         variant="ghost"
         size="icon"
         className="copy-license-id"
-        aria-label={copied ? "License ID copied" : "Copy license ID"}
+        aria-label={copyLabel}
         onClick={() => void onCopy()}
       >
         {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
       </Button>
-      <span className="sr-only" role="status">{copied ? "License ID copied" : ""}</span>
+      {issuedTo && mode === "new" && <span className="metric-subtext">Issued to {issuedTo}</span>}
+      <span className="sr-only" role="status">{copied ? copyLabel : ""}</span>
     </span>
   );
 }
@@ -164,12 +176,14 @@ type OverviewSubRow = {
 
 export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNode }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const navigate = useNavigate();
   const { running } = runningFirst(persona);
   const primary = running[0];
   const primarySummary = primary ? summarize(primary, persona.instances) : null;
   const primaryView = primary ? subscriptionView(persona, primary) : null;
-  const primaryLicenseId = persona.licenses.find((l) => l.status === "Active")?.id;
+  const activeLicenses = persona.licenses.filter((l) => l.status === "Active");
+  const primaryLicense = activeLicenses[0];
   const instanceCount = persona.instances.filter((i) => !i.archived).length;
   const executionsThisTerm = running.reduce((sum, sub) => sum + summarize(sub, persona.instances).used, 0);
   const annualQuota = running.reduce((sum, sub) => sum + sub.quota, 0);
@@ -177,6 +191,8 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
   const renewalSource = running.filter((s) => s.renewal).sort((a, b) => a.renewal!.localeCompare(b.renewal!))[0];
   const nextRenewal = renewalSource?.renewal;
   const renewalIn = nextRenewal ? monthsAndDaysUntil(nextRenewal, renewalSource.billingAsOf ?? NOW) : null;
+  const showAccountRollups = mode === "old";
+  const showPerSubscriptionQuota = mode === "new" && running.length > 0;
   const rows: OverviewSubRow[] = running.map((sub) => {
     const summary = summarize(sub, persona.instances);
     return {
@@ -185,7 +201,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
       pct: summary.pct,
       used: summary.used,
       reportingCount: summary.reportingCount,
-      renewalLabel: sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`,
+      renewalLabel: subscriptionLeadDate(sub, "Running", mode),
       renewalSort: sub.renewal ?? sub.end,
     };
   });
@@ -216,7 +232,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
     },
     {
       id: "renewal",
-      header: "Renewal",
+      header: overviewRenewalColumnHeader(mode),
       accessor: (r) => r.renewalSort,
       cell: (r) => r.renewalLabel,
       csv: (r) => r.renewalLabel,
@@ -234,21 +250,35 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         <div className="overview-metric-row">
           <div className="summary-metric">
             <Link to="/subscriptions" className="summary-metric-link">
-              <span className="metric-label">Subscription</span>
+              <span className="metric-label">{running.length > 1 ? "Subscriptions" : "Subscription"}</span>
               <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
             </Link>
-            {primaryLicenseId && <CopyLicenseId licenseId={primaryLicenseId} />}
+            {mode === "old" && primaryLicense && <CopyLicenseId licenseId={primaryLicense.id} />}
+            {mode === "new" && activeLicenses.length === 1 && primaryLicense && (
+              <CopyLicenseId licenseId={primaryLicense.id} />
+            )}
+            {mode === "new" && activeLicenses.length > 1 && (
+              <div className="overview-license-keys">
+                {activeLicenses.map((license) => (
+                  <CopyLicenseId
+                    key={license.id}
+                    licenseId={license.id}
+                    {...(license.issuedTo ? { issuedTo: license.issuedTo } : {})}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           <div className="summary-metric">
-            <span className="metric-label">Renewal date</span>
+            <span className="metric-label">{planEndMetricLabel(mode)}</span>
             <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
-            {renewalIn && <span className="metric-subtext">{renewalIn === "today" ? "Renews today" : `${renewalIn} left`}</span>}
+            {renewalIn && <span className="metric-subtext">{planEndSubtext(renewalIn, mode)}</span>}
           </div>
           <Link to="/instances" className="summary-metric summary-metric-link">
             <span className="metric-label">Instances</span>
             <strong>{instanceCount}</strong>
           </Link>
-          {!isEmpty && (
+          {showAccountRollups && !isEmpty && (
             <>
               <div className="summary-metric">
                 <span className="metric-label">Executions this term</span>
@@ -274,7 +304,40 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         </section>
       ) : (
         <>
-          {primary && primarySummary && primaryView && (
+          {showPerSubscriptionQuota && (
+            <section className="workspace-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Quota by subscription</h2>
+                  <span className="supporting">Usage is calculated per subscription. Over-quota contracts stay visible even when another subscription still has headroom.</span>
+                </div>
+              </div>
+              <ul className="subscription-quota-list">
+                {running.map((sub) => {
+                  const summary = summarize(sub, persona.instances);
+                  const over = summary.pct > 1;
+                  return (
+                    <li key={sub.id} className={over ? "is-over-quota" : undefined}>
+                      <div className="subscription-quota-head">
+                        <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link>
+                        <span className="quota-figure" style={{ color: quotaTextColor(summary.pct) }}>
+                          {percent1(summary.pct)}{over ? " · over quota" : ""}
+                        </span>
+                      </div>
+                      <div className="usage-meter-head">
+                        <span>{fmt(summary.used)} / {fmt(sub.quota)}</span>
+                        <span className="meter-value">{subscriptionLeadDate(sub, "Running", mode)}</span>
+                      </div>
+                      <div className="quota-bar" role="progressbar" aria-label={`${sub.name} quota used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, summary.pct * 100))}>
+                        <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: quotaColor(summary.pct) }} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
+          {mode === "old" && primary && primarySummary && primaryView && (
             <section className="workspace-panel chart-panel overview-usage-panel">
               <BillableExecutionsChart
                 subscription={primary}
@@ -283,13 +346,21 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
               />
             </section>
           )}
-          {/* Kept for when an account can hold more than one subscription. */}
-          {false && (
+          {mode === "new" && running.length === 1 && primary && primarySummary && primaryView && (
+            <section className="workspace-panel chart-panel overview-usage-panel">
+              <BillableExecutionsChart
+                subscription={primary}
+                showPurchaseLink
+                note={<p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>}
+              />
+            </section>
+          )}
+          {mode === "new" && running.length > 1 && (
             <section className="workspace-panel">
               <div className="panel-heading">
                 <div>
                   <h2>Running subscriptions</h2>
-                  <span className="supporting">Quota use and renewal for each active contract.</span>
+                  <span className="supporting">Quota use and plan end for each active contract.</span>
                 </div>
               </div>
               <DataTable
@@ -535,14 +606,13 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
 
 export function SubscriptionCard({ subscription: sub, linked = false }: { subscription: Subscription; linked?: boolean }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const view = subscriptionView(persona, sub);
   const { summary, period } = view;
   const running = view.status === "Running";
   const fill = running ? quotaColor(summary.pct) : "var(--color--neutral-400, var(--portal-caption))";
   const timePct = Math.min(1, Math.max(0, period.pct));
-  const leadDate = running
-    ? sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`
-    : `Ended ${date(sub.end)}`;
+  const leadDate = subscriptionLeadDate(sub, view.status, mode);
   return <section className={`workspace-panel subscription-card${running ? "" : " is-expired"}`} aria-label={sub.name}>
     <div className="panel-heading">
       <div className="agreement-heading">
@@ -583,7 +653,7 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       <div><dt>Period</dt><dd>{date(sub.start)} — {date(sub.end)}</dd></div>
       <div><dt>Time left</dt><dd>{running ? plural(period.daysLeft, "day") : "Ended"}</dd></div>
       <div><dt>Remaining</dt><dd>{fmt(summary.remaining)} executions</dd></div>
-      <div><dt>Quota resets at renewal</dt><dd>{sub.quotaResetsAtRenewal ? "Yes" : "No"}</dd></div>
+      <div><dt>{quotaResetsLabel(mode)}</dt><dd>{sub.quotaResetsAtRenewal ? "Yes" : "No"}</dd></div>
       {sub.annualAmountEur != null && <div><dt>Annual amount</dt><dd>{eurWhole(sub.annualAmountEur)}</dd></div>}
     </dl>
     <Requirements subscription={sub} instanceCount={summary.instanceCount} />
@@ -689,15 +759,17 @@ export function LicenseTable({
   onClearFilters?: () => void;
 }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const navigate = useNavigate();
   const licenses = rowsProp ?? licensesFor(persona, sub.id);
+  const showIssuedTo = mode === "new" && persona.licenses.filter((l) => l.status === "Active").length > 1;
   const subscriptionName = (l: LicenseRow) =>
     persona.subscriptions.find((s) => s.id === l.subscriptionId)?.name ?? sub.name;
 
   const columns: DataColumn<LicenseRow>[] = [
     {
       id: "label",
-      header: "License",
+      header: mode === "new" ? "License key" : "License",
       accessor: (l) => l.label,
       cell: (l) => (
         <>
@@ -723,7 +795,16 @@ export function LicenseTable({
       ),
       csv: (l) => subscriptionName(l),
     },
-    { id: "id", header: "Reference", accessor: (l) => l.id, cell: (l) => <span className="mono-text">{l.id}</span> },
+    { id: "id", header: mode === "new" ? "Key reference" : "Reference", accessor: (l) => l.id, cell: (l) => <span className="mono-text">{l.id}</span> },
+    ...(showIssuedTo
+      ? [{
+          id: "issuedTo",
+          header: "Issued to",
+          accessor: (l: LicenseRow) => l.issuedTo ?? "",
+          cell: (l: LicenseRow) => l.issuedTo ?? "—",
+          csv: (l: LicenseRow) => l.issuedTo ?? "",
+        } satisfies DataColumn<LicenseRow>]
+      : []),
     { id: "environment", header: "Environment", accessor: (l) => l.environment, cell: (l) => l.environment },
     {
       id: "executions",
@@ -770,7 +851,7 @@ export function LicenseTable({
         onRowClick={(l) => void navigate({ to: "/subscriptions", search: { subscription: sub.id, license: l.id } })}
         filterContent={filterContent}
         filtersActive={filtersActive}
-        onClearFilters={onClearFilters}
+        {...(onClearFilters ? { onClearFilters } : {})}
       />
     </section>
   );
