@@ -585,7 +585,7 @@ export function LicenseActions({ license: l }: { license: License }) {
     <ActionMenu label={`Manage license ${l.label}`}>
       <ActionDialog
         title="Edit license"
-        description="Rename a license, or move an unused license to another running subscription."
+        description="Rename a license, or move an unused license to another active subscription."
         label="Edit / move"
         icon={<ArrowRightLeft size={16} />}
         variant="menu"
@@ -751,7 +751,7 @@ export function RequestLicenses({
   return (
     <ActionDialog
       title="Request licenses"
-      description="Request additional licenses under a running subscription. Pricing, quota, and activation require confirmation from n8n."
+      description="Request additional licenses under an active subscription. Pricing, quota, and activation require confirmation from n8n."
       label="Request licenses"
       submit="Save request"
       icon={<Plus size={16} />}

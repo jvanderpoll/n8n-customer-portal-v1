@@ -413,6 +413,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   };
 
   const singleAccount = mode === "new" && scope === "single";
+  const newMultiple = mode === "new" && !singleAccount;
   return <ManagementContext.Provider value={{ account, role, perform, refreshUsage }}><PrototypeSessionContext.Provider value={{ mode, scope }}><PersonaContext.Provider value={persona}>
     <div className="portal-layout" data-prototype-mode={mode} data-subscription-scope={mode === "new" ? scope : undefined}>
       <aside className="portal-sidebar">
@@ -421,6 +422,12 @@ export function PortalShell({ children }: { children: ReactNode }) {
           {singleAccount ? (
             <>
               <Link to="/subscriptions" search={{ subscription: enterpriseId, license: undefined, section: undefined }} aria-current={activeRouteId === "/subscriptions" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/subscriptions" && "is-active")}><Layers3 size={17} />Subscription</Link>
+              <Link to="/instances" aria-current={activeRouteId === "/instances" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/instances" && "is-active")}><Server size={17} />Instances</Link>
+              <Link to="/users" aria-current={activeRouteId === "/users" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/users" && "is-active")}><Users size={17} />Users</Link>
+            </>
+          ) : newMultiple ? (
+            <>
+              <Link to="/subscriptions" search={{ subscription: undefined, license: undefined, section: undefined }} aria-current={activeRouteId === "/subscriptions" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/subscriptions" && "is-active")}><Layers3 size={17} />Subscriptions</Link>
               <Link to="/instances" aria-current={activeRouteId === "/instances" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/instances" && "is-active")}><Server size={17} />Instances</Link>
               <Link to="/users" aria-current={activeRouteId === "/users" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/users" && "is-active")}><Users size={17} />Users</Link>
             </>

@@ -150,7 +150,7 @@ describe("past periods", () => {
     expect(peak).toBe(summarize(production, over.instances).used);
     expect(quotaOnChartScale(peak, production.quota)).toBe(true);
   });
-  it("builds the New Overview from calendar months, not summed term totals", () => {
+  it("sums calendar-month executions across running subscriptions, not in-term totals", () => {
     const full = personasNew.find((persona) => persona.id === "full")!;
     const [enterprise, eu] = full.subscriptions;
     const chart = accountMonthlyExecutions(full.subscriptions, full.instances);

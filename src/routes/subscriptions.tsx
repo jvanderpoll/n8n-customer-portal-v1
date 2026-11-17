@@ -52,7 +52,7 @@ function SubscriptionList() {
     <WorkspaceTitle title="Subscriptions" trailing={<div className="page-actions"><LastUpdate persona={persona} />{running.length === 0 && <RequestSubscription />}</div>} />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription status">
       <button type="button" role="tab" aria-selected={tab === "running"} className={cn("subscription-tab", tab === "running" && "is-active")} onClick={() => setTab("running")}>
-        Running ({running.length})
+        Active ({running.length})
       </button>
       <button type="button" role="tab" aria-selected={tab === "expired"} className={cn("subscription-tab", tab === "expired" && "is-active")} onClick={() => setTab("expired")}>
         Expired ({expired.length})
@@ -143,7 +143,7 @@ function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscri
         <div><dt>Environment</dt><dd>{license.environment}</dd></div>
         <div><dt>Status</dt><dd>{license.status}</dd></div>
         <div><dt>Executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
-        <div><dt>Instances reporting</dt><dd>{license.reportingCount}</dd></div>
+        <div><dt>Instances</dt><dd>{license.reportingCount}</dd></div>
       </dl>
       <p className="contract-note">This license has no quota of its own. Its executions count toward the {sub.name} quota.</p>
     </section>

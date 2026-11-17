@@ -28,7 +28,8 @@ describe("prototype copy", () => {
     expect(planEndMetricLabel("new")).toBe("Plan end date");
     expect(planEndSubtext("today", "old")).toBe("Renews today");
     expect(planEndSubtext("today", "new")).toBe("Ends today");
-    expect(contactRenewalTopicLabel("new")).toBe("Plan renewal");
+    expect(contactRenewalTopicLabel("new")).toBe("Plan");
+    expect(contactRenewalTopicLabel("old")).toBe("Plan");
     expect(licenseKeyCopyLabel(false, "new")).toBe("Copy license key");
     expect(licenseKeyCopyLabel(true, "new")).toBe("License key copied");
     expect(licenseKeyCopyLabel(false, "old")).toBe("Copy license key");

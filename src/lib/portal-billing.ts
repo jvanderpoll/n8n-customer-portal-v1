@@ -433,7 +433,9 @@ export interface AccountExecutionChart {
 export const ACCOUNT_TOTAL_SERIES_ID = "total";
 
 /**
- * Calendar-month executions for the New Overview.
+ * Calendar-month executions across running subscriptions.
+ * The subscriptions list uses totalExecutions and windowLabel (first month
+ * through last month). This is not a sum of in-term totals.
  * The x axis is the union of months present on the running subscriptions'
  * existing monthly series. A subscription with no row for a month is null
  * there (a gap, not a fabricated zero). The total for a month is the sum of

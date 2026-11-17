@@ -25,8 +25,8 @@ export function planEndSubtext(renewalIn: string, mode: PrototypeMode): string {
   return `${renewalIn} left`;
 }
 
-export function contactRenewalTopicLabel(mode: PrototypeMode): string {
-  return mode === "new" ? "Plan renewal" : "Renewal";
+export function contactRenewalTopicLabel(_mode: PrototypeMode): string {
+  return "Plan";
 }
 
 export function licenseKeyCopyLabel(copied: boolean, _mode: PrototypeMode): string {

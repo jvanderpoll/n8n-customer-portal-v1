@@ -8,8 +8,6 @@ import { DataTable, type DataColumn } from "./data-table";
 import { Button } from "@/components/ui/button";
 import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  accountMonthlyExecutions,
-  ACCOUNT_TOTAL_SERIES_ID,
   cumulativeUsageChart,
   monthlyChartPoints,
   PLAN_FEATURES,
@@ -17,7 +15,6 @@ import {
   periodExecutionsLabel,
   planTier,
   quotaPaceSentence,
-  type AccountExecutionChart,
   type PastPeriod,
   type UsageBreakdown,
 } from "@/lib/portal-billing";
@@ -26,7 +23,6 @@ import {
   licenseReferenceLabel,
   planEndMetricLabel,
   planEndSubtext,
-  subscriptionLeadDate,
 } from "@/lib/portal-copy";
 import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { instanceHosting, isReporting, licensesFor, licensesGroupedByPurchase, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
@@ -153,7 +149,7 @@ function PlanIncludedHint({ plan }: { plan: string }) {
     <TooltipProvider delayDuration={200}>
       <UiTooltip>
         <TooltipTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" className="plan-included-trigger" aria-label={title}>
+          <Button type="button" variant="ghost" size="icon" className="plan-included-trigger subscription-card-control" aria-label={title}>
             <Info aria-hidden="true" />
           </Button>
         </TooltipTrigger>
@@ -163,74 +159,6 @@ function PlanIncludedHint({ plan }: { plan: string }) {
         </TooltipContent>
       </UiTooltip>
     </TooltipProvider>
-  );
-}
-
-function AccountMonthlyChart({ chart }: { chart: AccountExecutionChart }) {
-  const { months, series } = chart;
-  const chartRows = months.map((month) => {
-    const row: Record<string, string | number | null> = {
-      label: month.label,
-      shortLabel: month.shortLabel,
-    };
-    for (const item of series) row[item.id] = month.values[item.id] ?? null;
-    return row;
-  });
-  const lastIndex = Math.max(0, chartRows.length - 1);
-  const plotted = months.flatMap((month) => series.map((item) => month.values[item.id])).filter((value): value is number => value != null);
-  const peak = Math.max(1, ...plotted);
-  const axisTick = { fontSize: 14, fill: "var(--color--neutral-600)" } as const;
-  const subscriptionSeries = series.filter((item) => item.id !== ACCOUNT_TOTAL_SERIES_ID);
-  const colorFor = (id: string) => {
-    if (id === ACCOUNT_TOTAL_SERIES_ID) return "var(--portal-text)";
-    const index = subscriptionSeries.findIndex((item) => item.id === id);
-    return SERIES_COLORS[(index < 0 ? 0 : index) % SERIES_COLORS.length]!;
-  };
-  const drawn = [...series].sort((a, b) => Number(a.id === ACCOUNT_TOTAL_SERIES_ID) - Number(b.id === ACCOUNT_TOTAL_SERIES_ID));
-  const names = series.map((item) => item.name).join(", ");
-  return (
-    <>
-      <div className="usage-chart" role="img" aria-label={`Monthly executions, ${chart.windowLabel}. ${names}.`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-            <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
-            <YAxis width={44} domain={[0, peak * 1.1]} tickFormatter={short} tick={axisTick} axisLine={false} tickLine={false} tickCount={5} />
-            <Tooltip
-              labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
-              formatter={(value, name) => {
-                const seriesName = series.find((item) => item.id === name)?.name ?? "Executions";
-                if (value == null || value === "") return ["—", seriesName];
-                return [fmt(Number(value)), seriesName];
-              }}
-              contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
-            />
-            {drawn.map((item) => {
-              const color = colorFor(item.id);
-              const isTotal = item.id === ACCOUNT_TOTAL_SERIES_ID;
-              return (
-                <Line
-                  key={item.id}
-                  type="monotone"
-                  dataKey={item.id}
-                  stroke={color}
-                  strokeWidth={isTotal ? 2.5 : 2}
-                  connectNulls={false}
-                  dot={series.length > 1 ? seriesEndDot(color, lastIndex) : false}
-                  activeDot={{ r: 4, strokeWidth: 0 }}
-                  isAnimationActive={false}
-                />
-              );
-            })}
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="chart-legend">
-        {series.map((item) => (
-          <span key={item.id}><i className="series-swatch" style={{ background: colorFor(item.id) }} />{item.name}</span>
-        ))}
-      </div>
-    </>
   );
 }
 
@@ -251,10 +179,6 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
   const nextRenewal = renewalSource?.renewal;
   const renewalIn = nextRenewal ? monthsAndDaysUntil(nextRenewal, renewalSource.billingAsOf ?? NOW) : null;
   const isEmpty = running.length === 0;
-  const monthly = accountMonthlyExecutions(running, persona.instances);
-  const quotaRows = running
-    .map((sub) => ({ sub, summary: summarize(sub, persona.instances) }))
-    .sort((a, b) => b.summary.pct - a.summary.pct);
 
   return (
     <>
@@ -262,128 +186,62 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         <span className="account-banner-label">Account</span>
         <strong className="account-banner-name">{persona.company}</strong>
       </div>
-      {mode === "old" ? (
-        <>
-          <div className="metric-strip overview-totals" aria-label="Account totals">
-            <div className="overview-metric-row">
-              <div className="summary-metric">
-                <Link to="/subscriptions" className="summary-metric-link">
-                  <span className="metric-label">{running.length > 1 ? "Subscriptions" : "Subscription"}</span>
-                  <strong>
-                    {running.length === 1
-                      ? running[0]!.name
-                      : running.length
-                        ? `${running.length} running`
-                        : "—"}
-                  </strong>
-                </Link>
-                {primaryLicense && <CopyLicenseId licenseId={primaryLicense.id} />}
-              </div>
-              <div className="summary-metric">
-                <span className="metric-label">{planEndMetricLabel(mode)}</span>
-                <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
-                {renewalIn && <span className="metric-subtext">{planEndSubtext(renewalIn, mode)}</span>}
-              </div>
-              <Link to="/instances" className="summary-metric summary-metric-link">
-                <span className="metric-label">Instances</span>
-                <strong>{instanceCount}</strong>
-              </Link>
-              {!isEmpty && (
-                <>
-                  <div className="summary-metric">
-                    <span className="metric-label">Executions this term</span>
-                    <strong>{fmt(executionsThisTerm)}</strong>
-                  </div>
-                  <div className="summary-metric">
-                    <span className="metric-label">Annual quota</span>
-                    <strong>{fmt(annualQuota)}</strong>
-                  </div>
-                  <div className="summary-metric">
-                    <span className="metric-label">Percent of quota</span>
-                    <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
-                  </div>
-                </>
-              )}
-            </div>
+      <div className="metric-strip overview-totals" aria-label="Account totals">
+        <div className="overview-metric-row">
+          <div className="summary-metric">
+            <Link to="/subscriptions" className="summary-metric-link">
+              <span className="metric-label">{running.length > 1 ? "Subscriptions" : "Subscription"}</span>
+              <strong>
+                {running.length === 1
+                  ? running[0]!.name
+                  : running.length
+                    ? `${running.length} active`
+                    : "—"}
+              </strong>
+            </Link>
+            {primaryLicense && <CopyLicenseId licenseId={primaryLicense.id} />}
           </div>
-          {isEmpty ? (
-            <section className="workspace-panel empty-state-panel">
-              <h2>No subscriptions yet</h2>
-              <p className="supporting">Request a subscription to start creating instances and reporting usage.</p>
-              {emptyAction}
-            </section>
-          ) : primary && primarySummary && primaryView && (
-            <section className="workspace-panel chart-panel overview-usage-panel">
-              <BillableExecutionsChart
-                subscription={primary}
-                showPurchaseLink
-                note={<p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>}
-              />
-            </section>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="metric-strip overview-totals" aria-label="Account totals">
-            <div className="overview-metric-row">
-              <Link to="/subscriptions" className="summary-metric summary-metric-link">
-                <span className="metric-label">Active subscriptions</span>
-                <strong>{running.length}</strong>
-              </Link>
-              <Link to="/instances" className="summary-metric summary-metric-link">
-                <span className="metric-label">Instances</span>
-                <strong>{instanceCount}</strong>
-              </Link>
-              <div className="summary-metric">
-                <span className="metric-label">Total executions</span>
-                <strong>{monthly.months.length ? fmt(monthly.totalExecutions) : "—"}</strong>
-                {monthly.windowLabel && <span className="metric-subtext">{monthly.windowLabel}</span>}
-              </div>
-            </div>
+          <div className="summary-metric">
+            <span className="metric-label">{planEndMetricLabel(mode)}</span>
+            <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
+            {renewalIn && <span className="metric-subtext">{planEndSubtext(renewalIn, mode)}</span>}
           </div>
-          {isEmpty ? (
-            <section className="workspace-panel empty-state-panel">
-              <h2>No subscriptions yet</h2>
-              <p className="supporting">Request a subscription to start creating instances and reporting usage.</p>
-              {emptyAction}
-            </section>
-          ) : (
+          <Link to="/instances" className="summary-metric summary-metric-link">
+            <span className="metric-label">Instances</span>
+            <strong>{instanceCount}</strong>
+          </Link>
+          {!isEmpty && (
             <>
-              {monthly.months.length > 0 && (
-                <section className="workspace-panel chart-panel overview-usage-panel overview-monthly-panel">
-                  <div className="panel-heading">
-                    <h2>Monthly executions</h2>
-                  </div>
-                  <AccountMonthlyChart chart={monthly} />
-                </section>
-              )}
-              <ul className="subscription-quota-list" aria-label="Subscriptions">
-                {quotaRows.map(({ sub, summary }) => {
-                  const over = summary.pct > 1;
-                  return (
-                    <li key={sub.id} className={over ? "is-over-quota" : undefined}>
-                      <Link className="subscription-quota-row" to="/subscriptions" search={{ subscription: sub.id }}>
-                        <div className="subscription-quota-head">
-                          <span className="text-link">{sub.name}</span>
-                          <span className="quota-figure" style={{ color: quotaTextColor(summary.pct) }}>
-                            {percent1(summary.pct)}{over ? " · over quota" : ""}
-                          </span>
-                        </div>
-                        <div className="usage-meter-head">
-                          <span>{fmt(summary.used)} / {fmt(sub.quota)}</span>
-                          <span className="meter-value">{subscriptionLeadDate(sub, "Running", mode)}</span>
-                        </div>
-                        <div className="quota-bar" role="progressbar" aria-label={`${sub.name} quota used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, summary.pct * 100))}>
-                          <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: quotaColor(summary.pct) }} />
-                        </div>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="summary-metric">
+                <span className="metric-label">Executions this term</span>
+                <strong>{fmt(executionsThisTerm)}</strong>
+              </div>
+              <div className="summary-metric">
+                <span className="metric-label">Annual quota</span>
+                <strong>{fmt(annualQuota)}</strong>
+              </div>
+              <div className="summary-metric">
+                <span className="metric-label">Percent of quota</span>
+                <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
+              </div>
             </>
           )}
-        </>
+        </div>
+      </div>
+      {isEmpty ? (
+        <section className="workspace-panel empty-state-panel">
+          <h2>No subscriptions yet</h2>
+          <p className="supporting">Request a subscription to start creating instances and reporting usage.</p>
+          {emptyAction}
+        </section>
+      ) : primary && primarySummary && primaryView && (
+        <section className="workspace-panel chart-panel overview-usage-panel">
+          <BillableExecutionsChart
+            subscription={primary}
+            showPurchaseLink
+            note={<p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>}
+          />
+        </section>
       )}
     </>
   );
@@ -717,27 +575,21 @@ export function SubscriptionLicenseKeys({ subscription: sub }: { subscription: S
 
 export function SubscriptionCard({ subscription: sub, linked = false }: { subscription: Subscription; linked?: boolean }) {
   const persona = usePersona();
-  const mode = usePrototypeMode();
   const view = subscriptionView(persona, sub);
   const { summary, period } = view;
   const running = view.status === "Running";
   const fill = running ? quotaColor(summary.pct) : "var(--color--neutral-400, var(--portal-caption))";
   const timePct = Math.min(1, Math.max(0, period.pct));
-  const leadDate = subscriptionLeadDate(sub, view.status, mode);
   return <section className={`workspace-panel subscription-card${running ? "" : " is-expired"}`} aria-label={sub.name}>
     <div className="panel-heading">
       <div className="agreement-heading">
         <KeyRound className="agreement-symbol" size={18} aria-hidden="true" />
         <div>
           <h2>
-            {linked ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : sub.name}
+            {linked ? <Link className="text-link subscription-card-stretch" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : sub.name}
             <PlanIncludedHint plan={sub.plan} />
           </h2>
         </div>
-      </div>
-      <div className="lead-date">
-        <span className={`status-badge${running ? "" : " neutral-badge"}`}>{running && <Check size={12} />}{view.status}</span>
-        <strong>{leadDate}</strong>
       </div>
     </div>
     <div className="usage-meters">
@@ -763,14 +615,11 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
     <dl className="subscription-facts">
       <div><dt>Period</dt><dd>{date(sub.start)} — {date(sub.end)}</dd></div>
       <div><dt>Time left</dt><dd>{running ? plural(period.daysLeft, "day") : "Ended"}</dd></div>
-      <div><dt>Remaining</dt><dd>{fmt(summary.remaining)} executions</dd></div>
       {sub.annualAmountEur != null && <div><dt>Annual amount</dt><dd>{eurWhole(sub.annualAmountEur)}</dd></div>}
+      <div><dt>Instances</dt><dd><Link className="text-link subscription-card-control" to="/instances" search={{ subscription: sub.id }}>{fmt(summary.instanceCount)}</Link></dd></div>
+      <div><dt>Executions</dt><dd>{fmt(summary.remaining)} remaining</dd></div>
     </dl>
     <Requirements subscription={sub} instanceCount={summary.instanceCount} />
-    <div className="agreement-actions">
-      <Link to="/instances" search={{ subscription: sub.id }} className="quiet-link">{plural(summary.reportingCount, "instance")} reporting</Link>
-      {linked && <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>}
-    </div>
   </section>;
 }
 
@@ -935,7 +784,7 @@ export function LicenseTable({
     },
     {
       id: "reporting",
-      header: "Instances reporting",
+      header: "Instances",
       numeric: true,
       accessor: (l) => l.reportingCount,
       cell: (l) => l.reportingCount,

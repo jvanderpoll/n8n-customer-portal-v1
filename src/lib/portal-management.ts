@@ -190,7 +190,7 @@ export function applyManagement(
       )
         fail("An instance with this name already exists.");
       if (l.status !== "Active" || subscriptionStatus(s) === "Expired")
-        fail("Choose an active license on a running subscription.");
+        fail("Choose an active license on an active subscription.");
       if (action.type === "create-instance") {
         if (p.instances.some((i) => i.id === action.id))
           fail("Instance reference already exists.");
@@ -237,7 +237,7 @@ export function applyManagement(
           fail(
             "Only licenses without activations or usage history can move between subscriptions.",
           );
-        if (subscriptionStatus(target) === "Expired") fail("Choose a running subscription.");
+        if (subscriptionStatus(target) === "Expired") fail("Choose an active subscription.");
       }
       l.label = action.label.trim();
       l.subscriptionId = target.id;
@@ -257,7 +257,7 @@ export function applyManagement(
     case "order": {
       if (action.subscriptionId) {
         if (subscriptionStatus(subscription(action.subscriptionId)) === "Expired")
-          fail("Choose a running subscription.");
+          fail("Choose an active subscription.");
       } else if (!action.plan?.trim()) {
         fail("Choose a plan.");
       }
