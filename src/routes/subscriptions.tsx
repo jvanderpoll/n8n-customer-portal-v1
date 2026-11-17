@@ -45,6 +45,7 @@ function Subscriptions() {
 /** Purchase list kept for a later return. Shown when no subscription is selected, including the multiple-subscription case. Single mode redirects here to the Enterprise detail. */
 function SubscriptionList() {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const [tab, setTab] = useState<"running" | "expired">("running");
   const { running, expired } = runningFirst(persona);
   const list = tab === "running" ? running : expired;
@@ -58,7 +59,7 @@ function SubscriptionList() {
         Expired ({expired.length})
       </button>
     </div>
-    <div className="agreement-list">
+    <div className={cn("agreement-list", mode === "new" && "subscription-card-list")}>
       {list.map((s) => <SubscriptionCard key={s.id} subscription={s} linked />)}
       {!list.length && <p className="panel-empty">{tab === "running" ? "No subscriptions." : "No expired subscriptions."}</p>}
     </div>

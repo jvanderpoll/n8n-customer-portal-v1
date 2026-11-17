@@ -678,6 +678,13 @@ button:focus-visible, a:focus-visible, select:focus-visible, summary:focus-visib
 .notice-warning { background: var(--color--orange-50); color: var(--color--orange-900); border: 1px solid var(--color--orange-300); }.notice-over { background: var(--color--orange-100); color: var(--color--orange-900); border: 1px solid var(--color--orange-400); }
 .page-intro { font-size: var(--font-size--md); color: var(--portal-secondary); margin: 0 0 var(--portal-section-gap); }
 .agreement-list { display: grid; gap: var(--portal-section-gap); }
+/* New-mode list only: at most two equal columns. "10 Apr 2026 — 9 Apr 2027"
+   is 178px at 14px/500. The label column stays 240px, plus the 16px column gap,
+   32px facts padding, and 2px border, so a card needs 468px. Two cards and the
+   16px list gap need a 952px list: a 1240px window beside the 240px sidebar
+   and 48px content padding. Below that, stack so the period stays one line. */
+.subscription-card-list { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+@media (max-width: 1239px) { .subscription-card-list { grid-template-columns: minmax(0, 1fr); } }
 .agreement-list > .workspace-panel { margin-bottom: 0; }.agreement-heading { display: flex; align-items: center; gap: var(--spacing--xs); }.agreement-symbol { flex-shrink: 0; color: var(--portal-text); display: inline-block; vertical-align: middle; }
 .status-badge { display: inline-flex; align-items: center; gap: var(--spacing--4xs); background: var(--color--green-100); color: var(--color--green-900); font-size: var(--font-size--sm); border-radius: var(--radius--3xs); padding: var(--spacing--4xs) var(--spacing--2xs); }
 .agreement-facts { display: grid; grid-template-columns: 1.15fr 1.1fr .8fr; gap: var(--spacing--lg); padding: var(--spacing--2xs) var(--spacing--lg) var(--spacing--lg); }.agreement-facts > div { display: grid; gap: var(--spacing--2xs); }.agreement-facts span { font-size: var(--font-size--sm); color: var(--portal-secondary); }.agreement-facts strong { font-size: var(--font-size--md); font-weight: var(--font-weight--medium); }
