@@ -7,10 +7,12 @@ import {
   NORTHWIND_ANNUAL_QUOTA,
   NORTHWIND_TERM_EXECUTIONS,
   periodProgress,
+  personaForSubscriptionScope,
   personas,
   personasNew,
   placeholderMonthlyExecutionsEuExpansion,
   placeholderMonthlyExecutionsNorthwind,
+  subscriptionForSingleScope,
   subscriptionStatus,
   summarize,
 } from "./portal-data";
@@ -88,5 +90,43 @@ describe("New prototype multi-subscription fixtures", () => {
     const per = pNew("full");
     expect(per.licenses.length).toBeGreaterThan(1);
     expect(per.licenses.every((l) => Boolean(l.issuedTo))).toBe(true);
+  });
+});
+
+describe("Single and Multiple session views", () => {
+  it("keeps both Fieldstone subscriptions in Multiple and in Old mode", () => {
+    const per = pNew("full");
+    expect(personaForSubscriptionScope(per, "new", "multiple")).toBe(per);
+    expect(personaForSubscriptionScope(per, "old", "single")).toBe(per);
+    expect(per.subscriptions.map((sub) => sub.name)).toEqual(["Enterprise", "Enterprise – EU expansion"]);
+  });
+
+  it("filters Single to the Enterprise subscription without rewriting fixtures", () => {
+    const per = pNew("full");
+    const before = {
+      subscriptions: per.subscriptions.map((sub) => sub.id),
+      instances: per.instances.map((instance) => instance.id),
+      licenses: per.licenses.map((license) => license.id),
+    };
+    const single = personaForSubscriptionScope(per, "new", "single");
+    expect(subscriptionForSingleScope(per)?.name).toBe("Enterprise");
+    expect(single).not.toBe(per);
+    expect(single.subscriptions.map((sub) => sub.name)).toEqual(["Enterprise"]);
+    expect(single.licenses.map((license) => license.id)).toEqual(["LIC-NW-PRD-01", "LIC-NW-NPR-01"]);
+    expect(single.instances.every((instance) => instance.subscriptionId === "s1")).toBe(true);
+    expect(single.instances.some((instance) => instance.id === "nr1")).toBe(true);
+    expect(single.instances.some((instance) => instance.id.startsWith("eu") || instance.id === "nr2")).toBe(false);
+    expect(per.subscriptions.map((sub) => sub.id)).toEqual(before.subscriptions);
+    expect(per.instances.map((instance) => instance.id)).toEqual(before.instances);
+    expect(per.licenses.map((license) => license.id)).toEqual(before.licenses);
+    expect(personaForSubscriptionScope(per, "new", "multiple").subscriptions).toHaveLength(2);
+  });
+
+  it("uses the first subscription when the account has no subscription named Enterprise", () => {
+    const per = pNew("over");
+    const single = personaForSubscriptionScope(per, "new", "single");
+    expect(single.subscriptions.map((sub) => sub.id)).toEqual(["s1"]);
+    expect(single.instances.every((instance) => instance.subscriptionId === "s1")).toBe(true);
+    expect(per.subscriptions).toHaveLength(2);
   });
 });

@@ -1038,10 +1038,11 @@ export function MemberActions({ member: m }: { member: Member }) {
   );
 }
 export function RemovedInstances() {
-  const { account, role, perform } = useManagement();
+  const persona = usePersona();
+  const { role, perform } = useManagement();
   const mode = usePrototypeMode();
   const [error, setError] = useState("");
-  const rows = account.persona.instances.filter((i) => i.archived);
+  const rows = persona.instances.filter((i) => i.archived);
   if (!rows.length) return null;
   const columns: DataColumn<(typeof rows)[number]>[] = [
     { id: "name", header: "Instance", accessor: (i) => i.name, cell: (i) => i.name },
@@ -1050,7 +1051,7 @@ export function RemovedInstances() {
       header: "License key",
       accessor: (i) => i.license,
       cell: (i) => {
-        const name = account.persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name;
+        const name = persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name;
         return (
           <span className="metric-license-line">
             <span className="mono-text">{i.license}</span>

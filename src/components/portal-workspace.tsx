@@ -8,6 +8,8 @@ import { DataTable, type DataColumn } from "./data-table";
 import { Button } from "@/components/ui/button";
 import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  accountMonthlyExecutions,
+  ACCOUNT_TOTAL_SERIES_ID,
   cumulativeUsageChart,
   monthlyChartPoints,
   PLAN_FEATURES,
@@ -15,6 +17,7 @@ import {
   periodExecutionsLabel,
   planTier,
   quotaPaceSentence,
+  type AccountExecutionChart,
   type PastPeriod,
   type UsageBreakdown,
 } from "@/lib/portal-billing";
@@ -23,7 +26,6 @@ import {
   licenseReferenceLabel,
   planEndMetricLabel,
   planEndSubtext,
-  quotaResetsLabel,
   subscriptionLeadDate,
 } from "@/lib/portal-copy";
 import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
@@ -164,6 +166,74 @@ function PlanIncludedHint({ plan }: { plan: string }) {
   );
 }
 
+function AccountMonthlyChart({ chart }: { chart: AccountExecutionChart }) {
+  const { months, series } = chart;
+  const chartRows = months.map((month) => {
+    const row: Record<string, string | number | null> = {
+      label: month.label,
+      shortLabel: month.shortLabel,
+    };
+    for (const item of series) row[item.id] = month.values[item.id] ?? null;
+    return row;
+  });
+  const lastIndex = Math.max(0, chartRows.length - 1);
+  const plotted = months.flatMap((month) => series.map((item) => month.values[item.id])).filter((value): value is number => value != null);
+  const peak = Math.max(1, ...plotted);
+  const axisTick = { fontSize: 14, fill: "var(--color--neutral-600)" } as const;
+  const subscriptionSeries = series.filter((item) => item.id !== ACCOUNT_TOTAL_SERIES_ID);
+  const colorFor = (id: string) => {
+    if (id === ACCOUNT_TOTAL_SERIES_ID) return "var(--portal-text)";
+    const index = subscriptionSeries.findIndex((item) => item.id === id);
+    return SERIES_COLORS[(index < 0 ? 0 : index) % SERIES_COLORS.length]!;
+  };
+  const drawn = [...series].sort((a, b) => Number(a.id === ACCOUNT_TOTAL_SERIES_ID) - Number(b.id === ACCOUNT_TOTAL_SERIES_ID));
+  const names = series.map((item) => item.name).join(", ");
+  return (
+    <>
+      <div className="usage-chart" role="img" aria-label={`Monthly executions, ${chart.windowLabel}. ${names}.`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
+            <YAxis width={44} domain={[0, peak * 1.1]} tickFormatter={short} tick={axisTick} axisLine={false} tickLine={false} tickCount={5} />
+            <Tooltip
+              labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
+              formatter={(value, name) => {
+                const seriesName = series.find((item) => item.id === name)?.name ?? "Executions";
+                if (value == null || value === "") return ["—", seriesName];
+                return [fmt(Number(value)), seriesName];
+              }}
+              contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+            />
+            {drawn.map((item) => {
+              const color = colorFor(item.id);
+              const isTotal = item.id === ACCOUNT_TOTAL_SERIES_ID;
+              return (
+                <Line
+                  key={item.id}
+                  type="monotone"
+                  dataKey={item.id}
+                  stroke={color}
+                  strokeWidth={isTotal ? 2.5 : 2}
+                  connectNulls={false}
+                  dot={series.length > 1 ? seriesEndDot(color, lastIndex) : false}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
+                  isAnimationActive={false}
+                />
+              );
+            })}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="chart-legend">
+        {series.map((item) => (
+          <span key={item.id}><i className="series-swatch" style={{ background: colorFor(item.id) }} />{item.name}</span>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNode }) {
   const persona = usePersona();
   const mode = usePrototypeMode();
@@ -181,6 +251,7 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
   const nextRenewal = renewalSource?.renewal;
   const renewalIn = nextRenewal ? monthsAndDaysUntil(nextRenewal, renewalSource.billingAsOf ?? NOW) : null;
   const isEmpty = running.length === 0;
+  const monthly = accountMonthlyExecutions(running, persona.instances);
   const quotaRows = running
     .map((sub) => ({ sub, summary: summarize(sub, persona.instances) }))
     .sort((a, b) => b.summary.pct - a.summary.pct);
@@ -253,7 +324,23 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
         </>
       ) : (
         <>
-          <p className="overview-count-line">{plural(running.length, "subscription")} · {plural(instanceCount, "instance")}</p>
+          <div className="metric-strip overview-totals" aria-label="Account totals">
+            <div className="overview-metric-row">
+              <Link to="/subscriptions" className="summary-metric summary-metric-link">
+                <span className="metric-label">Active subscriptions</span>
+                <strong>{running.length}</strong>
+              </Link>
+              <Link to="/instances" className="summary-metric summary-metric-link">
+                <span className="metric-label">Instances</span>
+                <strong>{instanceCount}</strong>
+              </Link>
+              <div className="summary-metric">
+                <span className="metric-label">Total executions</span>
+                <strong>{monthly.months.length ? fmt(monthly.totalExecutions) : "—"}</strong>
+                {monthly.windowLabel && <span className="metric-subtext">{monthly.windowLabel}</span>}
+              </div>
+            </div>
+          </div>
           {isEmpty ? (
             <section className="workspace-panel empty-state-panel">
               <h2>No subscriptions yet</h2>
@@ -262,6 +349,14 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
             </section>
           ) : (
             <>
+              {monthly.months.length > 0 && (
+                <section className="workspace-panel chart-panel overview-usage-panel overview-monthly-panel">
+                  <div className="panel-heading">
+                    <h2>Monthly executions</h2>
+                  </div>
+                  <AccountMonthlyChart chart={monthly} />
+                </section>
+              )}
               <ul className="subscription-quota-list" aria-label="Subscriptions">
                 {quotaRows.map(({ sub, summary }) => {
                   const over = summary.pct > 1;
@@ -286,15 +381,6 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
                   );
                 })}
               </ul>
-              {running.length === 1 && primary && primarySummary && primaryView && (
-                <section className="workspace-panel chart-panel overview-usage-panel">
-                  <BillableExecutionsChart
-                    subscription={primary}
-                    showPurchaseLink
-                    note={<p className="pace-line">{quotaPaceSentence(primary, primarySummary.used, primaryView.period.pct)}</p>}
-                  />
-                </section>
-              )}
             </>
           )}
         </>
@@ -678,7 +764,6 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       <div><dt>Period</dt><dd>{date(sub.start)} — {date(sub.end)}</dd></div>
       <div><dt>Time left</dt><dd>{running ? plural(period.daysLeft, "day") : "Ended"}</dd></div>
       <div><dt>Remaining</dt><dd>{fmt(summary.remaining)} executions</dd></div>
-      <div><dt>{quotaResetsLabel(mode)}</dt><dd>{sub.quotaResetsAtRenewal ? "Yes" : "No"}</dd></div>
       {sub.annualAmountEur != null && <div><dt>Annual amount</dt><dd>{eurWhole(sub.annualAmountEur)}</dd></div>}
     </dl>
     <Requirements subscription={sub} instanceCount={summary.instanceCount} />

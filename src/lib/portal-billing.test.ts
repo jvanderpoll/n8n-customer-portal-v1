@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  EU_EXPANSION_TERM_EXECUTIONS,
   NORTHWIND_ANNUAL_AMOUNT_EUR,
   NORTHWIND_ANNUAL_QUOTA,
   NORTHWIND_TERM_EXECUTIONS,
   personas,
+  personasNew,
+  placeholderMonthlyExecutionsEuExpansion,
   placeholderMonthlyExecutionsNorthwind,
   summarize,
   type Persona,
@@ -11,6 +14,7 @@ import {
 import {
   BUSINESS_MONTHLY_EXECUTIONS,
   BUSINESS_MONTHLY_PRICE_EUR,
+  accountMonthlyExecutions,
   addContractMonths,
   executionAmountEur,
   monthlyChartPoints,
@@ -19,6 +23,7 @@ import {
   cumulativeUsageChart,
   quotaOnChartScale,
   quotaPaceSentence,
+  subscriptionInstanceMonths,
 } from "./portal-billing";
 
 function persona(id: string): Persona {
@@ -144,6 +149,49 @@ describe("past periods", () => {
     const peak = overChart.points.at(-1)?.cumulative ?? 0;
     expect(peak).toBe(summarize(production, over.instances).used);
     expect(quotaOnChartScale(peak, production.quota)).toBe(true);
+  });
+  it("builds the New Overview from calendar months, not summed term totals", () => {
+    const full = personasNew.find((persona) => persona.id === "full")!;
+    const [enterprise, eu] = full.subscriptions;
+    const chart = accountMonthlyExecutions(full.subscriptions, full.instances);
+    expect(chart.months.map((month) => month.id)).toEqual([
+      "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10",
+    ]);
+    expect(chart.windowLabel).toBe("Apr 2026 – Oct 2026");
+    expect(chart.series.map((item) => item.name)).toEqual(["Total", "Enterprise", "Enterprise – EU expansion"]);
+    const enterpriseLine = chart.months.map((month) => month.values[enterprise!.id]);
+    const euLine = chart.months.map((month) => month.values[eu!.id]);
+    expect(enterpriseLine).toEqual(placeholderMonthlyExecutionsNorthwind());
+    expect(euLine).toEqual([null, null, null, ...placeholderMonthlyExecutionsEuExpansion().slice(0, 4)]);
+    for (const month of chart.months) {
+      const lineSum = [enterprise!.id, eu!.id].reduce((sum, id) => sum + (month.values[id] ?? 0), 0);
+      expect(month.total).toBe(lineSum);
+      expect(month.values.total).toBe(lineSum);
+    }
+    expect(chart.months.map((month) => month.total)).toEqual([2419, 4800, 11200, 60200, 100000, 180000, 234200]);
+    expect(chart.totalExecutions).toBe(592_819);
+    expect(chart.totalExecutions).not.toBe(NORTHWIND_TERM_EXECUTIONS + EU_EXPANSION_TERM_EXECUTIONS);
+    for (const sub of full.subscriptions) {
+      const rollup = subscriptionInstanceMonths(sub, full.instances);
+      for (const month of rollup) {
+        const instanceSum = Object.values(month.byInstance).reduce((sum, value) => sum + value, 0);
+        expect(instanceSum).toBe(month.executions);
+        expect(chart.months.find((row) => row.id === month.id)!.values[sub.id]).toBe(month.executions);
+      }
+    }
+    expect(subscriptionInstanceMonths(enterprise!, full.instances).reduce((sum, month) => sum + month.executions, 0)).toBe(NORTHWIND_TERM_EXECUTIONS);
+    const euMonths = subscriptionInstanceMonths(eu!, full.instances);
+    expect(euMonths.reduce((sum, month) => sum + month.executions, 0)).toBe(296_200);
+    expect(euMonths.reduce((sum, month) => sum + month.executions, 0)).not.toBe(summarize(eu!, full.instances).used);
+    expect(summarize(eu!, full.instances).used).toBe(EU_EXPANSION_TERM_EXECUTIONS);
+  });
+  it("draws one line when the account has a single subscription", () => {
+    const full = personas.find((persona) => persona.id === "full")!;
+    const chart = accountMonthlyExecutions(full.subscriptions, full.instances);
+    expect(full.subscriptions).toHaveLength(1);
+    expect(chart.series).toEqual([{ id: "s1", name: "Enterprise" }]);
+    expect(chart.totalExecutions).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(chart.months.every((month) => month.values.s1 === month.total)).toBe(true);
   });
   it("projects quota pace past renewal when usage is far under term elapsed", () => {
     const full = persona("full");

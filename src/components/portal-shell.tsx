@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { LayoutDashboard, Layers3, Server, Users, RotateCcw, X, MessageCircle, Settings } from "lucide-react";
 import {
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { NOW, personasFor, type Persona, type PrototypeMode } from "@/lib/portal-data";
+import { NOW, personaForSubscriptionScope, personasFor, subscriptionForSingleScope, type Persona, type PrototypeMode, type SubscriptionScope } from "@/lib/portal-data";
 import { contactRenewalTopicLabel } from "@/lib/portal-copy";
 import { contactFor } from "@/lib/portal-views";
 import { applyManagement, createAccount, createEmptyAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
@@ -37,9 +37,15 @@ export function usePersona() {
   return persona;
 }
 
-const PrototypeModeContext = createContext<PrototypeMode>("new");
+const PrototypeSessionContext = createContext<{ mode: PrototypeMode; scope: SubscriptionScope }>({
+  mode: "new",
+  scope: "multiple",
+});
 export function usePrototypeMode() {
-  return useContext(PrototypeModeContext);
+  return useContext(PrototypeSessionContext).mode;
+}
+export function useSubscriptionScope() {
+  return useContext(PrototypeSessionContext).scope;
 }
 
 const ManagementContext = createContext<{
@@ -207,7 +213,9 @@ function PrototypeSettings({
   pid,
   emptyPortal,
   mode,
+  scope,
   onModeChange,
+  onScopeChange,
   onScenarioChange,
   onEmptyChange,
   onReset,
@@ -215,7 +223,9 @@ function PrototypeSettings({
   pid: string;
   emptyPortal: boolean;
   mode: PrototypeMode;
+  scope: SubscriptionScope;
   onModeChange: (mode: PrototypeMode) => void;
+  onScopeChange: (scope: SubscriptionScope) => void;
   onScenarioChange: (id: string) => void;
   onEmptyChange: (empty: boolean) => void;
   onReset: () => void;
@@ -270,6 +280,30 @@ function PrototypeSettings({
                 New
               </label>
             </div>
+            {mode === "new" && (
+              <div className="prototype-mode-switch" role="radiogroup" aria-label="Account subscriptions">
+                <label className={cn("prototype-mode-option", scope === "single" && "is-active")}>
+                  <input
+                    type="radio"
+                    name="subscription-scope"
+                    value="single"
+                    checked={scope === "single"}
+                    onChange={() => onScopeChange("single")}
+                  />
+                  Single
+                </label>
+                <label className={cn("prototype-mode-option", scope === "multiple" && "is-active")}>
+                  <input
+                    type="radio"
+                    name="subscription-scope"
+                    value="multiple"
+                    checked={scope === "multiple"}
+                    onChange={() => onScopeChange("multiple")}
+                  />
+                  Multiple
+                </label>
+              </div>
+            )}
             <p className="prototype-mode-hint">
               {mode === "old"
                 ? "Current demo: single-subscription account rollups."
@@ -322,6 +356,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
   const [pid, setPid] = useState("full");
   const [emptyPortal, setEmptyPortal] = useState(false);
   const [mode, setMode] = useState<PrototypeMode>("new");
+  const [scope, setScope] = useState<SubscriptionScope>("multiple");
   const [revision, setRevision] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
@@ -336,8 +371,12 @@ export function PortalShell({ children }: { children: ReactNode }) {
     }));
   };
   const activeRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
-  const persona = account.persona;
+  const persona = useMemo(
+    () => personaForSubscriptionScope(account.persona, mode, scope),
+    [account.persona, mode, scope],
+  );
   if (!persona) return null;
+  const enterpriseId = subscriptionForSingleScope(account.persona)?.id;
   const userName = persona.user.split(" · ")[0]!;
   const initials = userInitials(userName);
   const contact = contactFor(persona);
@@ -373,11 +412,22 @@ export function PortalShell({ children }: { children: ReactNode }) {
     void navigate({ to: "/", replace: true });
   };
 
-  return <ManagementContext.Provider value={{ account, role, perform, refreshUsage }}><PrototypeModeContext.Provider value={mode}><PersonaContext.Provider value={persona}>
-    <div className="portal-layout" data-prototype-mode={mode}>
+  const singleAccount = mode === "new" && scope === "single";
+  return <ManagementContext.Provider value={{ account, role, perform, refreshUsage }}><PrototypeSessionContext.Provider value={{ mode, scope }}><PersonaContext.Provider value={persona}>
+    <div className="portal-layout" data-prototype-mode={mode} data-subscription-scope={mode === "new" ? scope : undefined}>
       <aside className="portal-sidebar">
         <Link to="/" className="portal-brand" aria-label="n8n"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="" width="120" height="24" /></Link>
-        <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
+        <nav aria-label="Main navigation" className="portal-navigation">
+          {singleAccount ? (
+            <>
+              <Link to="/subscriptions" search={{ subscription: enterpriseId, license: undefined, section: undefined }} aria-current={activeRouteId === "/subscriptions" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/subscriptions" && "is-active")}><Layers3 size={17} />Subscription</Link>
+              <Link to="/instances" aria-current={activeRouteId === "/instances" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/instances" && "is-active")}><Server size={17} />Instances</Link>
+              <Link to="/users" aria-current={activeRouteId === "/users" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/users" && "is-active")}><Users size={17} />Users</Link>
+            </>
+          ) : (
+            navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)
+          )}
+        </nav>
         <div className="sidebar-bottom">
           <Button type="button" variant="default" size="large" className="sidebar-contact-trigger" onClick={() => setContactOpen(true)}>
             <MessageCircle size={16} />
@@ -413,7 +463,9 @@ export function PortalShell({ children }: { children: ReactNode }) {
       pid={pid}
       emptyPortal={emptyPortal}
       mode={mode}
+      scope={scope}
       onModeChange={onModeChange}
+      onScopeChange={setScope}
       onScenarioChange={onScenarioChange}
       onEmptyChange={onEmptyChange}
       onReset={onReset}
@@ -426,5 +478,5 @@ export function PortalShell({ children }: { children: ReactNode }) {
       mode={mode}
     />
     <Toaster position="bottom-right" />
-  </PersonaContext.Provider></PrototypeModeContext.Provider></ManagementContext.Provider>;
+  </PersonaContext.Provider></PrototypeSessionContext.Provider></ManagementContext.Provider>;
 }

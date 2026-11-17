@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { usePersona, usePrototypeMode } from "@/components/portal-shell";
+import { usePersona, usePrototypeMode, useSubscriptionScope } from "@/components/portal-shell";
 import { Crumb, InstanceList, LastUpdate, PastPeriods, SubscriptionCard, SubscriptionLicenseKeys, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
 import { licenseReferenceLabel } from "@/lib/portal-copy";
@@ -27,16 +27,22 @@ export const Route = createFileRoute("/subscriptions")({
 
 function Subscriptions() {
   const persona = usePersona();
+  const mode = usePrototypeMode();
+  const scope = useSubscriptionScope();
   const search = Route.useSearch();
   const sub = search.subscription
     ? persona.subscriptions.find((s) => s.id === search.subscription)
     : undefined;
+  const only = persona.subscriptions[0];
+  if (mode === "new" && scope === "single" && only && sub?.id !== only.id) {
+    return <Navigate to="/subscriptions" search={{ subscription: only.id, license: undefined, section: undefined }} replace />;
+  }
   if (!sub) return <SubscriptionList />;
   const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
   return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
 }
 
-/** Purchase list kept for a later return. Shown only when the account has no subscription. */
+/** Purchase list kept for a later return. Shown when no subscription is selected, including the multiple-subscription case. Single mode redirects here to the Enterprise detail. */
 function SubscriptionList() {
   const persona = usePersona();
   const [tab, setTab] = useState<"running" | "expired">("running");
@@ -62,8 +68,11 @@ function SubscriptionList() {
 
 function SubscriptionDetail({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
+  const scope = useSubscriptionScope();
   const navigate = useNavigate({ from: Route.fullPath });
   const search = Route.useSearch();
+  const showBack = mode !== "new" || scope !== "single";
   const section: SubscriptionSection = search.section === "periods" || search.section === "keys" ? search.section : "usage";
   const setSection = (next: SubscriptionSection) => {
     void navigate({
@@ -77,7 +86,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
   return <>
     <WorkspaceTitle
       title={`Subscription: ${sub.name}`}
-      crumbs={<Crumb><Link to="/subscriptions" search={{ subscription: undefined, license: undefined, section: undefined }}>Back to Subscriptions</Link></Crumb>}
+      crumbs={showBack ? <Crumb><Link to="/subscriptions" search={{ subscription: undefined, license: undefined, section: undefined }}>Back to Subscriptions</Link></Crumb> : undefined}
       trailing={<LastUpdate persona={persona} />}
     />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription sections">

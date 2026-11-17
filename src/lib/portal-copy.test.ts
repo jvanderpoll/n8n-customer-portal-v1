@@ -5,7 +5,6 @@ import {
   licenseReferenceLabel,
   planEndMetricLabel,
   planEndSubtext,
-  quotaResetsLabel,
   subscriptionLeadDate,
 } from "./portal-copy";
 import type { Subscription } from "./portal-data";
@@ -29,7 +28,6 @@ describe("prototype copy", () => {
     expect(planEndMetricLabel("new")).toBe("Plan end date");
     expect(planEndSubtext("today", "old")).toBe("Renews today");
     expect(planEndSubtext("today", "new")).toBe("Ends today");
-    expect(quotaResetsLabel("new")).toBe("Quota resets when the plan renews");
     expect(contactRenewalTopicLabel("new")).toBe("Plan renewal");
     expect(licenseKeyCopyLabel(false, "new")).toBe("Copy license key");
     expect(licenseKeyCopyLabel(true, "new")).toBe("License key copied");

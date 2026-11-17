@@ -2,6 +2,9 @@ export type ReportStatus = "reported" | "zero" | "pending" | "error";
 
 export type PrototypeMode = "old" | "new";
 
+/** Session-only New-mode account shape. Multiple is the Fieldstone demo. */
+export type SubscriptionScope = "single" | "multiple";
+
 export interface Instance {
   id: string;
   name: string;
@@ -406,4 +409,36 @@ export const personasNew: Persona[] = [
 
 export function personasFor(mode: PrototypeMode): Persona[] {
   return mode === "new" ? personasNew : personas;
+}
+
+/**
+ * The subscription Single mode keeps. Fieldstone's is named "Enterprise",
+ * which excludes "Enterprise – EU expansion". Other accounts use their first subscription.
+ */
+export function subscriptionForSingleScope(persona: Persona): Subscription | undefined {
+  return persona.subscriptions.find((sub) => sub.name === "Enterprise") ?? persona.subscriptions[0];
+}
+
+/**
+ * Session view for the Single/Multiple control. Does not mutate fixtures.
+ * Old mode and Multiple return the account unchanged.
+ */
+export function personaForSubscriptionScope(
+  persona: Persona,
+  mode: PrototypeMode,
+  scope: SubscriptionScope,
+): Persona {
+  if (mode !== "new" || scope !== "single") return persona;
+  const only = subscriptionForSingleScope(persona);
+  if (!only) return persona;
+  const sameSubscription = persona.subscriptions.length === 1 && persona.subscriptions[0]?.id === only.id;
+  const foreignLicense = persona.licenses.some((license) => license.subscriptionId !== only.id);
+  const foreignInstance = persona.instances.some((instance) => instance.subscriptionId !== only.id);
+  if (sameSubscription && !foreignLicense && !foreignInstance) return persona;
+  return {
+    ...persona,
+    subscriptions: [only],
+    licenses: persona.licenses.filter((license) => license.subscriptionId === only.id),
+    instances: persona.instances.filter((instance) => instance.subscriptionId === only.id),
+  };
 }

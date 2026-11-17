@@ -25,10 +25,6 @@ export function planEndSubtext(renewalIn: string, mode: PrototypeMode): string {
   return `${renewalIn} left`;
 }
 
-export function quotaResetsLabel(mode: PrototypeMode): string {
-  return mode === "new" ? "Quota resets when the plan renews" : "Quota resets at renewal";
-}
-
 export function contactRenewalTopicLabel(mode: PrototypeMode): string {
   return mode === "new" ? "Plan renewal" : "Renewal";
 }
