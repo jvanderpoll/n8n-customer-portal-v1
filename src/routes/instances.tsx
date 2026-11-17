@@ -1,12 +1,19 @@
+import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { CircleAlert, PanelRight, X } from "lucide-react";
 import { z } from "zod";
 import { usePersona } from "@/components/portal-shell";
-import { Crumb, DataTable, LastUpdate, ReportingStatus, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
+import { TruncatedCell } from "@/components/data-table";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Crumb, CsvExport, DataTable, LastUpdate, MonthlyUsageBars, ReportingStatus, WorkspaceTitle, type DataColumn } from "@/components/portal-workspace";
 import { BulkRemoveInstances, InstanceActions, RemovedInstances } from "@/components/portal-management";
 import { activeInstances } from "@/lib/portal-management";
-import { date, fmt, portalHead, timestamp } from "@/lib/portal-format";
+import { instanceProjects, instanceShare, instanceUsageMonths, instanceWorkflows, projectUsageMonths, workflowUsageMonths, type InstanceProject, type InstanceWorkflow, type UsageMonth } from "@/lib/portal-instance-activity";
+import { fmt, portalHead, timestamp } from "@/lib/portal-format";
 import { summarize, type Instance } from "@/lib/portal-data";
-import { defaultInstanceFilter, filterInstances, instanceHosting, subscriptionShare } from "@/lib/portal-views";
+import { defaultInstanceFilter, filterInstances, hasNotReported, instanceHosting, subscriptionShare } from "@/lib/portal-views";
+import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({
   subscription: z.string().optional().catch(undefined),
@@ -59,17 +66,9 @@ function Instances() {
     },
     {
       id: "license",
-      header: "License",
+      header: "License key",
       accessor: (i) => i.license,
-      cell: (i) => <span className="mono-text">{i.license}</span>,
-    },
-    {
-      id: "executions",
-      header: "Billable executions",
-      numeric: true,
-      accessor: (i) => i.executions,
-      cell: (i) => (i.executions === null ? "—" : fmt(i.executions)),
-      csv: (i) => (i.executions === null ? "" : String(i.executions)),
+      cell: (i) => <span className="mono-text license-key">{i.license}</span>,
     },
     {
       id: "hosting",
@@ -78,8 +77,16 @@ function Instances() {
       cell: (i) => instanceHosting(i, persona),
     },
     {
+      id: "executions",
+      header: "Executions",
+      numeric: true,
+      accessor: (i) => i.executions,
+      cell: (i) => (i.executions === null ? "—" : fmt(i.executions)),
+      csv: (i) => (i.executions === null ? "" : String(i.executions)),
+    },
+    {
       id: "share",
-      header: "% of subscription",
+      header: "Share of usage",
       numeric: true,
       accessor: (i) => {
         const sub = persona.subscriptions.find((s) => s.id === i.subscriptionId);
@@ -102,14 +109,8 @@ function Instances() {
       id: "report",
       header: "Last report",
       accessor: (i) => (i.lastReport ? Date.parse(i.lastReport) : null),
-      cell: (i) => (i.lastReport ? timestamp(i.lastReport) : "—"),
-      csv: (i) => i.lastReport ?? "",
-    },
-    {
-      id: "status",
-      header: "Reporting status",
-      accessor: (i) => i.status,
-      cell: (i) => <ReportingStatus instance={i} />,
+      cell: (i) => hasNotReported(i) ? <span className="reporting-status attention-status"><CircleAlert size={12} />Not reporting</span> : (i.lastReport ? timestamp(i.lastReport) : "—"),
+      csv: (i) => hasNotReported(i) ? "Not reporting" : (i.lastReport ?? ""),
     },
   ];
 
@@ -134,6 +135,7 @@ function Instances() {
         page={search.page ?? 1}
         onPageChange={(page) => set({ page: page <= 1 ? undefined : page })}
         initialSort={{ id: "executions", dir: "desc" }}
+        rowClassName={(i) => (hasNotReported(i) ? "not-reporting-row" : undefined)}
         filtersActive={filtersActive}
         onClearFilters={() => void navigate({ search: { query: search.query }, replace: true })}
         filterContent={
@@ -146,7 +148,7 @@ function Instances() {
               </select>
             </label>
             <label>
-              License
+              License key
               <select value={license} onChange={(e) => set({ license: e.target.value === "all" ? undefined : e.target.value, page: undefined })}>
                 <option value="all">All</option>
                 {licenses.map((l) => <option key={l.id} value={l.id}>{l.id}</option>)}
@@ -176,29 +178,296 @@ function Instances() {
   </>;
 }
 
+type InstanceSection = "details" | "projects" | "workflows";
+
+function PastMonths({ months, csvFilename }: { months: UsageMonth[]; csvFilename: string }) {
+  const rows = months.map((month) => [month.shortLabel, String(month.executions)]);
+  return (
+    <>
+      <div className="past-months-heading-row">
+        <h3 className="past-months-heading">Past months</h3>
+        <CsvExport filename={csvFilename} headers={["Month", "Executions"]} rows={rows} />
+      </div>
+      <table className="label-value-table past-months-table">
+        <thead>
+          <tr><th scope="col"><TruncatedCell>Month</TruncatedCell></th><th scope="col" className="numeric"><TruncatedCell>Executions</TruncatedCell></th></tr>
+        </thead>
+        <tbody>
+          {months.map((month) => (
+            <tr key={month.id}>
+              <th scope="row"><TruncatedCell>{month.shortLabel}</TruncatedCell></th>
+              <td className="numeric"><TruncatedCell>{fmt(month.executions)}</TruncatedCell></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function UsageHistory({ title, termTotal, months, csvFilename, embedded = false }: { title: string; termTotal: number | null; months: UsageMonth[]; csvFilename: string; embedded?: boolean }) {
+  const chart = months.length ? (
+    <>
+      <MonthlyUsageBars points={months} label={`Monthly executions for ${title}`} />
+      <div className="chart-legend"><span><i className="legend-bar" />Executions</span></div>
+      <PastMonths months={months} csvFilename={csvFilename} />
+    </>
+  ) : <p className="panel-empty">No usage reported yet.</p>;
+  if (embedded) {
+    return (
+      <div className="usage-history usage-history--embedded">
+        {termTotal !== null && <p className="supporting">{fmt(termTotal)} this term</p>}
+        {chart}
+      </div>
+    );
+  }
+  return (
+    <section className="workspace-panel chart-panel usage-history">
+      <div className="panel-heading">
+        <div>
+          <h2>{title}</h2>
+          {termTotal !== null && <span className="supporting">{fmt(termTotal)} this term</span>}
+        </div>
+      </div>
+      {chart}
+    </section>
+  );
+}
+
+function PeekName({ name, onOpen }: { name: string; onOpen: () => void }) {
+  return (
+    <span className="peek-name">
+      <TruncatedCell>{name}</TruncatedCell>
+      <Button type="button" variant="ghost" size="icon" aria-label={`Open ${name}`} onClick={(event) => { event.stopPropagation(); onOpen(); }}>
+        <PanelRight />
+      </Button>
+    </span>
+  );
+}
+
 function InstanceDetail({ instance: i }: { instance: Instance }) {
   const persona = usePersona();
+  const [section, setSection] = useState<InstanceSection>("details");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [peek, setPeek] = useState<{ kind: "project" | "workflow"; id: string } | null>(null);
   const sub = persona.subscriptions.find((s) => s.id === i.subscriptionId);
   const license = persona.licenses.find((l) => l.id === i.license);
   const summary = sub ? summarize(sub, persona.instances) : null;
+  const projects = instanceProjects(i);
+  const workflows = instanceWorkflows(i);
+  const visibleWorkflows = projectFilter === "all" ? workflows : workflows.filter((workflow) => workflow.project === projectFilter);
+  const instanceMonths = sub ? instanceUsageMonths(i, sub, persona.instances) : [];
+  const latestMonth = i.executions === null ? null : instanceMonths.at(-1)?.executions ?? null;
+  const peekProject = peek?.kind === "project" ? projects.find((project) => project.id === peek.id) ?? null : null;
+  const peekWorkflow = peek?.kind === "workflow" ? workflows.find((workflow) => workflow.id === peek.id) ?? null : null;
+  const peekTitle = peekProject?.name ?? peekWorkflow?.name ?? "";
+  const peekTotal = peekProject?.executions ?? peekWorkflow?.executions ?? null;
+  const peekMonths = !sub ? [] : peekProject ? projectUsageMonths(i, peekProject, sub, persona.instances) : peekWorkflow ? workflowUsageMonths(i, peekWorkflow, sub, persona.instances) : [];
+
+  useEffect(() => {
+    setSection("details");
+    setProjectFilter("all");
+    setPeek(null);
+  }, [i.id]);
+
+  useEffect(() => {
+    setPeek(null);
+  }, [section]);
+
+  const workflowCount = (project: InstanceProject) => workflows.filter((workflow) => workflow.project === project.name).length;
+  const projectColumns: DataColumn<InstanceProject>[] = [
+    {
+      id: "project",
+      header: "Project",
+      accessor: (project) => project.name,
+      truncate: false,
+      cell: (project) => <PeekName name={project.name} onOpen={() => setPeek({ kind: "project", id: project.id })} />,
+    },
+    {
+      id: "workflows",
+      header: "Workflows",
+      numeric: true,
+      accessor: workflowCount,
+      cell: (project) => fmt(workflowCount(project)),
+      csv: (project) => String(workflowCount(project)),
+    },
+    {
+      id: "executions",
+      header: "Executions",
+      numeric: true,
+      accessor: (project) => project.executions,
+      cell: (project) => fmt(project.executions),
+      csv: (project) => String(project.executions),
+    },
+    {
+      id: "share",
+      header: "Share of this instance",
+      numeric: true,
+      accessor: (project) => (i.executions && i.executions > 0 ? project.executions / i.executions : 0),
+      cell: (project) => instanceShare(project.executions, i.executions),
+      csv: (project) => instanceShare(project.executions, i.executions),
+    },
+  ];
+  const workflowColumns: DataColumn<InstanceWorkflow>[] = [
+    {
+      id: "workflow",
+      header: "Workflow",
+      accessor: (workflow) => workflow.name,
+      truncate: false,
+      cell: (workflow) => <PeekName name={workflow.name} onOpen={() => setPeek({ kind: "workflow", id: workflow.id })} />,
+    },
+    { id: "project", header: "Project", accessor: (workflow) => workflow.project, cell: (workflow) => workflow.project },
+    {
+      id: "executions",
+      header: "Executions",
+      numeric: true,
+      accessor: (workflow) => workflow.executions,
+      cell: (workflow) => fmt(workflow.executions),
+      csv: (workflow) => String(workflow.executions),
+    },
+    {
+      id: "share",
+      header: "Share of this instance",
+      numeric: true,
+      accessor: (workflow) => (i.executions && i.executions > 0 ? workflow.executions / i.executions : 0),
+      cell: (workflow) => instanceShare(workflow.executions, i.executions),
+      csv: (workflow) => instanceShare(workflow.executions, i.executions),
+    },
+  ];
+
   return <>
     <WorkspaceTitle title={i.name} crumbs={<Crumb><Link to="/instances">Instances</Link></Crumb>} trailing={i.archived ? <span className="status-badge neutral-badge">Removed</span> : <InstanceActions instance={i} />} />
-    <section className="workspace-panel">
-      <dl className="subscription-facts detail-facts">
-        <div><dt>Billable executions this period</dt><dd>{i.executions === null ? "No usage reported yet" : fmt(i.executions)}</dd></div>
-        <div><dt>Share of the subscription</dt><dd>{summary ? subscriptionShare(i.executions, summary.used) : "—"}</dd></div>
-        <div><dt>Last report</dt><dd>{i.lastReport ? timestamp(i.lastReport) : "No report received"}</dd></div>
-        <div><dt>Reporting status</dt><dd><ReportingStatus instance={i} /></dd></div>
-        <div><dt>License</dt><dd>{sub && license ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id, license: license.id }}>{license.label}</Link> : i.license}<small className="cell-caption mono-text">{i.license}</small></dd></div>
-        <div><dt>Key type</dt><dd>{license?.environment ?? i.env}</dd></div>
-        <div><dt>Hosting</dt><dd>{sub ? instanceHosting(i, persona) : "—"}</dd></div>
-        <div><dt>Subscription</dt><dd>{sub ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : "—"}{sub && <small className="cell-caption">{date(sub.start)} — {date(sub.end)}</small>}</dd></div>
-        <div><dt>Subscription included quota</dt><dd>{sub ? `${fmt(sub.quota)} executions` : "—"}</dd></div>
-        <div><dt>Subscription executions used</dt><dd>{summary ? fmt(summary.used) : "—"}</dd></div>
-        <div><dt>Subscription remaining</dt><dd>{summary ? `${fmt(summary.remaining)} executions` : "—"}</dd></div>
-        <div><dt>Environment</dt><dd>{i.env}</dd></div>
-        <div><dt>Version</dt><dd>{i.version ?? "Not reported"}</dd></div>
-      </dl>
-    </section>
+    {hasNotReported(i) && (
+      <div className="notice notice-warning" role="status">
+        <CircleAlert size={16} />
+        <strong>This instance hasn't reported since {i.lastReport ? timestamp(i.lastReport) : ""}.</strong>
+      </div>
+    )}
+    <div className="subscription-tabs" role="tablist" aria-label="Instance sections">
+      <button type="button" role="tab" aria-selected={section === "details"} className={cn("subscription-tab", section === "details" && "is-active")} onClick={() => setSection("details")}>
+        Details
+      </button>
+      <button type="button" role="tab" aria-selected={section === "projects"} className={cn("subscription-tab", section === "projects" && "is-active")} onClick={() => setSection("projects")}>
+        Projects
+      </button>
+      <button type="button" role="tab" aria-selected={section === "workflows"} className={cn("subscription-tab", section === "workflows" && "is-active")} onClick={() => setSection("workflows")}>
+        Workflows
+      </button>
+    </div>
+    {hasNotReported(i) && section === "details" && (
+      <section className="workspace-panel">
+        <table className="label-value-table">
+          <tbody>
+            {sub && <tr><th scope="row"><TruncatedCell>Hosting</TruncatedCell></th><td><TruncatedCell>{instanceHosting(i, persona)}</TruncatedCell></td></tr>}
+            <tr><th scope="row"><TruncatedCell>Environment</TruncatedCell></th><td><TruncatedCell>{i.env}</TruncatedCell></td></tr>
+            <tr>
+              <th scope="row"><TruncatedCell>License key</TruncatedCell></th>
+              <td className="mono-text"><TruncatedCell>{sub && license ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id, license: license.id }}>{i.license}</Link> : i.license}</TruncatedCell></td>
+            </tr>
+            {sub && <tr><th scope="row"><TruncatedCell>Subscription</TruncatedCell></th><td><TruncatedCell><Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></TruncatedCell></td></tr>}
+          </tbody>
+        </table>
+      </section>
+    )}
+    {hasNotReported(i) && section === "projects" && <p className="panel-empty">We couldn't retrieve the projects.</p>}
+    {hasNotReported(i) && section === "workflows" && <p className="panel-empty">We couldn't retrieve the workflows.</p>}
+    {!hasNotReported(i) && section === "details" && (
+      <>
+        <div className="metric-strip instance-headlines" aria-label="Instance usage">
+          <div className="summary-metric">
+            <span className="metric-label">Executions this month</span>
+            <strong>{latestMonth === null ? "No usage reported yet" : fmt(latestMonth)}</strong>
+          </div>
+          <div className="summary-metric">
+            <span className="metric-label">Share of the subscription</span>
+            <strong>{summary ? subscriptionShare(i.executions, summary.used) : "—"}</strong>
+          </div>
+          <div className="summary-metric summary-metric-report">
+            <span className="metric-label">Last report</span>
+            <strong>{i.lastReport ? timestamp(i.lastReport) : "No report received"}</strong>
+          </div>
+        </div>
+        <section className="workspace-panel">
+          <table className="label-value-table">
+            <tbody>
+              <tr><th scope="row"><TruncatedCell>Reporting status</TruncatedCell></th><td><TruncatedCell><ReportingStatus instance={i} /></TruncatedCell></td></tr>
+              <tr><th scope="row"><TruncatedCell>Hosting</TruncatedCell></th><td><TruncatedCell>{sub ? instanceHosting(i, persona) : "—"}</TruncatedCell></td></tr>
+              <tr><th scope="row"><TruncatedCell>Environment</TruncatedCell></th><td><TruncatedCell>{i.env}</TruncatedCell></td></tr>
+              <tr><th scope="row"><TruncatedCell>Version</TruncatedCell></th><td><TruncatedCell>{i.version ?? "Not reported"}</TruncatedCell></td></tr>
+              <tr>
+                <th scope="row"><TruncatedCell>License key</TruncatedCell></th>
+                <td className="mono-text"><TruncatedCell>{sub && license ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id, license: license.id }}>{i.license}</Link> : i.license}</TruncatedCell></td>
+              </tr>
+              <tr><th scope="row"><TruncatedCell>Subscription</TruncatedCell></th><td><TruncatedCell>{sub ? <Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link> : "—"}</TruncatedCell></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <UsageHistory title="Monthly executions" termTotal={i.executions} months={instanceMonths} csvFilename={`${i.name}-past-months.csv`} />
+      </>
+    )}
+    {!hasNotReported(i) && section === "projects" && (
+      <>
+        <section className="workspace-panel">
+          <DataTable
+            columns={projectColumns}
+            rows={projects}
+            rowKey={(project) => project.id}
+            searchPlaceholder="Search projects…"
+            csvFilename={`${i.name}-projects.csv`}
+            empty="No projects on this instance."
+            initialSort={{ id: "executions", dir: "desc" }}
+            showFilters={false}
+          />
+        </section>
+      </>
+    )}
+    {!hasNotReported(i) && section === "workflows" && (
+      <>
+      <section className="workspace-panel">
+        <DataTable
+          columns={workflowColumns}
+          rows={visibleWorkflows}
+          rowKey={(workflow) => workflow.id}
+          searchPlaceholder="Search workflows…"
+          csvFilename={`${i.name}-workflows.csv`}
+          empty={projectFilter === "all" ? "No workflows on this instance." : "No workflows match your filters."}
+          initialSort={{ id: "executions", dir: "desc" }}
+          filtersActive={projectFilter !== "all"}
+          onClearFilters={() => setProjectFilter("all")}
+          filterContent={
+            <label>
+              Project
+              <select value={projectFilter} onChange={(event) => setProjectFilter(event.target.value)}>
+                <option value="all">All</option>
+                {projects.map((project) => <option key={project.id} value={project.name}>{project.name}</option>)}
+              </select>
+            </label>
+          }
+        />
+      </section>
+    </>
+  )}
+    <Sheet open={peek !== null && Boolean(peekTitle)} onOpenChange={(open) => { if (!open) setPeek(null); }}>
+      <SheetContent side="right" hideClose overlayClassName="usage-peek-overlay" className="usage-peek">
+        <div className="usage-peek-heading">
+          <SheetTitle className="usage-peek-title">{peekTitle}</SheetTitle>
+          <SheetClose asChild>
+            <Button type="button" variant="ghost" size="icon" aria-label="Close">
+              <X />
+            </Button>
+          </SheetClose>
+        </div>
+        <SheetDescription className="sr-only">Monthly executions and past months for {peekTitle}.</SheetDescription>
+        {peekTitle && (
+          <UsageHistory
+            embedded
+            title={peekTitle}
+            termTotal={peekTotal}
+            months={peekMonths}
+            csvFilename={`${i.name}-${peekTitle}-past-months.csv`}
+          />
+        )}
+      </SheetContent>
+    </Sheet>
   </>;
 }

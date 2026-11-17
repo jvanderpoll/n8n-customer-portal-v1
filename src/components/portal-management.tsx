@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import { ActionMenu, ActionMenuItem } from "./action-menu";
-import { useManagement, usePersona } from "./portal-shell";
+import { useManagement, usePersona, usePrototypeMode } from "./portal-shell";
 import { type Instance, type License, subscriptionStatus } from "@/lib/portal-data";
 import { PLAN_OPTIONS } from "@/lib/portal-billing";
 import {
@@ -498,7 +498,7 @@ export function CreateInstance({
         />
       </label>
       <label>
-        License
+        License key
         <select name="license" defaultValue={initial?.id}>
           {available.map((l) => (
             <option key={l.id} value={l.id}>
@@ -543,7 +543,7 @@ export function InstanceActions({ instance: i }: { instance: Instance }) {
           <input name="name" required maxLength={80} defaultValue={i.name} />
         </label>
         <label>
-          License
+          License key
           <select name="license" defaultValue={i.license}>
             {persona.licenses
               .filter(
@@ -1038,13 +1038,28 @@ export function MemberActions({ member: m }: { member: Member }) {
   );
 }
 export function RemovedInstances() {
-  const { account, role, perform } = useManagement();
+  const persona = usePersona();
+  const { role, perform } = useManagement();
+  const mode = usePrototypeMode();
   const [error, setError] = useState("");
-  const rows = account.persona.instances.filter((i) => i.archived);
+  const rows = persona.instances.filter((i) => i.archived);
   if (!rows.length) return null;
   const columns: DataColumn<(typeof rows)[number]>[] = [
     { id: "name", header: "Instance", accessor: (i) => i.name, cell: (i) => i.name },
-    { id: "license", header: "License", accessor: (i) => i.license, cell: (i) => i.license },
+    {
+      id: "license",
+      header: "License key",
+      accessor: (i) => i.license,
+      cell: (i) => {
+        const name = persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name;
+        return (
+          <span className="metric-license-line">
+            <span className="mono-text">{i.license}</span>
+            {mode === "new" && name && <span className="metric-subtext">Subscription {name}</span>}
+          </span>
+        );
+      },
+    },
   ];
   return (
     <details className="removed-instances">

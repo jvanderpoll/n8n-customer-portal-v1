@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { LayoutDashboard, Layers3, Server, Users, RotateCcw, X, MessageCircle, Settings } from "lucide-react";
 import {
@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { NOW, personas, type Persona } from "@/lib/portal-data";
+import { NOW, personaForSubscriptionScope, personasFor, subscriptionForSingleScope, type Persona, type PrototypeMode, type SubscriptionScope } from "@/lib/portal-data";
+import { contactRenewalTopicLabel } from "@/lib/portal-copy";
 import { contactFor } from "@/lib/portal-views";
 import { applyManagement, createAccount, createEmptyAccount, type AccountState, type ManagementAction, type Role } from "@/lib/portal-management";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,17 @@ export function usePersona() {
   return persona;
 }
 
+const PrototypeSessionContext = createContext<{ mode: PrototypeMode; scope: SubscriptionScope }>({
+  mode: "new",
+  scope: "multiple",
+});
+export function usePrototypeMode() {
+  return useContext(PrototypeSessionContext).mode;
+}
+export function useSubscriptionScope() {
+  return useContext(PrototypeSessionContext).scope;
+}
+
 const ManagementContext = createContext<{
   account: AccountState;
   role: Role;
@@ -47,20 +59,24 @@ export function useManagement() { const value = useContext(ManagementContext); i
 
 const navigation = [
   { to: "/", label: "Overview", icon: LayoutDashboard },
-  { to: "/subscriptions", label: "Subscription", icon: Layers3 },
+  { to: "/subscriptions", label: "Subscriptions", icon: Layers3 },
   { to: "/instances", label: "Instances", icon: Server },
   { to: "/users", label: "Users", icon: Users },
 ] as const;
 
-const contactTopics = [
-  { id: "quota", label: "Quota" },
-  { id: "renewal", label: "Renewal" },
-  { id: "reporting", label: "Usage reporting" },
-  { id: "access", label: "Portal access" },
-  { id: "feedback", label: "Give feedback" },
-  { id: "other", label: "Other" },
-] as const;
-type ContactTopic = (typeof contactTopics)[number]["id"];
+const contactTopicIds = ["quota", "renewal", "reporting", "access", "feedback", "other"] as const;
+type ContactTopic = (typeof contactTopicIds)[number];
+
+function contactTopicsFor(mode: PrototypeMode): { id: ContactTopic; label: string }[] {
+  return [
+    { id: "quota", label: "Quota" },
+    { id: "renewal", label: contactRenewalTopicLabel(mode) },
+    { id: "reporting", label: "Usage reporting" },
+    { id: "access", label: "Portal access" },
+    { id: "feedback", label: "Give feedback" },
+    { id: "other", label: "Other" },
+  ];
+}
 
 function userInitials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]!.toUpperCase()).join("");
@@ -119,13 +135,16 @@ function ContactDialog({
   open,
   onOpenChange,
   contact,
+  mode,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contact: ReturnType<typeof contactFor>;
+  mode: PrototypeMode;
 }) {
   const [topic, setTopic] = useState<ContactTopic | "">("");
   const [message, setMessage] = useState("");
+  const topics = contactTopicsFor(mode);
   const reset = () => { setTopic(""); setMessage(""); };
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -152,12 +171,12 @@ function ContactDialog({
           <div className="management-fields">
             <label>
               Topic
-              <Select value={topic || undefined} onValueChange={(value) => setTopic(value as ContactTopic)}>
+              <Select {...(topic ? { value: topic } : {})} onValueChange={(value) => setTopic(value as ContactTopic)}>
                 <SelectTrigger aria-label="Topic">
                   <SelectValue placeholder="Select a topic" />
                 </SelectTrigger>
                 <SelectContent>
-                  {contactTopics.map((item) => (
+                  {topics.map((item) => (
                     <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -185,25 +204,35 @@ function ContactDialog({
   );
 }
 
-function selectedPersona(id: string) {
-  return personas.find((p) => p.id === id) ?? personas[0]!;
+function selectedPersona(id: string, mode: PrototypeMode) {
+  const list = personasFor(mode);
+  return list.find((p) => p.id === id) ?? list[0]!;
 }
 
 function PrototypeSettings({
   pid,
   emptyPortal,
+  mode,
+  scope,
+  onModeChange,
+  onScopeChange,
   onScenarioChange,
   onEmptyChange,
   onReset,
 }: {
   pid: string;
   emptyPortal: boolean;
+  mode: PrototypeMode;
+  scope: SubscriptionScope;
+  onModeChange: (mode: PrototypeMode) => void;
+  onScopeChange: (scope: SubscriptionScope) => void;
   onScenarioChange: (id: string) => void;
   onEmptyChange: (empty: boolean) => void;
   onReset: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const scenarios = personasFor(mode);
 
   useEffect(() => {
     if (!open) return;
@@ -227,6 +256,60 @@ function PrototypeSettings({
     <div className="prototype-settings" ref={rootRef}>
       {open && (
         <div className="prototype-settings-panel" role="dialog" aria-label="Prototype settings">
+          <fieldset className="prototype-mode-fieldset">
+            <legend>Prototype</legend>
+            <div className="prototype-mode-switch" role="radiogroup" aria-label="Prototype version">
+              <label className={cn("prototype-mode-option", mode === "old" && "is-active")}>
+                <input
+                  type="radio"
+                  name="prototype-mode"
+                  value="old"
+                  checked={mode === "old"}
+                  onChange={() => onModeChange("old")}
+                />
+                Old
+              </label>
+              <label className={cn("prototype-mode-option", mode === "new" && "is-active")}>
+                <input
+                  type="radio"
+                  name="prototype-mode"
+                  value="new"
+                  checked={mode === "new"}
+                  onChange={() => onModeChange("new")}
+                />
+                New
+              </label>
+            </div>
+            {mode === "new" && (
+              <div className="prototype-mode-switch" role="radiogroup" aria-label="Account subscriptions">
+                <label className={cn("prototype-mode-option", scope === "single" && "is-active")}>
+                  <input
+                    type="radio"
+                    name="subscription-scope"
+                    value="single"
+                    checked={scope === "single"}
+                    onChange={() => onScopeChange("single")}
+                  />
+                  Single
+                </label>
+                <label className={cn("prototype-mode-option", scope === "multiple" && "is-active")}>
+                  <input
+                    type="radio"
+                    name="subscription-scope"
+                    value="multiple"
+                    checked={scope === "multiple"}
+                    onChange={() => onScopeChange("multiple")}
+                  />
+                  Multiple
+                </label>
+              </div>
+            )}
+            <p className="prototype-mode-hint">
+              {mode === "old"
+                ? "Current demo: single-subscription account rollups."
+                : "Feedback changes: per-subscription quota, plan-end copy, issued-to keys."}
+            </p>
+          </fieldset>
           <label className="prototype-empty-toggle" htmlFor="prototype-empty-portal">
             <input
               id="prototype-empty-portal"
@@ -242,7 +325,7 @@ function PrototypeSettings({
             value={pid}
             onChange={(e) => onScenarioChange(e.target.value)}
           >
-            {personas.map((p) => (
+            {scenarios.map((p) => (
               <option key={p.id} value={p.id}>{p.label}</option>
             ))}
           </select>
@@ -252,16 +335,19 @@ function PrototypeSettings({
           </button>
         </div>
       )}
-      <button
-        type="button"
-        className="prototype-settings-trigger"
-        aria-label="Prototype settings"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <Settings size={20} aria-hidden="true" />
-      </button>
+      <div className="prototype-settings-control">
+        <span className="prototype-mode-badge" aria-hidden="true">{mode === "new" ? "New" : "Old"}</span>
+        <button
+          type="button"
+          className={cn("prototype-settings-trigger", mode === "new" && "is-new-mode")}
+          aria-label={`Prototype settings (${mode === "new" ? "New" : "Old"} mode)`}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Settings size={20} aria-hidden="true" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -269,11 +355,13 @@ function PrototypeSettings({
 export function PortalShell({ children }: { children: ReactNode }) {
   const [pid, setPid] = useState("full");
   const [emptyPortal, setEmptyPortal] = useState(false);
+  const [mode, setMode] = useState<PrototypeMode>("new");
+  const [scope, setScope] = useState<SubscriptionScope>("multiple");
   const [revision, setRevision] = useState(0);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
   const navigate = useNavigate();
-  const [account, setAccount] = useState(() => createAccount(personas[0]!));
+  const [account, setAccount] = useState(() => createAccount(personasFor("new")[0]!));
   const role: Role = "admin";
   const perform = (action: ManagementAction) => { try { setAccount(applyManagement(account, action, role)); return null; } catch (error) { return error instanceof Error ? error.message : "Unable to complete this action."; } };
   const refreshUsage = () => {
@@ -283,41 +371,63 @@ export function PortalShell({ children }: { children: ReactNode }) {
     }));
   };
   const activeRouteId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId });
-  const persona = account.persona;
+  const persona = useMemo(
+    () => personaForSubscriptionScope(account.persona, mode, scope),
+    [account.persona, mode, scope],
+  );
   if (!persona) return null;
+  const enterpriseId = subscriptionForSingleScope(account.persona)?.id;
   const userName = persona.user.split(" · ")[0]!;
   const initials = userInitials(userName);
   const contact = contactFor(persona);
 
-  const loadScenario = (id: string, empty: boolean) => {
-    const next = selectedPersona(id);
+  const loadScenario = (id: string, empty: boolean, nextMode: PrototypeMode) => {
+    const next = selectedPersona(id, nextMode);
     setAccount(empty ? createEmptyAccount(next) : createAccount(next));
+  };
+
+  const onModeChange = (nextMode: PrototypeMode) => {
+    setMode(nextMode);
+    loadScenario(pid, emptyPortal, nextMode);
+    setRevision((r) => r + 1);
+    void navigate({ to: "/", replace: true });
   };
 
   const onScenarioChange = (id: string) => {
     setPid(id);
-    loadScenario(id, emptyPortal);
+    loadScenario(id, emptyPortal, mode);
     void navigate({ to: "/", replace: true });
   };
 
   const onEmptyChange = (empty: boolean) => {
     setEmptyPortal(empty);
-    loadScenario(pid, empty);
+    loadScenario(pid, empty, mode);
     void navigate({ to: "/", replace: true });
   };
 
   const onReset = () => {
     setEmptyPortal(false);
-    loadScenario(pid, false);
+    loadScenario(pid, false, mode);
     setRevision((r) => r + 1);
     void navigate({ to: "/", replace: true });
   };
 
-  return <ManagementContext.Provider value={{ account, role, perform, refreshUsage }}><PersonaContext.Provider value={persona}>
-    <div className="portal-layout">
+  const singleAccount = mode === "new" && scope === "single";
+  return <ManagementContext.Provider value={{ account, role, perform, refreshUsage }}><PrototypeSessionContext.Provider value={{ mode, scope }}><PersonaContext.Provider value={persona}>
+    <div className="portal-layout" data-prototype-mode={mode} data-subscription-scope={mode === "new" ? scope : undefined}>
       <aside className="portal-sidebar">
         <Link to="/" className="portal-brand" aria-label="n8n"><img src={`${import.meta.env.BASE_URL}n8n-logo.svg`} alt="" width="120" height="24" /></Link>
-        <nav aria-label="Main navigation" className="portal-navigation">{navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)}</nav>
+        <nav aria-label="Main navigation" className="portal-navigation">
+          {singleAccount ? (
+            <>
+              <Link to="/subscriptions" search={{ subscription: enterpriseId, license: undefined, section: undefined }} aria-current={activeRouteId === "/subscriptions" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/subscriptions" && "is-active")}><Layers3 size={17} />Subscription</Link>
+              <Link to="/instances" aria-current={activeRouteId === "/instances" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/instances" && "is-active")}><Server size={17} />Instances</Link>
+              <Link to="/users" aria-current={activeRouteId === "/users" ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === "/users" && "is-active")}><Users size={17} />Users</Link>
+            </>
+          ) : (
+            navigation.map(({ to, label, icon: Icon }) => <Link key={to} to={to} aria-current={activeRouteId === to ? "page" : undefined} className={cn("portal-nav-item", activeRouteId === to && "is-active")}><Icon size={17} />{label}</Link>)
+          )}
+        </nav>
         <div className="sidebar-bottom">
           <Button type="button" variant="default" size="large" className="sidebar-contact-trigger" onClick={() => setContactOpen(true)}>
             <MessageCircle size={16} />
@@ -342,7 +452,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="portal-main">
         <main className="portal-content">
-          <div key={`${pid}-${emptyPortal}-${revision}`}>
+          <div key={`${mode}-${pid}-${emptyPortal}-${revision}`}>
             {account.notice && <div className="management-notice" role="status"><span>{account.notice}</span><Button variant="ghost" size="icon" aria-label="Dismiss notification" onClick={() => setAccount({ ...account, notice: "" })}><X size={16} /></Button></div>}
             {children}
           </div>
@@ -352,6 +462,10 @@ export function PortalShell({ children }: { children: ReactNode }) {
     <PrototypeSettings
       pid={pid}
       emptyPortal={emptyPortal}
+      mode={mode}
+      scope={scope}
+      onModeChange={onModeChange}
+      onScopeChange={setScope}
       onScenarioChange={onScenarioChange}
       onEmptyChange={onEmptyChange}
       onReset={onReset}
@@ -361,7 +475,8 @@ export function PortalShell({ children }: { children: ReactNode }) {
       open={contactOpen}
       onOpenChange={setContactOpen}
       contact={contact}
+      mode={mode}
     />
     <Toaster position="bottom-right" />
-  </PersonaContext.Provider></ManagementContext.Provider>;
+  </PersonaContext.Provider></PrototypeSessionContext.Provider></ManagementContext.Provider>;
 }

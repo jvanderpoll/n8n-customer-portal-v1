@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { RequestSubscription } from "@/components/portal-management";
-import { usePersona } from "@/components/portal-shell";
+import { usePersona, usePrototypeMode, useSubscriptionScope } from "@/components/portal-shell";
 import { LastUpdate, OverviewDashboard, WorkspaceTitle } from "@/components/portal-workspace";
 import { portalHead } from "@/lib/portal-format";
 
@@ -11,6 +11,15 @@ export const Route = createFileRoute("/")({
 
 function Overview() {
   const persona = usePersona();
+  const mode = usePrototypeMode();
+  const scope = useSubscriptionScope();
+  if (mode === "new" && scope === "single") {
+    const only = persona.subscriptions[0];
+    if (only) {
+      return <Navigate to="/subscriptions" search={{ subscription: only.id, license: undefined, section: undefined }} replace />;
+    }
+    return <Navigate to="/subscriptions" search={{ subscription: undefined, license: undefined, section: undefined }} replace />;
+  }
   return (
     <>
       <WorkspaceTitle title="Overview" trailing={<LastUpdate persona={persona} />} />

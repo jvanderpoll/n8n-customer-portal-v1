@@ -9,10 +9,17 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 const pagesBuild = process.env["GITHUB_PAGES"] === "true";
 
 export default defineConfig({
-  ...(pagesBuild ? {
-    vite: { base: "/n8n-customer-portal-v1/" },
-    nitro: false,
-  } : {}),
+  // Dual-stack bind (::). Do not use --host 0.0.0.0 — that is IPv4-only and breaks
+  // Cursor desktop port forwards that dial localhost/::1.
+  vite: {
+    ...(pagesBuild ? { base: "/n8n-customer-portal-v1/" } : {}),
+    server: {
+      host: "::",
+      port: 8080,
+      strictPort: true,
+    },
+  },
+  ...(pagesBuild ? { nitro: false } : {}),
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

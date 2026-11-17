@@ -29,6 +29,11 @@ export const defaultInstanceFilter: InstanceFilter = {
 
 export const isReporting = (i: Instance) => i.status === "reported" || i.status === "zero";
 
+/** Instance with no usage in the current term. It may still have a stale last report. */
+export function hasNotReported(instance: Instance): boolean {
+  return !isReporting(instance) && instance.executions === null;
+}
+
 /** Instance executions as a share of the subscription's used total. Null executions → em dash. */
 export function subscriptionShare(executions: number | null, subscriptionUsed: number): string {
   if (executions === null) return "—";

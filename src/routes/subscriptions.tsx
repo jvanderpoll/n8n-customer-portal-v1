@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { usePersona } from "@/components/portal-shell";
-import { Crumb, InstanceList, LastUpdate, PastPeriods, SubscriptionCard, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
+import { usePersona, usePrototypeMode, useSubscriptionScope } from "@/components/portal-shell";
+import { Crumb, InstanceList, LastUpdate, PastPeriods, SubscriptionCard, SubscriptionLicenseKeys, UsagePanel, WorkspaceTitle } from "@/components/portal-workspace";
 import { fmt, portalHead } from "@/lib/portal-format";
+import { licenseReferenceLabel } from "@/lib/portal-copy";
 import { RequestSubscription, LicenseActions, OrderRequests } from "@/components/portal-management";
 import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
 import { cn } from "@/lib/utils";
 
-const subscriptionSection = z.enum(["usage", "periods"]);
+const subscriptionSection = z.enum(["usage", "periods", "keys"]);
 type SubscriptionSection = z.infer<typeof subscriptionSection>;
 
 export const Route = createFileRoute("/subscriptions")({
@@ -26,16 +27,22 @@ export const Route = createFileRoute("/subscriptions")({
 
 function Subscriptions() {
   const persona = usePersona();
+  const mode = usePrototypeMode();
+  const scope = useSubscriptionScope();
   const search = Route.useSearch();
-  const { running } = runningFirst(persona);
-  // One subscription per account: open it directly. An explicit id still selects a fixture subscription.
-  const sub = persona.subscriptions.find((s) => s.id === search.subscription) ?? running[0] ?? persona.subscriptions[0];
+  const sub = search.subscription
+    ? persona.subscriptions.find((s) => s.id === search.subscription)
+    : undefined;
+  const only = persona.subscriptions[0];
+  if (mode === "new" && scope === "single" && only && sub?.id !== only.id) {
+    return <Navigate to="/subscriptions" search={{ subscription: only.id, license: undefined, section: undefined }} replace />;
+  }
   if (!sub) return <SubscriptionList />;
   const license = persona.licenses.find((l) => l.id === search.license && l.subscriptionId === sub.id);
   return license ? <LicenseDetail subscription={sub} licenseId={license.id} /> : <SubscriptionDetail subscription={sub} />;
 }
 
-/** Purchase list kept for a later return. Shown only when the account has no subscription. */
+/** Purchase list kept for a later return. Shown when no subscription is selected, including the multiple-subscription case. Single mode redirects here to the Enterprise detail. */
 function SubscriptionList() {
   const persona = usePersona();
   const [tab, setTab] = useState<"running" | "expired">("running");
@@ -61,9 +68,12 @@ function SubscriptionList() {
 
 function SubscriptionDetail({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
+  const scope = useSubscriptionScope();
   const navigate = useNavigate({ from: Route.fullPath });
   const search = Route.useSearch();
-  const section: SubscriptionSection = search.section === "periods" ? "periods" : "usage";
+  const showBack = mode !== "new" || scope !== "single";
+  const section: SubscriptionSection = search.section === "periods" || search.section === "keys" ? search.section : "usage";
   const setSection = (next: SubscriptionSection) => {
     void navigate({
       search: {
@@ -74,13 +84,20 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
     });
   };
   return <>
-    <WorkspaceTitle title={`Subscription: ${sub.name}`} trailing={<LastUpdate persona={persona} />} />
+    <WorkspaceTitle
+      title={`Subscription: ${sub.name}`}
+      crumbs={showBack ? <Crumb><Link to="/subscriptions" search={{ subscription: undefined, license: undefined, section: undefined }}>Back to Subscriptions</Link></Crumb> : undefined}
+      trailing={<LastUpdate persona={persona} />}
+    />
     <div className="subscription-tabs" role="tablist" aria-label="Subscription sections">
       <button type="button" role="tab" aria-selected={section === "usage"} className={cn("subscription-tab", section === "usage" && "is-active")} onClick={() => setSection("usage")}>
         Usage
       </button>
       <button type="button" role="tab" aria-selected={section === "periods"} className={cn("subscription-tab", section === "periods" && "is-active")} onClick={() => setSection("periods")}>
         Past periods
+      </button>
+      <button type="button" role="tab" aria-selected={section === "keys"} className={cn("subscription-tab", section === "keys" && "is-active")} onClick={() => setSection("keys")}>
+        License keys
       </button>
     </div>
     <div className="agreement-list">
@@ -91,23 +108,41 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
         </>
       )}
       {section === "periods" && <PastPeriods subscription={sub} />}
+      {section === "keys" && <SubscriptionLicenseKeys subscription={sub} />}
     </div>
   </>;
 }
 
 function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscription; licenseId: string }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const license = licensesFor(persona, sub.id).find((l) => l.id === licenseId)!;
+  const showIssuedTo = mode === "new" && persona.licenses.filter((l) => l.status === "Active").length > 1;
   return <>
     <WorkspaceTitle title={license.label} crumbs={<Crumb><Link to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></Crumb>} trailing={<LicenseActions license={license} />} />
     <div className="agreement-list">
     <section className="workspace-panel">
       <dl className="subscription-facts detail-facts">
-        <div><dt>License reference</dt><dd className="mono-text">{license.id}</dd></div>
+        <div>
+          <dt>{licenseReferenceLabel(mode)}</dt>
+          <dd className="mono-text">
+            {license.id}
+            {mode === "new" && !showIssuedTo && <span className="metric-subtext"> Subscription {sub.name}</span>}
+          </dd>
+        </div>
+        {showIssuedTo && (
+          <div>
+            <dt>Issued to</dt>
+            <dd>
+              {license.issuedTo ?? "—"}
+              {mode === "new" && <span className="metric-subtext"> Subscription {sub.name}</span>}
+            </dd>
+          </div>
+        )}
         <div><dt>Subscription</dt><dd><Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
         <div><dt>Environment</dt><dd>{license.environment}</dd></div>
         <div><dt>Status</dt><dd>{license.status}</dd></div>
-        <div><dt>Billable executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
+        <div><dt>Executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
         <div><dt>Instances reporting</dt><dd>{license.reportingCount}</dd></div>
       </dl>
       <p className="contract-note">This license has no quota of its own. Its executions count toward the {sub.name} quota.</p>

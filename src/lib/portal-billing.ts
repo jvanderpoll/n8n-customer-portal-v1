@@ -1,4 +1,4 @@
-import { NOW, summarize, type Instance, type License, type Subscription } from "./portal-data";
+import { NOW, subscriptionStatus, summarize, type Instance, type License, type Subscription } from "./portal-data";
 import { date } from "./portal-format";
 
 /**
@@ -343,6 +343,143 @@ export function cumulativeUsageChart(
   }
   const sliced = range === "3m" ? points.slice(-3) : range === "12m" ? points.slice(-12) : points;
   return { points: sliced, series };
+}
+
+function calendarMonthId(isoDay: string) {
+  return isoDay.slice(0, 7);
+}
+
+function calendarMonthLabel(isoDay: string) {
+  return new Date(`${isoDay.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function shortMonthLabel(isoDay: string) {
+  return new Date(`${isoDay.slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", {
+    month: "short",
+    year: "2-digit",
+    timeZone: "UTC",
+  });
+}
+
+export interface SubscriptionMonthRollup {
+  /** Calendar month (YYYY-MM) of the billing period start. */
+  id: string;
+  label: string;
+  shortLabel: string;
+  /** Existing executions for this subscription in this month. */
+  executions: number;
+  /** Instances that reported a total. Parts sum to `executions`. */
+  byInstance: Record<string, number>;
+}
+
+/**
+ * One row per billing month the subscription chart already has.
+ * Reported instance totals only weight the split of that month; they do not
+ * invent months or replace the month with a term total. Instances with no
+ * usable total are left out. When nothing reported, the month stays the
+ * subscription series on its own.
+ */
+export function subscriptionInstanceMonths(sub: Subscription, instances: Instance[]): SubscriptionMonthRollup[] {
+  const periods = pastPeriods(sub, instances);
+  const reported = instances.filter((instance) => instance.subscriptionId === sub.id && instance.executions != null);
+  const weights = reported.map((instance) => instance.executions ?? 0);
+  const canSplit = weights.some((weight) => weight > 0);
+  return periods.map((period) => {
+    const parts = canSplit ? allocate(period.executions, weights) : [];
+    const byInstance: Record<string, number> = {};
+    if (canSplit) {
+      reported.forEach((instance, index) => {
+        byInstance[instance.id] = parts[index] ?? 0;
+      });
+    }
+    const instanceSum = parts.reduce((sum, part) => sum + part, 0);
+    return {
+      id: calendarMonthId(period.start),
+      label: calendarMonthLabel(period.start),
+      shortLabel: shortMonthLabel(period.start),
+      executions: canSplit ? instanceSum : period.executions,
+      byInstance,
+    };
+  });
+}
+
+export interface AccountExecutionSeries {
+  id: string;
+  name: string;
+}
+
+export interface AccountExecutionMonth {
+  id: string;
+  label: string;
+  shortLabel: string;
+  /** Sum of the subscription lines that have a value this month. */
+  total: number;
+  /** Subscription id -> executions. Null when that subscription has no series this month. */
+  values: Record<string, number | null>;
+}
+
+export interface AccountExecutionChart {
+  months: AccountExecutionMonth[];
+  /** One subscription: that subscription only. Two or more: Total, then each subscription. */
+  series: AccountExecutionSeries[];
+  totalExecutions: number;
+  windowLabel: string;
+}
+
+export const ACCOUNT_TOTAL_SERIES_ID = "total";
+
+/**
+ * Calendar-month executions for the New Overview.
+ * The x axis is the union of months present on the running subscriptions'
+ * existing monthly series. A subscription with no row for a month is null
+ * there (a gap, not a fabricated zero). The total for a month is the sum of
+ * the subscription lines. Total executions is the sum of those monthly totals.
+ */
+export function accountMonthlyExecutions(subscriptions: Subscription[], instances: Instance[]): AccountExecutionChart {
+  const running = subscriptions.filter((sub) => subscriptionStatus(sub) === "Running");
+  const rollups = running.map((sub) => ({
+    sub,
+    months: subscriptionInstanceMonths(sub, instances),
+  }));
+  const byMonth = new Map<string, { id: string; label: string; shortLabel: string; values: Record<string, number> }>();
+  for (const { sub, months } of rollups) {
+    for (const month of months) {
+      const row = byMonth.get(month.id) ?? { id: month.id, label: month.label, shortLabel: month.shortLabel, values: {} };
+      row.values[sub.id] = (row.values[sub.id] ?? 0) + month.executions;
+      byMonth.set(month.id, row);
+    }
+  }
+  const months = [...byMonth.values()]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((row) => {
+      const values: Record<string, number | null> = {};
+      let total = 0;
+      for (const { sub } of rollups) {
+        const value = row.values[sub.id];
+        if (value == null) values[sub.id] = null;
+        else {
+          values[sub.id] = value;
+          total += value;
+        }
+      }
+      values[ACCOUNT_TOTAL_SERIES_ID] = total;
+      return { id: row.id, label: row.label, shortLabel: row.shortLabel, total, values };
+    });
+  const subscriptionSeries = rollups.map(({ sub }) => ({ id: sub.id, name: sub.name }));
+  const series = subscriptionSeries.length >= 2
+    ? [{ id: ACCOUNT_TOTAL_SERIES_ID, name: "Total" }, ...subscriptionSeries]
+    : subscriptionSeries;
+  const totalExecutions = months.reduce((sum, month) => sum + month.total, 0);
+  const windowLabel = months.length === 0
+    ? ""
+    : months.length === 1
+      ? months[0]!.label
+      : `${months[0]!.label} – ${months.at(-1)!.label}`;
+  return { months, series, totalExecutions, windowLabel };
 }
 
 /** One-sentence pace line: quota used vs term elapsed, and when quota would run out. */

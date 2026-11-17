@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowUpRight, Check, ChevronRight, CircleAlert, Copy, Info, KeyRound, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Check, CircleAlert, Copy, Info, KeyRound, RefreshCw } from "lucide-react";
 import { Bar, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useManagement, usePersona } from "./portal-shell";
+import { useManagement, usePersona, usePrototypeMode } from "./portal-shell";
 import { CsvExport } from "./csv-export";
 import { DataTable, type DataColumn } from "./data-table";
 import { Button } from "@/components/ui/button";
 import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
+  accountMonthlyExecutions,
+  ACCOUNT_TOTAL_SERIES_ID,
   cumulativeUsageChart,
   monthlyChartPoints,
   PLAN_FEATURES,
@@ -15,9 +17,17 @@ import {
   periodExecutionsLabel,
   planTier,
   quotaPaceSentence,
+  type AccountExecutionChart,
   type PastPeriod,
   type UsageBreakdown,
 } from "@/lib/portal-billing";
+import {
+  licenseKeyCopyLabel,
+  licenseReferenceLabel,
+  planEndMetricLabel,
+  planEndSubtext,
+  subscriptionLeadDate,
+} from "@/lib/portal-copy";
 import { NOW, summarize, type Instance, type Persona, type Subscription } from "@/lib/portal-data";
 import { instanceHosting, isReporting, licensesFor, licensesGroupedByPurchase, quotaColor, quotaTextColor, runningFirst, subscriptionView } from "@/lib/portal-views";
 import { ago, date, fmt, monthsAndDaysUntil } from "@/lib/portal-format";
@@ -36,7 +46,7 @@ export function WorkspaceTitle({ title, trailing, crumbs }: { title: string; tra
 }
 
 export function Crumb({ children }: { children: React.ReactNode }) {
-  return <>{children}<ChevronRight size={14} aria-hidden="true" /></>;
+  return <span className="crumb-back"><ArrowLeft size={14} aria-hidden="true" />{children}</span>;
 }
 
 async function copyText(value: string) {
@@ -55,8 +65,10 @@ async function copyText(value: string) {
   document.body.removeChild(area);
 }
 
-function CopyLicenseId({ licenseId }: { licenseId: string }) {
+function CopyLicenseId({ licenseId, issuedTo, subscriptionName }: { licenseId: string; issuedTo?: string; subscriptionName?: string }) {
+  const mode = usePrototypeMode();
   const [copied, setCopied] = useState(false);
+  const copyLabel = licenseKeyCopyLabel(copied, mode);
   const onCopy = async () => {
     try {
       await copyText(licenseId);
@@ -74,12 +86,14 @@ function CopyLicenseId({ licenseId }: { licenseId: string }) {
         variant="ghost"
         size="icon"
         className="copy-license-id"
-        aria-label={copied ? "License ID copied" : "Copy license ID"}
+        aria-label={copyLabel}
         onClick={() => void onCopy()}
       >
         {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
       </Button>
-      <span className="sr-only" role="status">{copied ? "License ID copied" : ""}</span>
+      {issuedTo && mode === "new" && <span className="metric-subtext">Issued to {issuedTo}</span>}
+      {subscriptionName && mode === "new" && <span className="metric-subtext">Subscription {subscriptionName}</span>}
+      <span className="sr-only" role="status">{copied ? copyLabel : ""}</span>
     </span>
   );
 }
@@ -152,24 +166,83 @@ function PlanIncludedHint({ plan }: { plan: string }) {
   );
 }
 
-type OverviewSubRow = {
-  id: string;
-  name: string;
-  pct: number;
-  used: number;
-  reportingCount: number;
-  renewalLabel: string;
-  renewalSort: string;
-};
+function AccountMonthlyChart({ chart }: { chart: AccountExecutionChart }) {
+  const { months, series } = chart;
+  const chartRows = months.map((month) => {
+    const row: Record<string, string | number | null> = {
+      label: month.label,
+      shortLabel: month.shortLabel,
+    };
+    for (const item of series) row[item.id] = month.values[item.id] ?? null;
+    return row;
+  });
+  const lastIndex = Math.max(0, chartRows.length - 1);
+  const plotted = months.flatMap((month) => series.map((item) => month.values[item.id])).filter((value): value is number => value != null);
+  const peak = Math.max(1, ...plotted);
+  const axisTick = { fontSize: 14, fill: "var(--color--neutral-600)" } as const;
+  const subscriptionSeries = series.filter((item) => item.id !== ACCOUNT_TOTAL_SERIES_ID);
+  const colorFor = (id: string) => {
+    if (id === ACCOUNT_TOTAL_SERIES_ID) return "var(--portal-text)";
+    const index = subscriptionSeries.findIndex((item) => item.id === id);
+    return SERIES_COLORS[(index < 0 ? 0 : index) % SERIES_COLORS.length]!;
+  };
+  const drawn = [...series].sort((a, b) => Number(a.id === ACCOUNT_TOTAL_SERIES_ID) - Number(b.id === ACCOUNT_TOTAL_SERIES_ID));
+  const names = series.map((item) => item.name).join(", ");
+  return (
+    <>
+      <div className="usage-chart" role="img" aria-label={`Monthly executions, ${chart.windowLabel}. ${names}.`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartRows} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+            <CartesianGrid stroke="var(--border)" vertical={false} />
+            <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
+            <YAxis width={44} domain={[0, peak * 1.1]} tickFormatter={short} tick={axisTick} axisLine={false} tickLine={false} tickCount={5} />
+            <Tooltip
+              labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
+              formatter={(value, name) => {
+                const seriesName = series.find((item) => item.id === name)?.name ?? "Executions";
+                if (value == null || value === "") return ["—", seriesName];
+                return [fmt(Number(value)), seriesName];
+              }}
+              contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+            />
+            {drawn.map((item) => {
+              const color = colorFor(item.id);
+              const isTotal = item.id === ACCOUNT_TOTAL_SERIES_ID;
+              return (
+                <Line
+                  key={item.id}
+                  type="monotone"
+                  dataKey={item.id}
+                  stroke={color}
+                  strokeWidth={isTotal ? 2.5 : 2}
+                  connectNulls={false}
+                  dot={series.length > 1 ? seriesEndDot(color, lastIndex) : false}
+                  activeDot={{ r: 4, strokeWidth: 0 }}
+                  isAnimationActive={false}
+                />
+              );
+            })}
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="chart-legend">
+        {series.map((item) => (
+          <span key={item.id}><i className="series-swatch" style={{ background: colorFor(item.id) }} />{item.name}</span>
+        ))}
+      </div>
+    </>
+  );
+}
 
 export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNode }) {
   const persona = usePersona();
-  const navigate = useNavigate();
+  const mode = usePrototypeMode();
   const { running } = runningFirst(persona);
   const primary = running[0];
   const primarySummary = primary ? summarize(primary, persona.instances) : null;
   const primaryView = primary ? subscriptionView(persona, primary) : null;
-  const primaryLicenseId = persona.licenses.find((l) => l.status === "Active")?.id;
+  const activeLicenses = persona.licenses.filter((l) => l.status === "Active");
+  const primaryLicense = activeLicenses[0];
   const instanceCount = persona.instances.filter((i) => !i.archived).length;
   const executionsThisTerm = running.reduce((sum, sub) => sum + summarize(sub, persona.instances).used, 0);
   const annualQuota = running.reduce((sum, sub) => sum + sub.quota, 0);
@@ -177,104 +250,69 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
   const renewalSource = running.filter((s) => s.renewal).sort((a, b) => a.renewal!.localeCompare(b.renewal!))[0];
   const nextRenewal = renewalSource?.renewal;
   const renewalIn = nextRenewal ? monthsAndDaysUntil(nextRenewal, renewalSource.billingAsOf ?? NOW) : null;
-  const rows: OverviewSubRow[] = running.map((sub) => {
-    const summary = summarize(sub, persona.instances);
-    return {
-      id: sub.id,
-      name: sub.name,
-      pct: summary.pct,
-      used: summary.used,
-      reportingCount: summary.reportingCount,
-      renewalLabel: sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`,
-      renewalSort: sub.renewal ?? sub.end,
-    };
-  });
-  const columns: DataColumn<OverviewSubRow>[] = [
-    { id: "name", header: "Subscription", accessor: (r) => r.name, cell: (r) => r.name },
-    {
-      id: "quota",
-      header: "Quota",
-      numeric: true,
-      accessor: (r) => r.pct,
-      cell: (r) => <span className="quota-figure" style={{ color: quotaTextColor(r.pct) }}>{percent1(r.pct)} of quota</span>,
-      csv: (r) => percent1(r.pct),
-    },
-    {
-      id: "executions",
-      header: "Billable executions",
-      numeric: true,
-      accessor: (r) => r.used,
-      cell: (r) => fmt(r.used),
-    },
-    {
-      id: "instances",
-      header: "Instances reporting",
-      numeric: true,
-      accessor: (r) => r.reportingCount,
-      cell: (r) => plural(r.reportingCount, "instance"),
-      csv: (r) => String(r.reportingCount),
-    },
-    {
-      id: "renewal",
-      header: "Renewal",
-      accessor: (r) => r.renewalSort,
-      cell: (r) => r.renewalLabel,
-      csv: (r) => r.renewalLabel,
-    },
-  ];
-
   const isEmpty = running.length === 0;
+  const monthly = accountMonthlyExecutions(running, persona.instances);
+  const quotaRows = running
+    .map((sub) => ({ sub, summary: summarize(sub, persona.instances) }))
+    .sort((a, b) => b.summary.pct - a.summary.pct);
+
   return (
     <>
       <div className="account-banner">
         <span className="account-banner-label">Account</span>
         <strong className="account-banner-name">{persona.company}</strong>
       </div>
-      <div className="metric-strip overview-totals" aria-label="Account totals">
-        <div className="overview-metric-row">
-          <div className="summary-metric">
-            <Link to="/subscriptions" className="summary-metric-link">
-              <span className="metric-label">Subscription</span>
-              <strong>{running.length === 1 ? running[0]!.name : running.length ? running.map((s) => s.name).join(", ") : "—"}</strong>
-            </Link>
-            {primaryLicenseId && <CopyLicenseId licenseId={primaryLicenseId} />}
-          </div>
-          <div className="summary-metric">
-            <span className="metric-label">Renewal date</span>
-            <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
-            {renewalIn && <span className="metric-subtext">{renewalIn === "today" ? "Renews today" : `${renewalIn} left`}</span>}
-          </div>
-          <Link to="/instances" className="summary-metric summary-metric-link">
-            <span className="metric-label">Instances</span>
-            <strong>{instanceCount}</strong>
-          </Link>
-          {!isEmpty && (
-            <>
-              <div className="summary-metric">
-                <span className="metric-label">Executions this term</span>
-                <strong>{fmt(executionsThisTerm)}</strong>
-              </div>
-              <div className="summary-metric">
-                <span className="metric-label">Annual quota</span>
-                <strong>{fmt(annualQuota)}</strong>
-              </div>
-              <div className="summary-metric">
-                <span className="metric-label">Percent of quota</span>
-                <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      {isEmpty ? (
-        <section className="workspace-panel empty-state-panel">
-          <h2>No subscriptions yet</h2>
-          <p className="supporting">Request a subscription to start creating instances and reporting usage.</p>
-          {emptyAction}
-        </section>
-      ) : (
+      {mode === "old" ? (
         <>
-          {primary && primarySummary && primaryView && (
+          <div className="metric-strip overview-totals" aria-label="Account totals">
+            <div className="overview-metric-row">
+              <div className="summary-metric">
+                <Link to="/subscriptions" className="summary-metric-link">
+                  <span className="metric-label">{running.length > 1 ? "Subscriptions" : "Subscription"}</span>
+                  <strong>
+                    {running.length === 1
+                      ? running[0]!.name
+                      : running.length
+                        ? `${running.length} running`
+                        : "—"}
+                  </strong>
+                </Link>
+                {primaryLicense && <CopyLicenseId licenseId={primaryLicense.id} />}
+              </div>
+              <div className="summary-metric">
+                <span className="metric-label">{planEndMetricLabel(mode)}</span>
+                <strong>{nextRenewal ? date(nextRenewal) : "—"}</strong>
+                {renewalIn && <span className="metric-subtext">{planEndSubtext(renewalIn, mode)}</span>}
+              </div>
+              <Link to="/instances" className="summary-metric summary-metric-link">
+                <span className="metric-label">Instances</span>
+                <strong>{instanceCount}</strong>
+              </Link>
+              {!isEmpty && (
+                <>
+                  <div className="summary-metric">
+                    <span className="metric-label">Executions this term</span>
+                    <strong>{fmt(executionsThisTerm)}</strong>
+                  </div>
+                  <div className="summary-metric">
+                    <span className="metric-label">Annual quota</span>
+                    <strong>{fmt(annualQuota)}</strong>
+                  </div>
+                  <div className="summary-metric">
+                    <span className="metric-label">Percent of quota</span>
+                    <strong className="quota-figure" style={{ color: quotaTextColor(quotaPct) }}>{percent1(quotaPct)}</strong>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          {isEmpty ? (
+            <section className="workspace-panel empty-state-panel">
+              <h2>No subscriptions yet</h2>
+              <p className="supporting">Request a subscription to start creating instances and reporting usage.</p>
+              {emptyAction}
+            </section>
+          ) : primary && primarySummary && primaryView && (
             <section className="workspace-panel chart-panel overview-usage-panel">
               <BillableExecutionsChart
                 subscription={primary}
@@ -283,25 +321,67 @@ export function OverviewDashboard({ emptyAction }: { emptyAction?: React.ReactNo
               />
             </section>
           )}
-          {/* Kept for when an account can hold more than one subscription. */}
-          {false && (
-            <section className="workspace-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Running subscriptions</h2>
-                  <span className="supporting">Quota use and renewal for each active contract.</span>
-                </div>
+        </>
+      ) : (
+        <>
+          <div className="metric-strip overview-totals" aria-label="Account totals">
+            <div className="overview-metric-row">
+              <Link to="/subscriptions" className="summary-metric summary-metric-link">
+                <span className="metric-label">Active subscriptions</span>
+                <strong>{running.length}</strong>
+              </Link>
+              <Link to="/instances" className="summary-metric summary-metric-link">
+                <span className="metric-label">Instances</span>
+                <strong>{instanceCount}</strong>
+              </Link>
+              <div className="summary-metric">
+                <span className="metric-label">Total executions</span>
+                <strong>{monthly.months.length ? fmt(monthly.totalExecutions) : "—"}</strong>
+                {monthly.windowLabel && <span className="metric-subtext">{monthly.windowLabel}</span>}
               </div>
-              <DataTable
-                columns={columns}
-                rows={rows}
-                rowKey={(r) => r.id}
-                searchPlaceholder="Search subscriptions…"
-                csvFilename="running-subscriptions.csv"
-                empty="No subscriptions."
-                onRowClick={(r) => void navigate({ to: "/subscriptions", search: { subscription: r.id } })}
-              />
+            </div>
+          </div>
+          {isEmpty ? (
+            <section className="workspace-panel empty-state-panel">
+              <h2>No subscriptions yet</h2>
+              <p className="supporting">Request a subscription to start creating instances and reporting usage.</p>
+              {emptyAction}
             </section>
+          ) : (
+            <>
+              {monthly.months.length > 0 && (
+                <section className="workspace-panel chart-panel overview-usage-panel overview-monthly-panel">
+                  <div className="panel-heading">
+                    <h2>Monthly executions</h2>
+                  </div>
+                  <AccountMonthlyChart chart={monthly} />
+                </section>
+              )}
+              <ul className="subscription-quota-list" aria-label="Subscriptions">
+                {quotaRows.map(({ sub, summary }) => {
+                  const over = summary.pct > 1;
+                  return (
+                    <li key={sub.id} className={over ? "is-over-quota" : undefined}>
+                      <Link className="subscription-quota-row" to="/subscriptions" search={{ subscription: sub.id }}>
+                        <div className="subscription-quota-head">
+                          <span className="text-link">{sub.name}</span>
+                          <span className="quota-figure" style={{ color: quotaTextColor(summary.pct) }}>
+                            {percent1(summary.pct)}{over ? " · over quota" : ""}
+                          </span>
+                        </div>
+                        <div className="usage-meter-head">
+                          <span>{fmt(summary.used)} / {fmt(sub.quota)}</span>
+                          <span className="meter-value">{subscriptionLeadDate(sub, "Running", mode)}</span>
+                        </div>
+                        <div className="quota-bar" role="progressbar" aria-label={`${sub.name} quota used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(100, summary.pct * 100))}>
+                          <span style={{ width: `${Math.min(100, summary.pct * 100)}%`, background: quotaColor(summary.pct) }} />
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </>
       )}
@@ -387,7 +467,7 @@ function UsageLines({
               labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
               formatter={(value, name) => [
                 fmt(Number(value)),
-                name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Billable executions",
+                name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Executions",
               ]}
               contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
             />
@@ -419,6 +499,44 @@ function UsageLines({
         {showQuota && <span><i className="legend-quota" />Quota · {fmt(quota)}</span>}
       </div>
     </>
+  );
+}
+
+export function MonthlyUsageBars({
+  points,
+  label,
+}: {
+  points: { id: string; label: string; shortLabel: string; executions: number; open?: boolean }[];
+  label: string;
+}) {
+  if (!points.length) return <p className="panel-empty">No usage reported yet.</p>;
+  const peak = Math.max(1, ...points.map((point) => point.executions));
+  const axisTick = { fontSize: 13, fill: "var(--color--neutral-600)" } as const;
+  const patternId = `usage-open-${points[0]!.id}`;
+  return (
+    <div className="usage-chart" role="img" aria-label={label}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={points} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+          <defs>
+            <pattern id={patternId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="6" height="6" fill="var(--color--purple-200)" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color--purple-700)" strokeWidth="2" />
+            </pattern>
+          </defs>
+          <CartesianGrid stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
+          <YAxis width={44} domain={[0, peak * 1.2]} tickFormatter={short} tick={axisTick} axisLine={false} tickLine={false} tickCount={4} />
+          <Tooltip
+            labelFormatter={(_axisLabel, payload) => String(payload?.[0]?.payload?.label ?? "")}
+            formatter={(value) => [fmt(Number(value)), "Executions"]}
+            contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+          />
+          <Bar dataKey="executions" radius={[2, 2, 0, 0]} maxBarSize={40} isAnimationActive={false}>
+            {points.map((point) => <Cell key={point.id} fill={point.open ? `url(#${patternId})` : "var(--color--purple-500)"} />)}
+          </Bar>
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -481,7 +599,7 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
     <>
       <div className="panel-heading">
         <div>
-          <h2>Billable executions</h2>
+          <h2>Executions</h2>
           <span className="supporting">
             {fmt(summary.used)} of {fmt(sub.quota)} quota · <strong className="quota-figure" style={{ color: quotaTextColor(summary.pct) }}>{percent1(summary.pct)}</strong>
           </span>
@@ -492,7 +610,7 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
           )}
           <CsvExport
             filename={`${sub.name}-billable-executions.csv`}
-            headers={["Billing month", "Executions", "Cumulative billable executions", "% of quota used to date", ...subscriptionChart.series.map((item) => item.name)]}
+            headers={["Billing month", "Executions", "Cumulative executions", "% of quota used to date", ...subscriptionChart.series.map((item) => item.name)]}
             rows={exportRows}
             label="Download usage chart data"
           />
@@ -533,16 +651,79 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
   );
 }
 
+export function SubscriptionLicenseKeys({ subscription: sub }: { subscription: Subscription }) {
+  const persona = usePersona();
+  const [keyFilter, setKeyFilter] = useState("all");
+  const licenses = licensesFor(persona, sub.id);
+  const rows = licenses.flatMap((license) => {
+    const issuedTo = license.issuedTo ?? "";
+    const instances = license.instances.length ? license.instances : [null];
+    return instances.map((instance) => ({
+      id: instance ? `${license.id}:${instance.id}` : license.id,
+      licenseKey: license.id,
+      issuedTo,
+      instanceId: instance?.id ?? "",
+      instanceName: instance?.name ?? "",
+    }));
+  });
+  const visible = keyFilter === "all" ? rows : rows.filter((row) => row.licenseKey === keyFilter);
+  const columns: DataColumn<(typeof rows)[number]>[] = [
+    {
+      id: "license",
+      header: "License key",
+      accessor: (row) => row.licenseKey,
+      cell: (row) => <span className="mono-text">{row.licenseKey}</span>,
+    },
+    {
+      id: "issued",
+      header: "Issued to",
+      accessor: (row) => row.issuedTo,
+      cell: (row) => row.issuedTo || "—",
+    },
+    {
+      id: "instance",
+      header: "Instance",
+      accessor: (row) => row.instanceName,
+      cell: (row) => row.instanceId
+        ? <Link className="text-link" to="/instances" search={{ instance: row.instanceId }} onClick={(event) => event.stopPropagation()}>{row.instanceName}</Link>
+        : "—",
+    },
+  ];
+  return (
+    <section className="workspace-panel">
+      <DataTable
+        columns={columns}
+        rows={visible}
+        rowKey={(row) => row.id}
+        searchPlaceholder="Search license keys…"
+        csvFilename={`${sub.name}-license-keys.csv`}
+        empty={rows.length === 0 ? "No license keys on this subscription." : "No license keys match your filters."}
+        initialSort={{ id: "license", dir: "asc" }}
+        filtersActive={keyFilter !== "all"}
+        onClearFilters={() => setKeyFilter("all")}
+        filterContent={
+          <label>
+            License key
+            <select value={keyFilter} onChange={(event) => setKeyFilter(event.target.value)}>
+              <option value="all">All</option>
+              {licenses.map((license) => <option key={license.id} value={license.id}>{license.id}</option>)}
+            </select>
+          </label>
+        }
+      />
+    </section>
+  );
+}
+
 export function SubscriptionCard({ subscription: sub, linked = false }: { subscription: Subscription; linked?: boolean }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const view = subscriptionView(persona, sub);
   const { summary, period } = view;
   const running = view.status === "Running";
   const fill = running ? quotaColor(summary.pct) : "var(--color--neutral-400, var(--portal-caption))";
   const timePct = Math.min(1, Math.max(0, period.pct));
-  const leadDate = running
-    ? sub.renewal ? `Renews ${date(sub.renewal)}` : `Ends ${date(sub.end)}`
-    : `Ended ${date(sub.end)}`;
+  const leadDate = subscriptionLeadDate(sub, view.status, mode);
   return <section className={`workspace-panel subscription-card${running ? "" : " is-expired"}`} aria-label={sub.name}>
     <div className="panel-heading">
       <div className="agreement-heading">
@@ -583,13 +764,11 @@ export function SubscriptionCard({ subscription: sub, linked = false }: { subscr
       <div><dt>Period</dt><dd>{date(sub.start)} — {date(sub.end)}</dd></div>
       <div><dt>Time left</dt><dd>{running ? plural(period.daysLeft, "day") : "Ended"}</dd></div>
       <div><dt>Remaining</dt><dd>{fmt(summary.remaining)} executions</dd></div>
-      <div><dt>Quota resets at renewal</dt><dd>{sub.quotaResetsAtRenewal ? "Yes" : "No"}</dd></div>
       {sub.annualAmountEur != null && <div><dt>Annual amount</dt><dd>{eurWhole(sub.annualAmountEur)}</dd></div>}
     </dl>
     <Requirements subscription={sub} instanceCount={summary.instanceCount} />
     <div className="agreement-actions">
       <Link to="/instances" search={{ subscription: sub.id }} className="quiet-link">{plural(summary.reportingCount, "instance")} reporting</Link>
-      {view.quotaPrompt && <Link to="/instances" search={{ subscription: sub.id }} className="quiet-link">View top instances <ArrowUpRight size={14} /></Link>}
       {linked && <Link to="/subscriptions" search={{ subscription: sub.id }} className="quiet-link">View subscription <ArrowUpRight size={14} /></Link>}
     </div>
   </section>;
@@ -611,7 +790,7 @@ export function PastPeriods({ subscription: sub }: { subscription: Subscription 
     { id: "period", header: "Period", accessor: (p) => p.start, cell: (p) => p.label, csv: (p) => p.label },
     {
       id: "executions",
-      header: "Billable executions",
+      header: "Executions",
       numeric: true,
       accessor: (p) => p.executions,
       cell: (p) => {
@@ -689,15 +868,17 @@ export function LicenseTable({
   onClearFilters?: () => void;
 }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const navigate = useNavigate();
   const licenses = rowsProp ?? licensesFor(persona, sub.id);
+  const showIssuedTo = mode === "new" && persona.licenses.filter((l) => l.status === "Active").length > 1;
   const subscriptionName = (l: LicenseRow) =>
     persona.subscriptions.find((s) => s.id === l.subscriptionId)?.name ?? sub.name;
 
   const columns: DataColumn<LicenseRow>[] = [
     {
       id: "label",
-      header: "License",
+      header: "License name",
       accessor: (l) => l.label,
       cell: (l) => (
         <>
@@ -723,11 +904,30 @@ export function LicenseTable({
       ),
       csv: (l) => subscriptionName(l),
     },
-    { id: "id", header: "Reference", accessor: (l) => l.id, cell: (l) => <span className="mono-text">{l.id}</span> },
+    {
+      id: "id",
+      header: "License key",
+      accessor: (l) => l.id,
+      cell: (l) => (
+        <span className="metric-license-line">
+          <span className="mono-text">{l.id}</span>
+          {mode === "new" && <span className="metric-subtext">Subscription {subscriptionName(l)}</span>}
+        </span>
+      ),
+    },
+    ...(showIssuedTo
+      ? [{
+          id: "issuedTo",
+          header: "Issued to",
+          accessor: (l: LicenseRow) => l.issuedTo ?? "",
+          cell: (l: LicenseRow) => l.issuedTo ?? "—",
+          csv: (l: LicenseRow) => l.issuedTo ?? "",
+        } satisfies DataColumn<LicenseRow>]
+      : []),
     { id: "environment", header: "Environment", accessor: (l) => l.environment, cell: (l) => l.environment },
     {
       id: "executions",
-      header: "Billable executions",
+      header: "Executions",
       numeric: true,
       accessor: (l) => l.executions,
       cell: (l) => (l.executions === null ? "—" : fmt(l.executions)),
@@ -770,7 +970,7 @@ export function LicenseTable({
         onRowClick={(l) => void navigate({ to: "/subscriptions", search: { subscription: sub.id, license: l.id } })}
         filterContent={filterContent}
         filtersActive={filtersActive}
-        onClearFilters={onClearFilters}
+        {...(onClearFilters ? { onClearFilters } : {})}
       />
     </section>
   );
@@ -856,19 +1056,28 @@ export function ReportingStatus({ instance: i }: { instance: Instance }) {
 
 export function InstanceList({ instances, empty = "No instances activated on this license." }: { instances: Instance[]; empty?: string }) {
   const persona = usePersona();
+  const mode = usePrototypeMode();
   const navigate = useNavigate();
   const rows = [...instances].sort((a, b) => (b.executions ?? -1) - (a.executions ?? -1) || a.name.localeCompare(b.name));
   const columns: DataColumn<Instance>[] = [
     { id: "name", header: "Instance", accessor: (i) => i.name, cell: (i) => i.name },
     {
       id: "license",
-      header: "License",
+      header: "License key",
       accessor: (i) => i.license,
-      cell: (i) => <span className="mono-text">{i.license}</span>,
+      cell: (i) => {
+        const name = persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name;
+        return (
+          <span className="metric-license-line">
+            <span className="mono-text">{i.license}</span>
+            {mode === "new" && name && <span className="metric-subtext">Subscription {name}</span>}
+          </span>
+        );
+      },
     },
     {
       id: "executions",
-      header: "Billable executions",
+      header: "Executions",
       numeric: true,
       accessor: (i) => i.executions,
       cell: (i) => (i.executions === null ? "—" : fmt(i.executions)),
