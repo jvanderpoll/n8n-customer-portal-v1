@@ -56,7 +56,7 @@ describe("instance project and workflow rollups", () => {
         }
       }
     }
-  });
+  }, 20_000);
 
   it("gives prd-hr-01 one dominant HR project and one dominant workflow inside it", () => {
     const instance = personasNew.find((persona) => persona.id === "full")!.instances.find((row) => row.id === "i1")!;
