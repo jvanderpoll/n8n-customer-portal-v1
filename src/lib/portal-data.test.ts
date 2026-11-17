@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { monthsAndDaysUntil } from "./portal-format";
+import { timestamp } from "./portal-format";
 import {
   EU_EXPANSION_ANNUAL_QUOTA,
   EU_EXPANSION_TERM_EXECUTIONS,
@@ -68,6 +69,19 @@ describe("New prototype multi-subscription fixtures", () => {
     expect(summarize(eu!, per.instances).used).toBe(EU_EXPANSION_TERM_EXECUTIONS);
     expect(eu!.quota).toBe(EU_EXPANSION_ANNUAL_QUOTA);
     expect(placeholderMonthlyExecutionsEuExpansion().reduce((a, b) => a + b, 0)).toBe(EU_EXPANSION_TERM_EXECUTIONS);
+  });
+
+  it("gives each running subscription one instance that has not reported", () => {
+    const per = pNew("full");
+    for (const sub of per.subscriptions) {
+      const quiet = per.instances.filter((instance) => instance.subscriptionId === sub.id && instance.executions === null && instance.status === "pending");
+      expect(quiet).toHaveLength(1);
+      expect(Date.parse(quiet[0]!.lastReport!)).toBeLessThan(Date.parse("2026-10-21T00:00:00Z"));
+    }
+    expect(summarize(per.subscriptions[0]!, per.instances).used).toBe(NORTHWIND_TERM_EXECUTIONS);
+    expect(summarize(per.subscriptions[1]!, per.instances).used).toBe(EU_EXPANSION_TERM_EXECUTIONS);
+    expect(timestamp(per.instances.find((instance) => instance.id === "nr1")!.lastReport!)).toBe("12 Oct 2026, 09:00 UTC");
+    expect(timestamp(per.instances.find((instance) => instance.id === "nr2")!.lastReport!)).toBe("4 Oct 2026, 16:30 UTC");
   });
 
   it("exposes issued-to on multiple license keys", () => {

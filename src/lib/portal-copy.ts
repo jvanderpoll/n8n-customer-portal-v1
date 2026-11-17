@@ -33,13 +33,12 @@ export function contactRenewalTopicLabel(mode: PrototypeMode): string {
   return mode === "new" ? "Plan renewal" : "Renewal";
 }
 
-export function licenseKeyCopyLabel(copied: boolean, mode: PrototypeMode): string {
-  if (mode === "new") return copied ? "License key copied" : "Copy license key";
-  return copied ? "License ID copied" : "Copy license ID";
+export function licenseKeyCopyLabel(copied: boolean, _mode: PrototypeMode): string {
+  return copied ? "License key copied" : "Copy license key";
 }
 
-export function licenseReferenceLabel(mode: PrototypeMode): string {
-  return mode === "new" ? "Key reference" : "License reference";
+export function licenseReferenceLabel(_mode: PrototypeMode): string {
+  return "License key";
 }
 
 export function overviewRenewalColumnHeader(mode: PrototypeMode): string {

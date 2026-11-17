@@ -381,7 +381,7 @@ function UsageLines({
               labelFormatter={(_label, payload) => String(payload?.[0]?.payload?.label ?? "")}
               formatter={(value, name) => [
                 fmt(Number(value)),
-                name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Billable executions",
+                name === "quota" ? "Quota" : series.find((item) => item.id === name)?.name ?? "Executions",
               ]}
               contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
             />
@@ -413,6 +413,44 @@ function UsageLines({
         {showQuota && <span><i className="legend-quota" />Quota · {fmt(quota)}</span>}
       </div>
     </>
+  );
+}
+
+export function MonthlyUsageBars({
+  points,
+  label,
+}: {
+  points: { id: string; label: string; shortLabel: string; executions: number; open?: boolean }[];
+  label: string;
+}) {
+  if (!points.length) return <p className="panel-empty">No usage reported yet.</p>;
+  const peak = Math.max(1, ...points.map((point) => point.executions));
+  const axisTick = { fontSize: 13, fill: "var(--color--neutral-600)" } as const;
+  const patternId = `usage-open-${points[0]!.id}`;
+  return (
+    <div className="usage-chart" role="img" aria-label={label}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={points} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
+          <defs>
+            <pattern id={patternId} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="6" height="6" fill="var(--color--purple-200)" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="var(--color--purple-700)" strokeWidth="2" />
+            </pattern>
+          </defs>
+          <CartesianGrid stroke="var(--border)" vertical={false} />
+          <XAxis dataKey="shortLabel" tick={axisTick} axisLine={false} tickLine={false} minTickGap={28} padding={{ left: 18, right: 12 }} />
+          <YAxis width={44} domain={[0, peak * 1.2]} tickFormatter={short} tick={axisTick} axisLine={false} tickLine={false} tickCount={4} />
+          <Tooltip
+            labelFormatter={(_axisLabel, payload) => String(payload?.[0]?.payload?.label ?? "")}
+            formatter={(value) => [fmt(Number(value)), "Executions"]}
+            contentStyle={{ borderRadius: 8, border: "1px solid var(--border)", background: "var(--portal-surface)", color: "var(--portal-text)", fontSize: 14, boxShadow: "0 8px 24px #0002" }}
+          />
+          <Bar dataKey="executions" radius={[2, 2, 0, 0]} maxBarSize={40} isAnimationActive={false}>
+            {points.map((point) => <Cell key={point.id} fill={point.open ? `url(#${patternId})` : "var(--color--purple-500)"} />)}
+          </Bar>
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -475,7 +513,7 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
     <>
       <div className="panel-heading">
         <div>
-          <h2>Billable executions</h2>
+          <h2>Executions</h2>
           <span className="supporting">
             {fmt(summary.used)} of {fmt(sub.quota)} quota · <strong className="quota-figure" style={{ color: quotaTextColor(summary.pct) }}>{percent1(summary.pct)}</strong>
           </span>
@@ -486,7 +524,7 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
           )}
           <CsvExport
             filename={`${sub.name}-billable-executions.csv`}
-            headers={["Billing month", "Executions", "Cumulative billable executions", "% of quota used to date", ...subscriptionChart.series.map((item) => item.name)]}
+            headers={["Billing month", "Executions", "Cumulative executions", "% of quota used to date", ...subscriptionChart.series.map((item) => item.name)]}
             rows={exportRows}
             label="Download usage chart data"
           />
@@ -529,41 +567,64 @@ function BillableExecutionsChart({ subscription: sub, showPurchaseLink = false, 
 
 export function SubscriptionLicenseKeys({ subscription: sub }: { subscription: Subscription }) {
   const persona = usePersona();
-  const mode = usePrototypeMode();
+  const [keyFilter, setKeyFilter] = useState("all");
   const licenses = licensesFor(persona, sub.id);
+  const rows = licenses.flatMap((license) => {
+    const issuedTo = license.issuedTo ?? "";
+    const instances = license.instances.length ? license.instances : [null];
+    return instances.map((instance) => ({
+      id: instance ? `${license.id}:${instance.id}` : license.id,
+      licenseKey: license.id,
+      issuedTo,
+      instanceId: instance?.id ?? "",
+      instanceName: instance?.name ?? "",
+    }));
+  });
+  const visible = keyFilter === "all" ? rows : rows.filter((row) => row.licenseKey === keyFilter);
+  const columns: DataColumn<(typeof rows)[number]>[] = [
+    {
+      id: "license",
+      header: "License key",
+      accessor: (row) => row.licenseKey,
+      cell: (row) => <span className="mono-text">{row.licenseKey}</span>,
+    },
+    {
+      id: "issued",
+      header: "Issued to",
+      accessor: (row) => row.issuedTo,
+      cell: (row) => row.issuedTo || "—",
+    },
+    {
+      id: "instance",
+      header: "Instance",
+      accessor: (row) => row.instanceName,
+      cell: (row) => row.instanceId
+        ? <Link className="text-link" to="/instances" search={{ instance: row.instanceId }} onClick={(event) => event.stopPropagation()}>{row.instanceName}</Link>
+        : "—",
+    },
+  ];
   return (
-    <section className="workspace-panel" aria-labelledby={`license-keys-${sub.id}`}>
-      <div className="panel-heading">
-        <h2 id={`license-keys-${sub.id}`}>License keys</h2>
-      </div>
-      {licenses.length === 0 ? (
-        <p className="panel-empty">No license keys on this subscription.</p>
-      ) : (
-        <ul className="subscription-license-keys">
-          {licenses.map((license) => (
-            <li key={license.id}>
-              <CopyLicenseId
-                licenseId={license.id}
-                {...(license.issuedTo ? { issuedTo: license.issuedTo } : {})}
-                {...(mode === "new" ? { subscriptionName: sub.name } : {})}
-              />
-              <ul className="license-key-instances" aria-label={`Instances on ${license.id}`}>
-                {license.instances.length === 0 ? (
-                  <li className="metric-subtext">No instances on this key.</li>
-                ) : (
-                  [...license.instances]
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                    .map((instance) => (
-                      <li key={instance.id}>
-                        <Link className="text-link" to="/instances" search={{ instance: instance.id }}>{instance.name}</Link>
-                      </li>
-                    ))
-                )}
-              </ul>
-            </li>
-          ))}
-        </ul>
-      )}
+    <section className="workspace-panel">
+      <DataTable
+        columns={columns}
+        rows={visible}
+        rowKey={(row) => row.id}
+        searchPlaceholder="Search license keys…"
+        csvFilename={`${sub.name}-license-keys.csv`}
+        empty={rows.length === 0 ? "No license keys on this subscription." : "No license keys match your filters."}
+        initialSort={{ id: "license", dir: "asc" }}
+        filtersActive={keyFilter !== "all"}
+        onClearFilters={() => setKeyFilter("all")}
+        filterContent={
+          <label>
+            License key
+            <select value={keyFilter} onChange={(event) => setKeyFilter(event.target.value)}>
+              <option value="all">All</option>
+              {licenses.map((license) => <option key={license.id} value={license.id}>{license.id}</option>)}
+            </select>
+          </label>
+        }
+      />
     </section>
   );
 }
@@ -644,7 +705,7 @@ export function PastPeriods({ subscription: sub }: { subscription: Subscription 
     { id: "period", header: "Period", accessor: (p) => p.start, cell: (p) => p.label, csv: (p) => p.label },
     {
       id: "executions",
-      header: "Billable executions",
+      header: "Executions",
       numeric: true,
       accessor: (p) => p.executions,
       cell: (p) => {
@@ -732,7 +793,7 @@ export function LicenseTable({
   const columns: DataColumn<LicenseRow>[] = [
     {
       id: "label",
-      header: mode === "new" ? "License key" : "License",
+      header: "License name",
       accessor: (l) => l.label,
       cell: (l) => (
         <>
@@ -760,7 +821,7 @@ export function LicenseTable({
     },
     {
       id: "id",
-      header: mode === "new" ? "Key reference" : "Reference",
+      header: "License key",
       accessor: (l) => l.id,
       cell: (l) => (
         <span className="metric-license-line">
@@ -781,7 +842,7 @@ export function LicenseTable({
     { id: "environment", header: "Environment", accessor: (l) => l.environment, cell: (l) => l.environment },
     {
       id: "executions",
-      header: "Billable executions",
+      header: "Executions",
       numeric: true,
       accessor: (l) => l.executions,
       cell: (l) => (l.executions === null ? "—" : fmt(l.executions)),
@@ -917,7 +978,7 @@ export function InstanceList({ instances, empty = "No instances activated on thi
     { id: "name", header: "Instance", accessor: (i) => i.name, cell: (i) => i.name },
     {
       id: "license",
-      header: "License",
+      header: "License key",
       accessor: (i) => i.license,
       cell: (i) => {
         const name = persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name;
@@ -931,7 +992,7 @@ export function InstanceList({ instances, empty = "No instances activated on thi
     },
     {
       id: "executions",
-      header: "Billable executions",
+      header: "Executions",
       numeric: true,
       accessor: (i) => i.executions,
       cell: (i) => (i.executions === null ? "—" : fmt(i.executions)),

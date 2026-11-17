@@ -32,6 +32,10 @@ describe("prototype copy", () => {
     expect(quotaResetsLabel("new")).toBe("Quota resets when the plan renews");
     expect(contactRenewalTopicLabel("new")).toBe("Plan renewal");
     expect(licenseKeyCopyLabel(false, "new")).toBe("Copy license key");
-    expect(licenseReferenceLabel("new")).toBe("Key reference");
+    expect(licenseKeyCopyLabel(true, "new")).toBe("License key copied");
+    expect(licenseKeyCopyLabel(false, "old")).toBe("Copy license key");
+    expect(licenseKeyCopyLabel(true, "old")).toBe("License key copied");
+    expect(licenseReferenceLabel("new")).toBe("License key");
+    expect(licenseReferenceLabel("old")).toBe("License key");
   });
 });

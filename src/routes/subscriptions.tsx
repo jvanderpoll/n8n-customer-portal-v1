@@ -10,7 +10,7 @@ import { licensesFor, runningFirst } from "@/lib/portal-views";
 import type { Subscription } from "@/lib/portal-data";
 import { cn } from "@/lib/utils";
 
-const subscriptionSection = z.enum(["usage", "periods"]);
+const subscriptionSection = z.enum(["usage", "periods", "keys"]);
 type SubscriptionSection = z.infer<typeof subscriptionSection>;
 
 export const Route = createFileRoute("/subscriptions")({
@@ -64,7 +64,7 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
   const persona = usePersona();
   const navigate = useNavigate({ from: Route.fullPath });
   const search = Route.useSearch();
-  const section: SubscriptionSection = search.section === "periods" ? "periods" : "usage";
+  const section: SubscriptionSection = search.section === "periods" || search.section === "keys" ? search.section : "usage";
   const setSection = (next: SubscriptionSection) => {
     void navigate({
       search: {
@@ -87,16 +87,19 @@ function SubscriptionDetail({ subscription: sub }: { subscription: Subscription 
       <button type="button" role="tab" aria-selected={section === "periods"} className={cn("subscription-tab", section === "periods" && "is-active")} onClick={() => setSection("periods")}>
         Past periods
       </button>
+      <button type="button" role="tab" aria-selected={section === "keys"} className={cn("subscription-tab", section === "keys" && "is-active")} onClick={() => setSection("keys")}>
+        License keys
+      </button>
     </div>
     <div className="agreement-list">
       {section === "usage" && (
         <>
           <SubscriptionCard subscription={sub} />
-          <SubscriptionLicenseKeys subscription={sub} />
           <UsagePanel subscription={sub} />
         </>
       )}
       {section === "periods" && <PastPeriods subscription={sub} />}
+      {section === "keys" && <SubscriptionLicenseKeys subscription={sub} />}
     </div>
   </>;
 }
@@ -130,7 +133,7 @@ function LicenseDetail({ subscription: sub, licenseId }: { subscription: Subscri
         <div><dt>Subscription</dt><dd><Link className="text-link" to="/subscriptions" search={{ subscription: sub.id }}>{sub.name}</Link></dd></div>
         <div><dt>Environment</dt><dd>{license.environment}</dd></div>
         <div><dt>Status</dt><dd>{license.status}</dd></div>
-        <div><dt>Billable executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
+        <div><dt>Executions</dt><dd>{license.executions === null ? "—" : fmt(license.executions)}</dd></div>
         <div><dt>Instances reporting</dt><dd>{license.reportingCount}</dd></div>
       </dl>
       <p className="contract-note">This license has no quota of its own. Its executions count toward the {sub.name} quota.</p>

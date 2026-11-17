@@ -498,7 +498,7 @@ export function CreateInstance({
         />
       </label>
       <label>
-        License
+        License key
         <select name="license" defaultValue={initial?.id}>
           {available.map((l) => (
             <option key={l.id} value={l.id}>
@@ -543,7 +543,7 @@ export function InstanceActions({ instance: i }: { instance: Instance }) {
           <input name="name" required maxLength={80} defaultValue={i.name} />
         </label>
         <label>
-          License
+          License key
           <select name="license" defaultValue={i.license}>
             {persona.licenses
               .filter(
@@ -1047,7 +1047,7 @@ export function RemovedInstances() {
     { id: "name", header: "Instance", accessor: (i) => i.name, cell: (i) => i.name },
     {
       id: "license",
-      header: "License",
+      header: "License key",
       accessor: (i) => i.license,
       cell: (i) => {
         const name = account.persona.subscriptions.find((s) => s.id === i.subscriptionId)?.name;

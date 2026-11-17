@@ -16,6 +16,8 @@ export type DataColumn<T> = {
   csv?: (row: T) => string;
   /** Include this column's accessor in free-text search. Default true. */
   searchable?: boolean;
+  /** When false, the cell renders as given so a sibling control can stay visible. Default true. */
+  truncate?: boolean;
 };
 
 export type BulkActionContext<T> = {
@@ -29,6 +31,11 @@ function defaultCsv<T>(column: DataColumn<T>, row: T) {
   if (column.csv) return column.csv(row);
   const value = column.accessor(row);
   return value == null ? "" : String(value);
+}
+
+/** One line, ellipsis when clipped. No hover tooltip. */
+export function TruncatedCell({ children, className }: { children: ReactNode; className?: string }) {
+  return <span className={cn("cell-truncate", className)}>{children}</span>;
 }
 
 function compareValues(a: string | number | null | undefined, b: string | number | null | undefined) {
@@ -112,6 +119,8 @@ export function DataTable<T>({
   pageSize,
   page: controlledPage,
   onPageChange,
+  showFilters = true,
+  rowClassName,
 }: {
   columns: DataColumn<T>[];
   rows: T[];
@@ -136,6 +145,9 @@ export function DataTable<T>({
   pageSize?: number;
   page?: number;
   onPageChange?: (page: number) => void;
+  /** Projects tab has search and sort only. Other tables keep the filter button. */
+  showFilters?: boolean;
+  rowClassName?: (row: T) => string | undefined;
 }) {
   const [internalSearch, setInternalSearch] = useState("");
   const [sort, setSort] = useState<SortState | null>(initialSort ?? null);
@@ -265,33 +277,35 @@ export function DataTable<T>({
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className={cn("filter-icon-button", filtersActive && "is-active")}
-              aria-label="Filters"
-            >
-              <Filter size={16} />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="filter-popover">
-            {filterContent ? (
-              <>
-                <div className="filter-popover-fields">{filterContent}</div>
-                {filtersActive && onClearFilters && (
-                  <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={onClearFilters}>
-                    <X size={14} />Clear filters
-                  </Button>
-                )}
-              </>
-            ) : (
-              <p className="muted-text">No filters on this list.</p>
-            )}
-          </PopoverContent>
-        </Popover>
+        {showFilters && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className={cn("filter-icon-button", filtersActive && "is-active")}
+                aria-label="Filters"
+              >
+                <Filter size={16} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="filter-popover">
+              {filterContent ? (
+                <>
+                  <div className="filter-popover-fields">{filterContent}</div>
+                  {filtersActive && onClearFilters && (
+                    <Button type="button" variant="ghost" size="sm" className="filter-popover-clear" onClick={onClearFilters}>
+                      <X size={14} />Clear filters
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <p className="muted-text">No filters on this list.</p>
+              )}
+            </PopoverContent>
+          </Popover>
+        )}
         {toolbarExtra}
         <div className="toolbar-spacer" />
         <CsvExport filename={csvFilename} headers={csvHeaders} rows={csvRows} />
@@ -338,7 +352,7 @@ export function DataTable<T>({
                       className={cn("sort-header", active && "is-active")}
                       onClick={() => toggleSort(column.id)}
                     >
-                      {column.header}
+                      <TruncatedCell>{column.header}</TruncatedCell>
                       <span className="sort-indicator" aria-hidden="true">
                         {active ? (sort!.dir === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} />}
                       </span>
@@ -360,6 +374,7 @@ export function DataTable<T>({
                   className={cn(
                     onRowClick && "data-table-row-link",
                     isSelected && "selected-row",
+                    rowClassName?.(row),
                   )}
                   data-state={isSelected ? "selected" : undefined}
                   tabIndex={onRowClick ? 0 : undefined}
@@ -392,7 +407,7 @@ export function DataTable<T>({
                   </td>
                   {columns.map((column) => (
                     <td key={column.id} className={column.numeric ? "numeric" : undefined}>
-                      {column.cell(row)}
+                      {column.truncate === false ? column.cell(row) : <TruncatedCell>{column.cell(row)}</TruncatedCell>}
                     </td>
                   ))}
                   {rowActions && (
